@@ -4,6 +4,17 @@ export function UpdateWindow(): React.JSX.Element | null {
   const [available, setAvailable] = useState<{ version: string } | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [downloaded, setDownloaded] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+
+  async function onRestartAndInstall(): Promise<void> {
+    setErrorMessage(null)
+    try {
+      await window.csore.quitAndInstallUpdate()
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Could not restart to install the update.')
+    }
+  }
 
   useEffect(() => {
 
@@ -47,11 +58,14 @@ export function UpdateWindow(): React.JSX.Element | null {
           <p className="text-sm">Update downloaded.</p>
           <button
             type="button"
-            onClick={() => window.csore.quitAndInstallUpdate()}
+            onClick={() => {
+              onRestartAndInstall()
+            }}
             className="mt-2 rounded bg-yellow-400 px-3 py-1 text-sm font-medium text-black hover:bg-yellow-300"
           >
             Restart &amp; install
           </button>
+          {errorMessage && <p className="mt-2 text-xs text-red-400">{errorMessage}</p>}
         </>
       )}
     </div>
