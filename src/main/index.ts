@@ -1,8 +1,9 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import { registerIpcHandlers } from './ipc'
+import { registerIpcHandlers, registerGameIpcHandlers } from './ipc'
 import { initAutoUpdater } from './updater'
+import { startNewsPolling } from './news'
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -39,7 +40,9 @@ export function createMainWindow(): BrowserWindow {
 app.whenReady().then(() => {
   registerIpcHandlers()
   const win = createMainWindow()
+  registerGameIpcHandlers(win)
   initAutoUpdater(win)
+  startNewsPolling(win)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
