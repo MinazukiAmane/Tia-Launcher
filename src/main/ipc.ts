@@ -97,4 +97,7 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('game:setSettings', handleSetSettings)
   ipcMain.handle('game:launch', handleLaunchGame)
   ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
+  ipcMain.handle('app:getUserDataDir', () => app.getPath('userData'))
+  ipcMain.handle('window:minimize', () => win.minimize())
+  ipcMain.handle('window:close', () => win.close())
 }

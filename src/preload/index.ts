@@ -25,7 +25,10 @@ const gameApi = {
     ipcRenderer.on('news:update', listener)
     return () => ipcRenderer.removeListener('news:update', listener)
   },
-  openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url)
+  openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url),
+  getUserDataDir: (): Promise<string> => ipcRenderer.invoke('app:getUserDataDir'),
+  minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
+  closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close')
 }
 
 const updateApi = {
