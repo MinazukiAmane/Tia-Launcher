@@ -1,10 +1,15 @@
 
-import AdmZip from 'adm-zip'
+import * as yauzl from 'yauzl'
+import type { Entry as ZipEntry, ZipFile } from 'yauzl'
 import { createHash } from 'crypto'
 import { promises as fs } from 'fs'
-import { join, dirname, resolve, sep, isAbsolute, normalize } from 'path'
+import { join, dirname } from 'path'
 import { mkdtemp, rm, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
+import {
+  assertSafeRelativePath as assertSafeRelativePathShared,
+  resolveWithinRoot as resolveWithinRootShared
+} from './pathSafety'
 
 export interface ManifestEntry {
   path: string
@@ -42,45 +47,37 @@ const MAX_ENTRY_BYTES = 1024 * 1024 * 1024 // 1 GiB
 
 // Reject absolute paths and parent traversal.
 function assertSafeRelativePath(relPath: string, entry: ManifestEntry, label: string): void {
-  if (isAbsolute(relPath)) {
-    throw new PatchVerificationError(entry, `${label} must be a relative path, got an absolute path: ${relPath}`)
-  }
-  const segments = normalize(relPath).split(/[\\/]+/)
-  if (segments.includes('..')) {
-    throw new PatchVerificationError(entry, `${label} must not contain '..' path segments: ${relPath}`)
-  }
+  assertSafeRelativePathShared(relPath, label, (reason) => {
+    throw new PatchVerificationError(entry, reason)
+  })
 }
 
 // Reject resolved paths outside the installation root.
 function resolveWithinRoot(root: string, relPath: string, entry: ManifestEntry, label: string): string {
-  assertSafeRelativePath(relPath, entry, label)
-  const resolvedRoot = resolve(root)
-  const resolvedTarget = resolve(resolvedRoot, relPath)
-  if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + sep)) {
-    throw new PatchVerificationError(entry, `${label} resolves outside of its root directory: ${relPath}`)
-  }
-  return resolvedTarget
+  return resolveWithinRootShared(root, relPath, label, (reason) => {
+    throw new PatchVerificationError(entry, reason)
+  })
 }
 
-function assertDeclaredSizeWithinCap(zipEntry: AdmZip.IZipEntry, entry: ManifestEntry, label: string): void {
-  if (zipEntry.header.size > MAX_ENTRY_BYTES) {
+function assertDeclaredSizeWithinCap(zipEntry: ZipEntry, entry: ManifestEntry, label: string): void {
+  if (zipEntry.uncompressedSize > MAX_ENTRY_BYTES) {
     throw new PatchVerificationError(
       entry,
-      `${label}'s declared decompressed size (${zipEntry.header.size} bytes) exceeds the ${MAX_ENTRY_BYTES}-byte ceiling -- refusing to decompress (possible zip bomb)`
+      `${label}'s declared decompressed size (${zipEntry.uncompressedSize} bytes) exceeds the ${MAX_ENTRY_BYTES}-byte ceiling -- refusing to decompress (possible zip bomb)`
     )
   }
 }
 
 function assertDeclaredSizeMatches(
-  zipEntry: AdmZip.IZipEntry,
+  zipEntry: ZipEntry,
   expectedSize: number,
   entry: ManifestEntry,
   label: string
 ): void {
-  if (zipEntry.header.size !== expectedSize) {
+  if (zipEntry.uncompressedSize !== expectedSize) {
     throw new PatchVerificationError(
       entry,
-      `${label}'s declared decompressed size (${zipEntry.header.size}) does not match the manifest's expected size (${expectedSize}) -- refusing to decompress (possible zip bomb)`
+      `${label}'s declared decompressed size (${zipEntry.uncompressedSize}) does not match the manifest's expected size (${expectedSize}) -- refusing to decompress (possible zip bomb)`
     )
   }
 }
@@ -94,22 +91,45 @@ function assertActualSizeMatches(data: Buffer, expectedSize: number, entry: Mani
   }
 }
 
-export function readManifest(patchZipPath: string): Manifest {
-  const zip = new AdmZip(patchZipPath)
-  const entry = zip.getEntry('manifest.json')
-  if (!entry) throw new Error('patch zip has no manifest.json')
-  if (entry.header.size > MAX_MANIFEST_BYTES) {
-    throw new Error(
-      `manifest.json's declared decompressed size (${entry.header.size} bytes) exceeds the ${MAX_MANIFEST_BYTES}-byte ceiling -- refusing to decompress (possible zip bomb)`
-    )
+async function openZip(zipPath: string): Promise<{ zipfile: ZipFile; entries: Map<string, ZipEntry> }> {
+  const zipfile = await yauzl.openPromise(zipPath, { lazyEntries: true, autoClose: false })
+  const entries = new Map<string, ZipEntry>()
+  for await (const entry of zipfile.eachEntry()) {
+    entries.set(entry.fileName, entry)
   }
-  const data = entry.getData()
-  if (data.length > MAX_MANIFEST_BYTES) {
-    throw new Error(
-      `manifest.json decompressed to an implausible size (${data.length} bytes) exceeding the ${MAX_MANIFEST_BYTES}-byte ceiling`
-    )
+  return { zipfile, entries }
+}
+
+// Streams one entry's decompressed content into a single Buffer.
+async function readEntryData(zipfile: ZipFile, entry: ZipEntry): Promise<Buffer> {
+  const readStream = await zipfile.openReadStreamPromise(entry)
+  const chunks: Buffer[] = []
+  for await (const chunk of readStream) {
+    chunks.push(chunk as Buffer)
   }
-  return JSON.parse(data.toString('utf-8')) as Manifest
+  return Buffer.concat(chunks)
+}
+
+export async function readManifest(patchZipPath: string): Promise<Manifest> {
+  const { zipfile, entries } = await openZip(patchZipPath)
+  try {
+    const entry = entries.get('manifest.json')
+    if (!entry) throw new Error('patch zip has no manifest.json')
+    if (entry.uncompressedSize > MAX_MANIFEST_BYTES) {
+      throw new Error(
+        `manifest.json's declared decompressed size (${entry.uncompressedSize} bytes) exceeds the ${MAX_MANIFEST_BYTES}-byte ceiling -- refusing to decompress (possible zip bomb)`
+      )
+    }
+    const data = await readEntryData(zipfile, entry)
+    if (data.length > MAX_MANIFEST_BYTES) {
+      throw new Error(
+        `manifest.json decompressed to an implausible size (${data.length} bytes) exceeding the ${MAX_MANIFEST_BYTES}-byte ceiling`
+      )
+    }
+    return JSON.parse(data.toString('utf-8')) as Manifest
+  } finally {
+    zipfile.close()
+  }
 }
 
 export async function applyPatch(
@@ -118,7 +138,13 @@ export async function applyPatch(
   manifest: Manifest,
   bspatch: (oldFile: Buffer, delta: Buffer) => Promise<Buffer>
 ): Promise<void> {
-  const zip = new AdmZip(patchZipPath)
+  // Validate manifest paths before opening the archive.
+  for (const entry of manifest.entries) {
+    assertSafeRelativePath(entry.path, entry, 'path')
+    if (entry.delta_file) assertSafeRelativePath(entry.delta_file, entry, 'delta_file')
+  }
+
+  const { zipfile, entries } = await openZip(patchZipPath)
   const stagingDir = await mkdtemp(join(tmpdir(), 'csore-patch-staging-'))
 
   try {
@@ -133,11 +159,11 @@ export async function applyPatch(
       await mkdir(dirname(stagedPath), { recursive: true })
 
       if (entry.action === 'added') {
-        const zipEntry = zip.getEntry(entry.path)
+        const zipEntry = entries.get(entry.path)
         if (!zipEntry) throw new PatchVerificationError(entry, `missing from patch zip: ${entry.path}`)
         assertDeclaredSizeWithinCap(zipEntry, entry, 'content')
         if (entry.size !== undefined) assertDeclaredSizeMatches(zipEntry, entry.size, entry, 'content')
-        const data = zipEntry.getData()
+        const data = await readEntryData(zipfile, zipEntry)
         if (entry.size !== undefined) assertActualSizeMatches(data, entry.size, entry, 'content')
         await fs.writeFile(stagedPath, data)
       } else if (entry.action === 'modified') {
@@ -155,10 +181,10 @@ export async function applyPatch(
             'old_md5_mismatch'
           )
         }
-        const deltaEntry = zip.getEntry(entry.delta_file)
+        const deltaEntry = entries.get(entry.delta_file)
         if (!deltaEntry) throw new PatchVerificationError(entry, `missing delta file: ${entry.delta_file}`)
         assertDeclaredSizeWithinCap(deltaEntry, entry, 'delta_file')
-        const deltaBuf = deltaEntry.getData()
+        const deltaBuf = await readEntryData(zipfile, deltaEntry)
         if (deltaBuf.length > MAX_ENTRY_BYTES) {
           throw new PatchVerificationError(
             entry,
@@ -199,6 +225,7 @@ export async function applyPatch(
       await fs.copyFile(stagedPath, livePath)
     }
   } finally {
+    zipfile.close()
     await rm(stagingDir, { recursive: true, force: true })
   }
 }

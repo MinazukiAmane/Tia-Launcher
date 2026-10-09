@@ -34,15 +34,13 @@ vi.mock('./patcher', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./patcher')>()
   return {
     ...actual,
-    readManifest: vi.fn().mockReturnValue({ entries: [] }),
+    readManifest: vi.fn().mockResolvedValue({ entries: [] }),
     applyPatch: vi.fn()
   }
 })
 
-vi.mock('adm-zip', () => ({
-  default: vi.fn().mockImplementation(function FakeAdmZip() {
-    return { extractAllTo: vi.fn() }
-  })
+vi.mock('./zipExtract', () => ({
+  extractZip: vi.fn().mockResolvedValue(undefined)
 }))
 
 import { fetchLauncherInfo } from './launcherApi'

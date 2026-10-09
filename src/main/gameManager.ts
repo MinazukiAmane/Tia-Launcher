@@ -7,6 +7,7 @@ import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
 import { decideAction, reassembleParts } from './installManager'
 import { readManifest, applyPatch, PatchVerificationError } from './patcher'
+import { extractZip } from './zipExtract'
 import { bspatch } from './bsdiffAdapter'
 import { readSettings, buildGameLaunchArgs } from './settings'
 import { findGameExecutable, launchWindows } from './launcher/windows'
@@ -189,8 +190,7 @@ async function doFreshInstall(
     onProgress({ phase: 'downloading', processed, total })
   )
 
-  const { default: AdmZip } = await import('adm-zip')
-  new AdmZip(zipPath).extractAllTo(installDir, true)
+  await extractZip(zipPath, installDir)
   const newState: InstallState = { version: target.version, installDir, files: [] }
   await writeInstallState(installDir, newState)
 }
@@ -220,7 +220,7 @@ export async function performInstallOrUpdate(
       await reassembleParts(action.patch.game_pkgs, zipPath, partsDir, (processed, total) =>
         onProgress({ phase: 'downloading', processed, total })
       )
-      const manifest = readManifest(zipPath)
+      const manifest = await readManifest(zipPath)
       try {
         await applyPatch(installDir, zipPath, manifest, bspatch)
       } catch (err) {

@@ -35,7 +35,7 @@ describe('readManifest', () => {
     const zipPath = join(dir, 'patch.zip')
     zip.writeZip(zipPath)
 
-    expect(readManifest(zipPath)).toEqual(manifest)
+    await expect(readManifest(zipPath)).resolves.toEqual(manifest)
   })
 })
 
