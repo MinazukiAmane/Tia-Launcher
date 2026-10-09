@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import AdmZip from 'adm-zip'
 import { mkdtemp, rm, mkdir, writeFile, readFile, access } from 'fs/promises'
+import { readdirSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 import { createHash } from 'crypto'
@@ -237,4 +238,67 @@ describe('applyPatch', () => {
     )
     await expect(access(join(installDir, 'Data/big.txt'))).rejects.toThrow()
   })
+})
+
+describe('openZip file descriptor handling (fd leak fix)', () => {
+  const canCountFds = process.platform === 'linux' && existsSync('/proc/self/fd')
+
+  function countOpenFds(): number {
+    return readdirSync('/proc/self/fd').length
+  }
+
+  it.runIf(canCountFds)(
+    'does not leak a file descriptor on repeated readManifest failures against a zip with an unsafe entry name',
+    async () => {
+      const dir = await makeTempDir()
+      const zip = new AdmZip()
+      zip.addFile('manifest.json', Buffer.from(JSON.stringify({ entries: [] })))
+      zip.addFile('placeholder.txt', Buffer.from('x'))
+
+      const placeholderEntry = zip.getEntries().find((e) => e.entryName === 'placeholder.txt')
+      if (!placeholderEntry) throw new Error('test setup: placeholder entry not found')
+      placeholderEntry.entryName = '../escape.txt'
+      const zipPath = join(dir, 'malformed.zip')
+      zip.writeZip(zipPath)
+
+      const before = countOpenFds()
+      for (let i = 0; i < 20; i++) {
+        await expect(readManifest(zipPath)).rejects.toThrow()
+      }
+      const after = countOpenFds()
+
+      expect(after - before).toBeLessThanOrEqual(2)
+    }
+  )
+
+  it.runIf(canCountFds)(
+    'does not leak a file descriptor on repeated applyPatch failures when the zip contains an unreferenced entry with an unsafe name',
+    async () => {
+      const dir = await makeTempDir()
+      const installDir = join(dir, 'install')
+      await mkdir(installDir, { recursive: true })
+
+      const content = Buffer.from('safe content')
+      const manifest: Manifest = {
+        entries: [{ path: 'a.txt', action: 'added', new_md5: md5(content), size: content.length }]
+      }
+      const zip = new AdmZip()
+      zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest)))
+      zip.addFile('a.txt', content)
+      zip.addFile('placeholder.txt', Buffer.from('x'))
+      const placeholderEntry = zip.getEntries().find((e) => e.entryName === 'placeholder.txt')
+      if (!placeholderEntry) throw new Error('test setup: placeholder entry not found')
+      placeholderEntry.entryName = '../escape.txt'
+      const zipPath = join(dir, 'malformed-patch.zip')
+      zip.writeZip(zipPath)
+
+      const before = countOpenFds()
+      for (let i = 0; i < 20; i++) {
+        await expect(applyPatch(installDir, zipPath, manifest, fakeBspatch)).rejects.toThrow()
+      }
+      const after = countOpenFds()
+
+      expect(after - before).toBeLessThanOrEqual(2)
+    }
+  )
 })

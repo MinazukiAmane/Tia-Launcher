@@ -94,8 +94,13 @@ function assertActualSizeMatches(data: Buffer, expectedSize: number, entry: Mani
 async function openZip(zipPath: string): Promise<{ zipfile: ZipFile; entries: Map<string, ZipEntry> }> {
   const zipfile = await yauzl.openPromise(zipPath, { lazyEntries: true, autoClose: false })
   const entries = new Map<string, ZipEntry>()
-  for await (const entry of zipfile.eachEntry()) {
-    entries.set(entry.fileName, entry)
+  try {
+    for await (const entry of zipfile.eachEntry()) {
+      entries.set(entry.fileName, entry)
+    }
+  } catch (err) {
+    zipfile.close()
+    throw err
   }
   return { zipfile, entries }
 }
@@ -145,8 +150,23 @@ export async function applyPatch(
   }
 
   const { zipfile, entries } = await openZip(patchZipPath)
-  const stagingDir = await mkdtemp(join(tmpdir(), 'csore-patch-staging-'))
 
+  try {
+    const stagingDir = await mkdtemp(join(tmpdir(), 'csore-patch-staging-'))
+    await applyPatchWithStaging(installDir, zipfile, entries, manifest, bspatch, stagingDir)
+  } finally {
+    zipfile.close()
+  }
+}
+
+async function applyPatchWithStaging(
+  installDir: string,
+  zipfile: ZipFile,
+  entries: Map<string, ZipEntry>,
+  manifest: Manifest,
+  bspatch: (oldFile: Buffer, delta: Buffer) => Promise<Buffer>,
+  stagingDir: string
+): Promise<void> {
   try {
     // Steps 3-4 of the doc: stage and verify every added/modified entry
     // BEFORE touching the live install at all.
@@ -225,7 +245,6 @@ export async function applyPatch(
       await fs.copyFile(stagedPath, livePath)
     }
   } finally {
-    zipfile.close()
     await rm(stagingDir, { recursive: true, force: true })
   }
 }
