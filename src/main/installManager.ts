@@ -1,6 +1,8 @@
 
 import { join } from 'path'
-import { mkdir, rm, readFile, appendFile, writeFile } from 'fs/promises'
+import { mkdir, rm } from 'fs/promises'
+import { createReadStream, createWriteStream } from 'fs'
+import { pipeline } from 'stream/promises'
 import type { GamePackageEntry, PkgEntry, VersionBlock } from './launcherApi'
 import type { InstallState } from './installState'
 import { downloadPart } from './downloader'
@@ -38,12 +40,17 @@ export async function reassembleParts(
     onProgress?.(i + 1, parts.length)
   }
 
-  await writeFile(destZipPath, Buffer.alloc(0))
+  const destStream = createWriteStream(destZipPath, { flags: 'w' })
   for (let i = 0; i < parts.length; i++) {
     const partPath = join(partsDir, `part-${i}`)
-    const data = await readFile(partPath)
-    await appendFile(destZipPath, data)
+    // Keep the destination stream open between parts.
+    await pipeline(createReadStream(partPath), destStream, { end: false })
   }
+  await new Promise<void>((resolve, reject) => {
+    destStream.on('finish', resolve)
+    destStream.on('error', reject)
+    destStream.end()
+  })
 
   await rm(partsDir, { recursive: true, force: true })
 }

@@ -1,15 +1,19 @@
-import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, afterEach, beforeAll, afterAll, vi } from 'vitest'
+import { EventEmitter } from 'events'
 import { createServer, type Server } from 'http'
-import { mkdtemp, rm, mkdir, access, writeFile } from 'fs/promises'
+import { mkdtemp, rm, mkdir, access, writeFile, readdir } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
+import { createHash } from 'crypto'
 import {
   fetchLatestDWProtonRelease,
   dwprotonInstallDir,
   isDWProtonInstalled,
-  extractDWProtonTarball
+  extractDWProtonTarball,
+  verifyTarballSha512,
+  launchLinux
 } from './linux'
 
 const execFileAsync = promisify(execFile)
@@ -38,6 +42,9 @@ const SAMPLE_RELEASES = [
 let server: Server
 let baseUrl: string
 
+const FIXTURE_TARBALL_CONTENT = Buffer.from('fake dwproton tarball bytes')
+const SHA512_OF_FIXTURE = createHash('sha512').update(FIXTURE_TARBALL_CONTENT).digest('hex')
+
 beforeAll(async () => {
   server = createServer((req, res) => {
     if (req.url === '/releases') {
@@ -48,6 +55,16 @@ beforeAll(async () => {
     if (req.url === '/empty-releases') {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end('[]')
+      return
+    }
+    if (req.url === '/good.sha512sum') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' })
+      res.end(`${SHA512_OF_FIXTURE}  dwproton.tar.xz\n`)
+      return
+    }
+    if (req.url === '/bad.sha512sum') {
+      res.writeHead(200, { 'Content-Type': 'text/plain' })
+      res.end(`${'0'.repeat(128)}  dwproton.tar.xz\n`)
       return
     }
     // Anything else (e.g. /unreachable) simulates the API being down.
@@ -119,5 +136,118 @@ describe('extractDWProtonTarball', () => {
     await extractDWProtonTarball(tarballPath, destDir)
 
     await expect(access(join(destDir, 'proton'))).resolves.toBeUndefined()
+  })
+
+  it('leaves no partial directory at destDir when tar extraction fails', async () => {
+    const dir = await makeTempDir()
+    const badTarballPath = join(dir, 'not-a-real-tarball.tar.xz')
+    await writeFile(badTarballPath, 'this is not a valid tarball')
+
+    const destDir = join(dir, 'dest')
+    await expect(extractDWProtonTarball(badTarballPath, destDir)).rejects.toThrow()
+
+    // Neither the final dir nor a leftover temp staging dir should exist.
+    await expect(access(destDir)).rejects.toThrow()
+    const siblingEntries = await readdir(dir)
+    const leftoverTmp = siblingEntries.filter((e) => e.startsWith('dest.extracting-'))
+    expect(leftoverTmp).toEqual([])
+  })
+
+  it('replaces a previously-installed destDir atomically on re-extraction', async () => {
+    const dir = await makeTempDir()
+    const srcDir = join(dir, 'src')
+    await mkdir(join(srcDir, 'dwproton-new'), { recursive: true })
+    await writeFile(join(srcDir, 'dwproton-new', 'proton'), '#!/bin/sh\necho new\n')
+    const tarballPath = join(dir, 'dwproton-new-x86_64.tar.xz')
+    await execFileAsync('tar', ['cJf', tarballPath, '-C', srcDir, 'dwproton-new'])
+
+    const destDir = join(dir, 'dest')
+    await mkdir(destDir, { recursive: true })
+    await writeFile(join(destDir, 'proton'), '#!/bin/sh\necho old\n')
+    await writeFile(join(destDir, 'stale-file'), 'should be gone after re-extraction')
+
+    await extractDWProtonTarball(tarballPath, destDir)
+
+    await expect(access(join(destDir, 'stale-file'))).rejects.toThrow()
+    const got = await (await import('fs/promises')).readFile(join(destDir, 'proton'), 'utf-8')
+    expect(got).toContain('new')
+  })
+})
+
+describe('verifyTarballSha512', () => {
+  let dir: string
+  let tarballPath: string
+
+  afterEach(async () => {
+    if (dir) await rm(dir, { recursive: true, force: true })
+  })
+
+  it('succeeds when the downloaded tarball matches the published sha512sum', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'csore-sha512-test-'))
+    tarballPath = join(dir, 'dwproton.tar.xz')
+    await writeFile(tarballPath, FIXTURE_TARBALL_CONTENT)
+
+    await expect(verifyTarballSha512(tarballPath, `${baseUrl}/good.sha512sum`)).resolves.toBeUndefined()
+  })
+
+  it('throws clearly when the tarball does not match the published sha512sum', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'csore-sha512-test-'))
+    tarballPath = join(dir, 'dwproton.tar.xz')
+    await writeFile(tarballPath, FIXTURE_TARBALL_CONTENT)
+
+    await expect(verifyTarballSha512(tarballPath, `${baseUrl}/bad.sha512sum`)).rejects.toThrow(/sha512/i)
+  })
+})
+
+describe('launchLinux', () => {
+  it('rejects with a clear "not installed" message when umu-run is missing (ENOENT)', async () => {
+    vi.resetModules()
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return {
+        ...actual,
+        spawn: vi.fn(() => {
+          const child = new EventEmitter() as EventEmitter & { unref: () => void }
+          child.unref = () => {}
+          setImmediate(() => {
+            const err = Object.assign(new Error('spawn umu-run ENOENT'), { code: 'ENOENT' })
+            child.emit('error', err)
+          })
+          return child
+        })
+      }
+    })
+
+    const { launchLinux: launchLinuxMocked } = await import('./linux')
+    await expect(
+      launchLinuxMocked('/fake/proton', '/fake/prefix', '/fake/Bin/cstrike-online.exe', [])
+    ).rejects.toThrow(/umu-launcher is not installed/i)
+
+    vi.doUnmock('child_process')
+    vi.resetModules()
+  })
+
+  it('rejects with a generic message for a non-ENOENT spawn error', async () => {
+    vi.resetModules()
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return {
+        ...actual,
+        spawn: vi.fn(() => {
+          const child = new EventEmitter() as EventEmitter & { unref: () => void }
+          child.unref = () => {}
+          setImmediate(() => child.emit('error', new Error('EACCES: permission denied')))
+          return child
+        })
+      }
+    })
+
+    const { launchLinux: launchLinuxMocked } = await import('./linux')
+    await expect(
+      launchLinuxMocked('/fake/proton', '/fake/prefix', '/fake/Bin/cstrike-online.exe', [])
+    ).rejects.toThrow(/EACCES/)
+
+    vi.doUnmock('child_process')
+    vi.resetModules()
   })
 })

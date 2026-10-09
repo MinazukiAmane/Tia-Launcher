@@ -1,7 +1,7 @@
 
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { join } from 'path'
+import { join, dirname } from 'path'
 import { access, readdir } from 'fs/promises'
 import { homedir } from 'os'
 
@@ -42,7 +42,8 @@ export async function findWhiskyBottle(bottleName: string): Promise<string | nul
 
 export async function launchMacOS(bottlePrefixPath: string, exePath: string, args: string[]): Promise<void> {
   try {
-    await execFileAsync('wine', ['start', exePath, ...args], {
+    await execFileAsync('wine', ['start', '/unix', exePath, ...args], {
+      cwd: dirname(exePath),
       env: { ...process.env, WINEPREFIX: bottlePrefixPath }
     })
   } catch (err) {

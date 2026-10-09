@@ -16,6 +16,7 @@ let baseUrl: string
 const CHUNK = Buffer.from('y'.repeat(1000), 'utf-8')
 const CHUNK_DELAY_MS = 50
 const SLOW_CHUNK_COUNT = 10 // 10 * 1000 bytes = 10000 bytes total if never aborted
+const STEADY_CHUNK_DELAY_MS = 30
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -23,6 +24,24 @@ beforeAll(async () => {
 
       res.writeHead(200, { 'Content-Length': String(CONTENT.length) })
       res.end(CONTENT)
+      return
+    }
+
+    if (req.url === '/slow-but-steady') {
+      // Abort only when data stops arriving; slow downloads remain valid.
+      res.writeHead(200, { 'Content-Length': String(CONTENT.length) })
+      const stepSize = 500
+      let offset = 0
+      const sendNext = (): void => {
+        if (offset >= CONTENT.length) {
+          res.end()
+          return
+        }
+        const slice = CONTENT.subarray(offset, offset + stepSize)
+        offset += stepSize
+        res.write(slice, () => setTimeout(sendNext, STEADY_CHUNK_DELAY_MS))
+      }
+      sendNext()
       return
     }
 
@@ -132,6 +151,22 @@ describe('downloadPart', () => {
 
     expect(elapsedMs).toBeLessThan(SLOW_CHUNK_COUNT * CHUNK_DELAY_MS)
     await expect(access(dest)).rejects.toThrow()
+  })
+
+  it('does not abort a slow-but-steady download whose total time exceeds the idle timeout', async () => {
+    const dir = await makeTempDir()
+    const dest = join(dir, 'part1')
+    const part: DownloadPart = { url: `${baseUrl}/slow-but-steady`, md5: CONTENT_MD5, size: CONTENT.length }
+
+    // Abort only when data stops arriving; slow downloads remain valid.
+    const idleTimeoutMs = 100
+    const start = Date.now()
+    await downloadPart(part, dest, undefined, idleTimeoutMs)
+    const elapsedMs = Date.now() - start
+
+    expect(elapsedMs).toBeGreaterThan(idleTimeoutMs)
+    const got = await readFile(dest)
+    expect(got.equals(CONTENT)).toBe(true)
   })
 
   it('restarts cleanly over an existing partial when the server ignores Range and returns 200', async () => {

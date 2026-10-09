@@ -1,7 +1,7 @@
 
 import { app } from 'electron'
 import { join } from 'path'
-import { writeFile, unlink } from 'fs/promises'
+import { writeFile, unlink, mkdir, rm } from 'fs/promises'
 import { readInstallState, writeInstallState, type InstallState } from './installState'
 import { fetchLauncherInfo } from './launcherApi'
 import { decideAction, reassembleParts } from './installManager'
@@ -14,7 +14,8 @@ import {
   fetchLatestDWProtonRelease,
   dwprotonInstallDir,
   isDWProtonInstalled,
-  extractDWProtonTarball
+  extractDWProtonTarball,
+  verifyTarballSha512
 } from './launcher/linux'
 import { launchMacOS, findWhiskyBottle, WhiskyNotFoundError } from './launcher/macos'
 
@@ -35,25 +36,71 @@ export async function checkDirWritable(dir: string): Promise<boolean> {
 
 async function runWindowsLaunch(installDir: string, args: string[]): Promise<void> {
   const exePath = await findGameExecutable(installDir)
-  launchWindows(exePath, args)
+  await launchWindows(exePath, args)
+}
+
+let dwprotonEnsurePromise: Promise<string> | null = null
+
+async function ensureDWProtonInstalled(baseDir: string): Promise<string> {
+  if (dwprotonEnsurePromise) return dwprotonEnsurePromise
+
+  dwprotonEnsurePromise = (async (): Promise<string> => {
+    let release: Awaited<ReturnType<typeof fetchLatestDWProtonRelease>> | undefined
+    try {
+      release = await fetchLatestDWProtonRelease()
+    } catch (err) {
+      const baseProtonDir = join(baseDir, 'proton')
+      let existingTags: string[] = []
+      try {
+        existingTags = (await (await import('fs/promises')).readdir(baseProtonDir)).filter(Boolean)
+      } catch {
+        existingTags = []
+      }
+      for (const tag of existingTags) {
+        if (await isDWProtonInstalled(baseDir, tag)) return tag
+      }
+      throw err
+    }
+
+    if (await isDWProtonInstalled(baseDir, release.tagName)) return release.tagName
+
+    await mkdir(baseDir, { recursive: true })
+
+    const tarballPath = join(baseDir, `${release.tagName}.tar.xz`)
+    try {
+      const res = await fetch(release.downloadUrl)
+      if (!res.ok || !res.body) throw new Error(`DWProton download failed: HTTP ${res.status}`)
+      const { createWriteStream } = await import('fs')
+      const { pipeline } = await import('stream/promises')
+      const { Readable } = await import('stream')
+      await pipeline(
+        Readable.fromWeb(res.body as import('stream/web').ReadableStream),
+        createWriteStream(tarballPath)
+      )
+      await verifyTarballSha512(tarballPath, release.sha512sumUrl)
+      await extractDWProtonTarball(tarballPath, dwprotonInstallDir(baseDir, release.tagName))
+    } finally {
+      // Don't leave the downloaded tarball on disk once we're done with it
+      // (success or failure).
+      await rm(tarballPath, { force: true })
+    }
+
+    return release.tagName
+  })()
+
+  try {
+    return await dwprotonEnsurePromise
+  } finally {
+    dwprotonEnsurePromise = null
+  }
 }
 
 async function runLinuxLaunch(installDir: string, args: string[]): Promise<void> {
   const exePath = await findGameExecutable(installDir) // Bin/ layout is the same across platforms; the exe itself differs, see Task 9/10's open assumption
   const baseDir = join(app.getPath('userData'), 'runtimes')
-  const release = await fetchLatestDWProtonRelease()
-  if (!(await isDWProtonInstalled(baseDir, release.tagName))) {
-    const tarballPath = join(baseDir, `${release.tagName}.tar.xz`)
-    const res = await fetch(release.downloadUrl)
-    if (!res.ok || !res.body) throw new Error(`DWProton download failed: HTTP ${res.status}`)
-    const { createWriteStream } = await import('fs')
-    const { pipeline } = await import('stream/promises')
-    const { Readable } = await import('stream')
-    await pipeline(Readable.fromWeb(res.body as import('stream/web').ReadableStream), createWriteStream(tarballPath))
-    await extractDWProtonTarball(tarballPath, dwprotonInstallDir(baseDir, release.tagName))
-  }
+  const tagName = await ensureDWProtonInstalled(baseDir)
   const compatDataDir = join(baseDir, 'prefix')
-  launchLinux(dwprotonInstallDir(baseDir, release.tagName), compatDataDir, exePath, args)
+  await launchLinux(dwprotonInstallDir(baseDir, tagName), compatDataDir, exePath, args)
 }
 
 async function runMacLaunch(installDir: string, args: string[]): Promise<void> {
@@ -113,23 +160,28 @@ export async function performInstallOrUpdate(
   const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
   const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
 
-  if (action.kind === 'fresh_install') {
-    await reassembleParts(action.target.game_pkgs, zipPath, partsDir, (processed, total) =>
+  try {
+    if (action.kind === 'fresh_install') {
+      await reassembleParts(action.target.game_pkgs, zipPath, partsDir, (processed, total) =>
+        onProgress({ phase: 'downloading', processed, total })
+      )
+
+      const { default: AdmZip } = await import('adm-zip')
+      new AdmZip(zipPath).extractAllTo(installDir, true)
+      const newState: InstallState = { version: action.target.version, installDir, files: [] }
+      await writeInstallState(installDir, newState)
+      return
+    }
+
+    // apply_patch
+    await reassembleParts(action.patch.game_pkgs, zipPath, partsDir, (processed, total) =>
       onProgress({ phase: 'downloading', processed, total })
     )
-    const { default: AdmZip } = await import('adm-zip')
-    new AdmZip(zipPath).extractAllTo(installDir, true)
-    const newState: InstallState = { version: action.target.version, installDir, files: [] }
+    const manifest = readManifest(zipPath)
+    await applyPatch(installDir, zipPath, manifest, bspatch)
+    const newState: InstallState = { version: action.toVersion, installDir, files: [] }
     await writeInstallState(installDir, newState)
-    return
+  } finally {
+    await rm(zipPath, { force: true })
   }
-
-  // apply_patch
-  await reassembleParts(action.patch.game_pkgs, zipPath, partsDir, (processed, total) =>
-    onProgress({ phase: 'downloading', processed, total })
-  )
-  const manifest = readManifest(zipPath)
-  await applyPatch(installDir, zipPath, manifest, bspatch)
-  const newState: InstallState = { version: action.toVersion, installDir, files: [] }
-  await writeInstallState(installDir, newState)
 }

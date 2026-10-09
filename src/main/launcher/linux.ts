@@ -1,8 +1,11 @@
 
 import { spawn, execFile } from 'child_process'
 import { promisify } from 'util'
-import { join } from 'path'
-import { access, mkdir } from 'fs/promises'
+import { join, dirname } from 'path'
+import { access, mkdir, rm, rename } from 'fs/promises'
+import { createHash } from 'crypto'
+import { createReadStream } from 'fs'
+import { pipeline } from 'stream/promises'
 
 const execFileAsync = promisify(execFile)
 
@@ -58,21 +61,76 @@ export async function isDWProtonInstalled(baseDir: string, tagName: string): Pro
   }
 }
 
-export async function extractDWProtonTarball(tarballPath: string, destDir: string): Promise<void> {
-  await mkdir(destDir, { recursive: true })
-  await execFileAsync('tar', ['xf', tarballPath, '-C', destDir, '--strip-components=1'])
+async function sha512OfFile(path: string): Promise<string> {
+  const hash = createHash('sha512')
+  await pipeline(createReadStream(path), hash)
+  return hash.digest('hex')
 }
 
-export function launchLinux(protonDir: string, compatDataDir: string, exePath: string, args: string[]): void {
-  const child = spawn('umu-run', [exePath, ...args], {
-    env: {
-      ...process.env,
-      PROTONPATH: protonDir,
-      GAMEID: 'csore-launcher',
-      WINEPREFIX: compatDataDir
-    },
-    detached: true,
-    stdio: 'ignore'
+// The sha512sum file format is `<hex digest>  <filename>` (coreutils-style),
+// one line. We only need the digest.
+function parseSha512sum(contents: string): string {
+  const firstToken = contents.trim().split(/\s+/)[0]
+  if (!firstToken || !/^[0-9a-f]{128}$/i.test(firstToken)) {
+    throw new Error(`sha512sum file did not contain a parseable digest: ${contents.slice(0, 200)}`)
+  }
+  return firstToken.toLowerCase()
+}
+
+export async function verifyTarballSha512(tarballPath: string, sha512sumUrl: string): Promise<void> {
+  const res = await fetch(sha512sumUrl)
+  if (!res.ok) throw new Error(`failed to fetch sha512sum: HTTP ${res.status}`)
+  const expected = parseSha512sum(await res.text())
+  const actual = await sha512OfFile(tarballPath)
+  if (actual !== expected) {
+    throw new Error(
+      `DWProton tarball failed sha512 verification (expected ${expected}, got ${actual}) -- refusing to extract`
+    )
+  }
+}
+
+export async function extractDWProtonTarball(tarballPath: string, destDir: string): Promise<void> {
+  const tmpDestDir = `${destDir}.extracting-${process.pid}-${Date.now()}`
+  await mkdir(tmpDestDir, { recursive: true })
+  try {
+    await execFileAsync('tar', ['xf', tarballPath, '-C', tmpDestDir, '--strip-components=1'])
+    await mkdir(dirname(destDir), { recursive: true })
+    await rm(destDir, { recursive: true, force: true })
+    await rename(tmpDestDir, destDir)
+  } catch (err) {
+    await rm(tmpDestDir, { recursive: true, force: true })
+    throw err
+  }
+}
+
+export function launchLinux(protonDir: string, compatDataDir: string, exePath: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('umu-run', [exePath, ...args], {
+      cwd: dirname(exePath),
+      env: {
+        ...process.env,
+        PROTONPATH: protonDir,
+        GAMEID: 'csore-launcher',
+        WINEPREFIX: compatDataDir
+      },
+      detached: true,
+      stdio: 'ignore'
+    })
+
+    child.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') {
+        reject(
+          new Error(
+            'umu-launcher is not installed (umu-run not found on PATH). Install it from https://github.com/Open-Wine-Components/umu-launcher and try again.'
+          )
+        )
+        return
+      }
+      reject(new Error(`Could not start the game: ${err.message}`))
+    })
+    child.once('spawn', () => {
+      child.unref()
+      resolve()
+    })
   })
-  child.unref()
 }

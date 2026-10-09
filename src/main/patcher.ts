@@ -142,6 +142,7 @@ export async function applyPatch(
         if (!entry.delta_file || !entry.old_md5) {
           throw new PatchVerificationError(entry, 'missing delta_file/old_md5 on a modified entry')
         }
+
         const livePath = resolveWithinRoot(installDir, entry.path, entry, 'path')
         const oldBytes = await fs.readFile(livePath)
         const oldMd5 = md5(oldBytes)

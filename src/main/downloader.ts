@@ -33,12 +33,15 @@ async function md5OfFile(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
+// Abort only when data stops arriving; slow downloads remain valid.
 const DOWNLOAD_TIMEOUT_MS = 30_000
 
 export async function downloadPart(
   part: DownloadPart,
   destPath: string,
-  onProgress?: (bytesWritten: number, totalBytes: number) => void
+  onProgress?: (bytesWritten: number, totalBytes: number) => void,
+  // Overridable only for tests: production always uses DOWNLOAD_TIMEOUT_MS.
+  idleTimeoutMs: number = DOWNLOAD_TIMEOUT_MS
 ): Promise<void> {
   let existing = await existingSize(destPath)
 
@@ -49,10 +52,15 @@ export async function downloadPart(
 
   if (existing < part.size) {
     const controller = new AbortController()
-    const timeout = setTimeout(
-      () => controller.abort(new Error(`download timed out: ${part.url}`)),
-      DOWNLOAD_TIMEOUT_MS
-    )
+    let timeout: ReturnType<typeof setTimeout>
+    const armIdleTimeout = (): void => {
+      clearTimeout(timeout)
+      timeout = setTimeout(
+        () => controller.abort(new Error(`download stalled (no data for ${idleTimeoutMs}ms): ${part.url}`)),
+        idleTimeoutMs
+      )
+    }
+    armIdleTimeout()
 
     try {
       const headers: Record<string, string> = existing > 0 ? { Range: `bytes=${existing}-` } : {}
@@ -70,6 +78,7 @@ export async function downloadPart(
       let sizeExceeded = false
       const nodeStream = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
       nodeStream.on('data', (chunk: Buffer) => {
+        armIdleTimeout()
         written += chunk.length
         onProgress?.(written, part.size)
         if (!sizeExceeded && written > part.size) {
