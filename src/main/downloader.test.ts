@@ -13,8 +13,34 @@ const CONTENT_MD5 = createHash('md5').update(CONTENT).digest('hex')
 let server: Server
 let baseUrl: string
 
+const CHUNK = Buffer.from('y'.repeat(1000), 'utf-8')
+const CHUNK_DELAY_MS = 50
+const SLOW_CHUNK_COUNT = 10 // 10 * 1000 bytes = 10000 bytes total if never aborted
+
 beforeAll(async () => {
   server = createServer((req, res) => {
+    if (req.url === '/always-200') {
+
+      res.writeHead(200, { 'Content-Length': String(CONTENT.length) })
+      res.end(CONTENT)
+      return
+    }
+
+    if (req.url === '/slow-oversized') {
+      res.writeHead(200)
+      let sent = 0
+      const sendNext = (): void => {
+        if (sent >= SLOW_CHUNK_COUNT || res.writableEnded) {
+          res.end()
+          return
+        }
+        sent += 1
+        res.write(CHUNK, () => setTimeout(sendNext, CHUNK_DELAY_MS))
+      }
+      sendNext()
+      return
+    }
+
     const range = req.headers.range
     if (range) {
       const match = /^bytes=(\d+)-$/.exec(range)
@@ -87,5 +113,39 @@ describe('downloadPart', () => {
 
     await expect(downloadPart(part, dest)).rejects.toBeInstanceOf(DownloadVerificationError)
     await expect(access(dest)).rejects.toThrow()
+  })
+
+  it('aborts and deletes the file instead of writing past the declared size', async () => {
+    const dir = await makeTempDir()
+    const dest = join(dir, 'part1')
+
+    const declaredSize = CHUNK.length * 2
+    const part: DownloadPart = {
+      url: `${baseUrl}/slow-oversized`,
+      md5: 'deadbeefdeadbeefdeadbeefdeadbeef',
+      size: declaredSize
+    }
+
+    const start = Date.now()
+    await expect(downloadPart(part, dest)).rejects.toThrow()
+    const elapsedMs = Date.now() - start
+
+    expect(elapsedMs).toBeLessThan(SLOW_CHUNK_COUNT * CHUNK_DELAY_MS)
+    await expect(access(dest)).rejects.toThrow()
+  })
+
+  it('restarts cleanly over an existing partial when the server ignores Range and returns 200', async () => {
+    const dir = await makeTempDir()
+    const dest = join(dir, 'part1')
+    const firstHalf = CONTENT.subarray(0, 2000)
+    await writeFile(dest, firstHalf)
+
+    const part: DownloadPart = { url: `${baseUrl}/always-200`, md5: CONTENT_MD5, size: CONTENT.length }
+    await downloadPart(part, dest)
+
+    const got = await readFile(dest)
+
+    expect(got.length).toBe(CONTENT.length)
+    expect(got.equals(CONTENT)).toBe(true)
   })
 })

@@ -33,6 +33,8 @@ async function md5OfFile(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
+const DOWNLOAD_TIMEOUT_MS = 30_000
+
 export async function downloadPart(
   part: DownloadPart,
   destPath: string,
@@ -46,23 +48,52 @@ export async function downloadPart(
   }
 
   if (existing < part.size) {
-    const headers: Record<string, string> = existing > 0 ? { Range: `bytes=${existing}-` } : {}
-    const res = await fetch(part.url, { headers })
-    if (!res.ok || !res.body) {
-      throw new Error(`download failed: ${part.url} (status ${res.status})`)
+    const controller = new AbortController()
+    const timeout = setTimeout(
+      () => controller.abort(new Error(`download timed out: ${part.url}`)),
+      DOWNLOAD_TIMEOUT_MS
+    )
+
+    try {
+      const headers: Record<string, string> = existing > 0 ? { Range: `bytes=${existing}-` } : {}
+      const res = await fetch(part.url, { headers, signal: controller.signal })
+      if (!res.ok || !res.body) {
+        throw new Error(`download failed: ${part.url} (status ${res.status})`)
+      }
+
+      const isPartialResponse = res.status === 206
+      const resumingCleanly = existing > 0 && isPartialResponse
+      const writeStream = createWriteStream(destPath, { flags: resumingCleanly ? 'a' : 'w' })
+
+      let written = resumingCleanly ? existing : 0
+
+      let sizeExceeded = false
+      const nodeStream = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
+      nodeStream.on('data', (chunk: Buffer) => {
+        written += chunk.length
+        onProgress?.(written, part.size)
+        if (!sizeExceeded && written > part.size) {
+          // Reject excess bytes before writing them to disk.
+          sizeExceeded = true
+          const err = new Error(
+            `download exceeded declared size for ${part.url}: wrote ${written} bytes, expected at most ${part.size}`
+          )
+          nodeStream.destroy(err)
+          controller.abort(err)
+        }
+      })
+
+      try {
+        await pipeline(nodeStream, writeStream)
+      } catch (err) {
+        if (sizeExceeded) {
+          await rm(destPath, { force: true })
+        }
+        throw err
+      }
+    } finally {
+      clearTimeout(timeout)
     }
-
-    const isPartialResponse = res.status === 206
-    const resumingCleanly = existing > 0 && isPartialResponse
-    const writeStream = createWriteStream(destPath, { flags: resumingCleanly ? 'a' : 'w' })
-
-    let written = resumingCleanly ? existing : 0
-    const nodeStream = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
-    nodeStream.on('data', (chunk: Buffer) => {
-      written += chunk.length
-      onProgress?.(written, part.size)
-    })
-    await pipeline(nodeStream, writeStream)
   }
 
   const gotMd5 = await md5OfFile(destPath)
