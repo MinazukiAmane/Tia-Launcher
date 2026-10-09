@@ -63,6 +63,21 @@ async function runMacLaunch(installDir: string, args: string[]): Promise<void> {
   await launchMacOS(bottle, exePath, args)
 }
 
+let approvedInstallDir: string | null = null
+
+export function setApprovedInstallDir(dir: string): void {
+  approvedInstallDir = dir
+}
+
+export function getApprovedInstallDir(): string | null {
+  return approvedInstallDir
+}
+
+export async function isApprovedInstallDir(installDir: string): Promise<boolean> {
+  if (installDir === approvedInstallDir) return true
+  return (await readInstallState(installDir)) !== null
+}
+
 export function selectLaunchFn(
   platform: NodeJS.Platform
 ): (installDir: string, args: string[]) => Promise<void> {

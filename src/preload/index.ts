@@ -8,10 +8,10 @@ const gameApi = {
   getInstallState: (installDir: string): Promise<import('../main/installState').InstallState | null> =>
     ipcRenderer.invoke('game:getInstallState', installDir),
   chooseInstallFolder: (): Promise<string | null> => ipcRenderer.invoke('game:chooseInstallFolder'),
-  getSettings: (userDataDir: string): Promise<import('../main/settings').Settings> =>
-    ipcRenderer.invoke('game:getSettings', userDataDir),
-  setSettings: (userDataDir: string, settings: import('../main/settings').Settings): Promise<void> =>
-    ipcRenderer.invoke('game:setSettings', userDataDir, settings),
+
+  getSettings: (): Promise<import('../main/settings').Settings> => ipcRenderer.invoke('game:getSettings'),
+  setSettings: (settings: import('../main/settings').Settings): Promise<void> =>
+    ipcRenderer.invoke('game:setSettings', settings),
   launchGame: (installDir: string): Promise<void> => ipcRenderer.invoke('game:launch', installDir),
   startInstallOrUpdate: (installDir: string): Promise<void> =>
     ipcRenderer.invoke('game:startInstallOrUpdate', installDir),

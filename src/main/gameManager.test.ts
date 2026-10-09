@@ -3,7 +3,8 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mkdtemp, rm, chmod } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { selectLaunchFn, checkDirWritable } from './gameManager'
+import { selectLaunchFn, checkDirWritable, setApprovedInstallDir, isApprovedInstallDir } from './gameManager'
+import { writeInstallState } from './installState'
 
 describe('selectLaunchFn', () => {
   it('returns the Windows launcher for win32', () => {
@@ -41,5 +42,29 @@ describe('checkDirWritable', () => {
 
     if (process.getuid && process.getuid() === 0) return
     expect(await checkDirWritable(dir)).toBe(false)
+  })
+})
+
+describe('isApprovedInstallDir / setApprovedInstallDir', () => {
+  let dir: string
+  afterEach(async () => {
+    if (dir) await rm(dir, { recursive: true, force: true })
+  })
+
+  it('approves a directory set via setApprovedInstallDir', async () => {
+    const chosen = join(tmpdir(), `csore-approved-${Date.now()}`)
+    setApprovedInstallDir(chosen)
+    expect(await isApprovedInstallDir(chosen)).toBe(true)
+  })
+
+  it('rejects a directory that was never approved and has no install state', async () => {
+    const neverApproved = join(tmpdir(), `csore-never-approved-${Date.now()}`)
+    expect(await isApprovedInstallDir(neverApproved)).toBe(false)
+  })
+
+  it('approves a directory that already holds a valid .csore_install.json, even if never chosen this session', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'csore-preexisting-install-'))
+    await writeInstallState(dir, { version: '1.0.0', installDir: dir, files: [] })
+    expect(await isApprovedInstallDir(dir)).toBe(true)
   })
 })
