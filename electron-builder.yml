@@ -1,0 +1,28 @@
+appId: com.serenetia.csore-launcher
+productName: CSORE Launcher
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+
+artifactName: "CSORE-Launcher-${version}-${os}-${arch}.${ext}"
+
+win:
+  target: nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+
+mac:
+  target: dmg
+  category: public.app-category.games
+
+linux:
+  target:
+    - AppImage
+    - deb
+    - pacman
+  category: Game
