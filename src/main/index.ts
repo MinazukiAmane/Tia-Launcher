@@ -1,7 +1,7 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
-import { registerIpcHandlers, registerGameIpcHandlers } from './ipc'
+import { registerIpcHandlers, registerGameIpcHandlers, handleOpenExternal } from './ipc'
 import { initAutoUpdater } from './updater'
 import { startNewsPolling } from './news'
 
@@ -24,8 +24,12 @@ export function createMainWindow(): BrowserWindow {
   win.on('ready-to-show', () => win.show())
 
   win.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    handleOpenExternal(details.url)
     return { action: 'deny' }
+  })
+
+  win.webContents.on('will-navigate', (event) => {
+    event.preventDefault()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
