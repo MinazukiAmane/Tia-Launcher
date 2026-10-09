@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import AdmZip from 'adm-zip'
 import { mkdtemp, rm, mkdir, writeFile, readFile, access } from 'fs/promises'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { createHash } from 'crypto'
 import { readManifest, applyPatch, PatchVerificationError, type Manifest } from './patcher'
 
@@ -165,5 +165,76 @@ describe('applyPatch', () => {
 
     const got = await readFile(join(installDir, 'client.dll'))
     expect(got.equals(newContent)).toBe(true)
+  })
+
+  it('rejects a manifest entry whose path escapes the install/staging root (path traversal)', async () => {
+    const dir = await makeTempDir()
+    const installDir = join(dir, 'install')
+    await mkdir(installDir, { recursive: true })
+
+    const maliciousContent = Buffer.from('pwned')
+    const traversalPath = '../../escape.txt'
+    const manifest: Manifest = {
+      entries: [
+        { path: traversalPath, action: 'added', new_md5: md5(maliciousContent), size: maliciousContent.length }
+      ]
+    }
+
+    const zip = new AdmZip()
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest)))
+    zip.addFile('placeholder.txt', maliciousContent)
+
+    const placeholderEntry = zip.getEntries().find((e) => e.entryName === 'placeholder.txt')
+    if (!placeholderEntry) throw new Error('test setup: placeholder entry not found')
+    placeholderEntry.entryName = traversalPath
+    const zipPath = join(dir, 'patch.zip')
+    zip.writeZip(zipPath)
+
+    const escapedPath = resolve(installDir, traversalPath)
+
+    await expect(applyPatch(installDir, zipPath, manifest, fakeBspatch)).rejects.toBeInstanceOf(
+      PatchVerificationError
+    )
+    await expect(access(escapedPath)).rejects.toThrow()
+  })
+
+  it('rejects a manifest entry with an absolute path', async () => {
+    const dir = await makeTempDir()
+    const installDir = join(dir, 'install')
+    await mkdir(installDir, { recursive: true })
+
+    const zip = new AdmZip()
+    const manifest: Manifest = {
+      entries: [{ path: '/etc/evil.txt', action: 'added', new_md5: 'irrelevant', size: 5 }]
+    }
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest)))
+    const zipPath = join(dir, 'patch.zip')
+    zip.writeZip(zipPath)
+
+    await expect(applyPatch(installDir, zipPath, manifest, fakeBspatch)).rejects.toBeInstanceOf(
+      PatchVerificationError
+    )
+    await expect(access('/etc/evil.txt')).rejects.toThrow()
+  })
+
+  it('rejects an entry whose manifest-declared size is smaller than the zip entry\'s actual decompressed content (zip-bomb guard)', async () => {
+    const dir = await makeTempDir()
+    const installDir = join(dir, 'install')
+    await mkdir(installDir, { recursive: true })
+
+    const actualContent = Buffer.alloc(10_000, 'A')
+    const zip = new AdmZip()
+    const manifest: Manifest = {
+      entries: [{ path: 'Data/big.txt', action: 'added', new_md5: md5(actualContent), size: 5 }]
+    }
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest)))
+    zip.addFile('Data/big.txt', actualContent)
+    const zipPath = join(dir, 'patch.zip')
+    zip.writeZip(zipPath)
+
+    await expect(applyPatch(installDir, zipPath, manifest, fakeBspatch)).rejects.toBeInstanceOf(
+      PatchVerificationError
+    )
+    await expect(access(join(installDir, 'Data/big.txt'))).rejects.toThrow()
   })
 })
