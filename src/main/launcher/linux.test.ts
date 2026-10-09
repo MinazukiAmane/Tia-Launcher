@@ -12,8 +12,7 @@ import {
   dwprotonInstallDir,
   isDWProtonInstalled,
   extractDWProtonTarball,
-  verifyTarballSha512,
-  launchLinux
+  verifyTarballSha512
 } from './linux'
 
 const execFileAsync = promisify(execFile)

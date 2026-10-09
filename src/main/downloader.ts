@@ -52,7 +52,7 @@ export async function downloadPart(
 
   if (existing < part.size) {
     const controller = new AbortController()
-    let timeout: ReturnType<typeof setTimeout>
+    let timeout: ReturnType<typeof setTimeout> | undefined
     const armIdleTimeout = (): void => {
       clearTimeout(timeout)
       timeout = setTimeout(

@@ -60,7 +60,7 @@ function splitIntoParts(
 ): { parts: { url: string; md5: string; size: string; decompressed_size: string }[]; bytesByPath: Map<string, Buffer> } {
   const chunkSize = Math.ceil(buf.length / n)
   const bytesByPath = new Map<string, Buffer>()
-  const parts = []
+  const parts: { url: string; md5: string; size: string; decompressed_size: string }[] = []
   for (let i = 0; i < n; i++) {
     const chunk = buf.subarray(i * chunkSize, Math.min((i + 1) * chunkSize, buf.length))
     if (chunk.length === 0) continue
