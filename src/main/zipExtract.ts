@@ -4,10 +4,14 @@ import { createWriteStream } from 'fs'
 import { mkdir } from 'fs/promises'
 import { dirname } from 'path'
 import { pipeline } from 'stream/promises'
+import { Transform } from 'stream'
+import { createHash } from 'crypto'
 import { resolveWithinRoot } from './pathSafety'
+import type { InstalledFileEntry } from './installState'
 
-export async function extractZip(zipPath: string, destDir: string): Promise<void> {
+export async function extractZip(zipPath: string, destDir: string): Promise<InstalledFileEntry[]> {
   const zipfile = await yauzl.openPromise(zipPath, { lazyEntries: true, autoClose: true })
+  const files: InstalledFileEntry[] = []
   try {
     for await (const entry of zipfile.eachEntry()) {
       const isDirEntry = entry.fileName.endsWith('/') || entry.fileName.endsWith('\\')
@@ -24,9 +28,24 @@ export async function extractZip(zipPath: string, destDir: string): Promise<void
       await mkdir(dirname(destPath), { recursive: true })
       const readStream = await zipfile.openReadStreamPromise(entry)
       const writeStream = createWriteStream(destPath)
-      await pipeline(readStream, writeStream)
+
+      const hash = createHash('md5')
+      const hashingPassThrough = new Transform({
+        transform(chunk, _encoding, callback) {
+          hash.update(chunk)
+          callback(null, chunk)
+        }
+      })
+
+      await pipeline(readStream, hashingPassThrough, writeStream)
+
+      files.push({
+        path: entry.fileName.replace(/\\/g, '/'),
+        md5: hash.digest('hex')
+      })
     }
   } finally {
     zipfile.close()
   }
+  return files
 }

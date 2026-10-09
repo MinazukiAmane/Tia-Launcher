@@ -15,6 +15,15 @@ const gameApi = {
   launchGame: (installDir: string): Promise<void> => ipcRenderer.invoke('game:launch', installDir),
   startInstallOrUpdate: (installDir: string): Promise<void> =>
     ipcRenderer.invoke('game:startInstallOrUpdate', installDir),
+  verifyInstall: (installDir: string): Promise<import('../main/gameManager').VerifyResult> =>
+    ipcRenderer.invoke('game:verifyInstall', installDir),
+  repairInstall: (installDir: string): Promise<void> => ipcRenderer.invoke('game:repairInstall', installDir),
+  uninstall: (installDir: string): Promise<void> => ipcRenderer.invoke('game:uninstall', installDir),
+  getDWProtonStatus: (): Promise<import('../main/gameManager').DWProtonStatus> =>
+    ipcRenderer.invoke('game:getDWProtonStatus'),
+  redownloadDWProton: (): Promise<void> => ipcRenderer.invoke('game:redownloadDWProton'),
+  getWhiskyStatus: (): Promise<import('../main/gameManager').WhiskyStatus> =>
+    ipcRenderer.invoke('game:getWhiskyStatus'),
   onProgress: (callback: (update: import('../main/gameManager').ProgressUpdate) => void): (() => void) => {
     const listener = (_event: unknown, update: import('../main/gameManager').ProgressUpdate): void => callback(update)
     ipcRenderer.on('game:progress', listener)

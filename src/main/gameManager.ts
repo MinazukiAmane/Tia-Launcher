@@ -1,8 +1,15 @@
 
 import { app } from 'electron'
 import { join } from 'path'
-import { writeFile, unlink, mkdir, rm, readFile } from 'fs/promises'
-import { readInstallState, writeInstallState, type InstallState } from './installState'
+import { writeFile, unlink, mkdir, rm, readFile, readdir } from 'fs/promises'
+import { createHash } from 'crypto'
+import {
+  readInstallState,
+  writeInstallState,
+  mergeManifestEntries,
+  type InstallState,
+  type InstalledFileEntry
+} from './installState'
 import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
 import { decideAction, reassembleParts } from './installManager'
@@ -17,7 +24,8 @@ import {
   dwprotonInstallDir,
   isDWProtonInstalled,
   extractDWProtonTarball,
-  verifyTarballSha512
+  verifyTarballSha512,
+  type DWProtonRelease
 } from './launcher/linux'
 import { launchMacOS, findWhiskyBottle, WhiskyNotFoundError } from './launcher/macos'
 
@@ -43,55 +51,98 @@ async function runWindowsLaunch(installDir: string, args: string[]): Promise<voi
 
 let dwprotonEnsurePromise: Promise<string> | null = null
 
+async function downloadAndInstallDWProton(
+  baseDir: string,
+  release: DWProtonRelease,
+  onProgress?: (update: ProgressUpdate) => void
+): Promise<void> {
+  await mkdir(baseDir, { recursive: true })
+
+  const tarballPath = join(baseDir, `${release.tagName}.tar.xz`)
+  try {
+    const res = await fetch(release.downloadUrl)
+    if (!res.ok || !res.body) throw new Error(`DWProton download failed: HTTP ${res.status}`)
+    const { createWriteStream } = await import('fs')
+    const { pipeline } = await import('stream/promises')
+    const { Readable } = await import('stream')
+    await pipeline(
+      Readable.fromWeb(res.body as import('stream/web').ReadableStream),
+      createWriteStream(tarballPath)
+    )
+    onProgress?.({ phase: 'downloading', processed: 1, total: 1 })
+    await verifyTarballSha512(tarballPath, release.sha512sumUrl)
+    await extractDWProtonTarball(tarballPath, dwprotonInstallDir(baseDir, release.tagName))
+    onProgress?.({ phase: 'extracting', processed: 1, total: 1 })
+  } finally {
+    // Don't leave the downloaded tarball on disk once we're done with it
+    // (success or failure).
+    await rm(tarballPath, { force: true })
+  }
+}
+
+// Find a complete DWProton installation.
+async function findAnyInstalledDWProtonTag(baseDir: string): Promise<string | null> {
+  const baseProtonDir = join(baseDir, 'proton')
+  let existingTags: string[] = []
+  try {
+    existingTags = (await readdir(baseProtonDir)).filter(Boolean)
+  } catch {
+    existingTags = []
+  }
+  for (const tag of existingTags) {
+    if (await isDWProtonInstalled(baseDir, tag)) return tag
+  }
+  return null
+}
+
 async function ensureDWProtonInstalled(baseDir: string): Promise<string> {
   if (dwprotonEnsurePromise) return dwprotonEnsurePromise
 
   dwprotonEnsurePromise = (async (): Promise<string> => {
-    let release: Awaited<ReturnType<typeof fetchLatestDWProtonRelease>> | undefined
+    let release: DWProtonRelease | undefined
     try {
       release = await fetchLatestDWProtonRelease()
     } catch (err) {
-      const baseProtonDir = join(baseDir, 'proton')
-      let existingTags: string[] = []
-      try {
-        existingTags = (await (await import('fs/promises')).readdir(baseProtonDir)).filter(Boolean)
-      } catch {
-        existingTags = []
-      }
-      for (const tag of existingTags) {
-        if (await isDWProtonInstalled(baseDir, tag)) return tag
-      }
+      const existingTag = await findAnyInstalledDWProtonTag(baseDir)
+      if (existingTag) return existingTag
       throw err
     }
 
     if (await isDWProtonInstalled(baseDir, release.tagName)) return release.tagName
 
-    await mkdir(baseDir, { recursive: true })
-
-    const tarballPath = join(baseDir, `${release.tagName}.tar.xz`)
-    try {
-      const res = await fetch(release.downloadUrl)
-      if (!res.ok || !res.body) throw new Error(`DWProton download failed: HTTP ${res.status}`)
-      const { createWriteStream } = await import('fs')
-      const { pipeline } = await import('stream/promises')
-      const { Readable } = await import('stream')
-      await pipeline(
-        Readable.fromWeb(res.body as import('stream/web').ReadableStream),
-        createWriteStream(tarballPath)
-      )
-      await verifyTarballSha512(tarballPath, release.sha512sumUrl)
-      await extractDWProtonTarball(tarballPath, dwprotonInstallDir(baseDir, release.tagName))
-    } finally {
-      // Don't leave the downloaded tarball on disk once we're done with it
-      // (success or failure).
-      await rm(tarballPath, { force: true })
-    }
+    await downloadAndInstallDWProton(baseDir, release)
 
     return release.tagName
   })()
 
   try {
     return await dwprotonEnsurePromise
+  } finally {
+    dwprotonEnsurePromise = null
+  }
+}
+
+export interface DWProtonStatus {
+  installed: boolean
+  version: string | null
+}
+
+// Report the installed DWProton tag.
+export async function getDWProtonStatus(): Promise<DWProtonStatus> {
+  const baseDir = join(app.getPath('userData'), 'runtimes')
+  const tag = await findAnyInstalledDWProtonTag(baseDir)
+  return { installed: tag !== null, version: tag }
+}
+
+export async function redownloadDWProton(onProgress?: (update: ProgressUpdate) => void): Promise<void> {
+  const baseDir = join(app.getPath('userData'), 'runtimes')
+  dwprotonEnsurePromise = (async (): Promise<string> => {
+    const release = await fetchLatestDWProtonRelease()
+    await downloadAndInstallDWProton(baseDir, release, onProgress)
+    return release.tagName
+  })()
+  try {
+    await dwprotonEnsurePromise
   } finally {
     dwprotonEnsurePromise = null
   }
@@ -110,6 +161,16 @@ async function runMacLaunch(installDir: string, args: string[]): Promise<void> {
   const bottle = await findWhiskyBottle('csore-launcher')
   if (!bottle) throw new WhiskyNotFoundError()
   await launchMacOS(bottle, exePath, args)
+}
+
+export interface WhiskyStatus {
+  found: boolean
+  bottlePath: string | null
+}
+
+export async function getWhiskyStatus(): Promise<WhiskyStatus> {
+  const bottle = await findWhiskyBottle('csore-launcher')
+  return { found: bottle !== null, bottlePath: bottle }
 }
 
 let approvedInstallDir: string | null = null
@@ -145,6 +206,12 @@ export function getApprovedInstallDir(): string | null {
   return approvedInstallDir
 }
 
+// Clear persisted approval when removing an installation.
+async function clearApprovedInstallDir(): Promise<void> {
+  approvedInstallDir = null
+  await rm(approvedInstallDirFilePath(), { force: true })
+}
+
 export async function isApprovedInstallDir(installDir: string): Promise<boolean> {
   if (installDir === approvedInstallDir) return true
   if (installDir === (await readPersistedApprovedInstallDir())) return true
@@ -168,9 +235,16 @@ export async function launchGame(installDir: string): Promise<void> {
 }
 
 export interface ProgressUpdate {
-  phase: 'downloading' | 'applying_patch' | 'extracting'
+  phase: 'downloading' | 'applying_patch' | 'extracting' | 'downloading_audio' | 'extracting_audio'
   processed: number
   total: number
+}
+
+function mergeFileLists(base: InstalledFileEntry[], overlay: InstalledFileEntry[]): InstalledFileEntry[] {
+  const byPath = new Map<string, InstalledFileEntry>()
+  for (const file of base) byPath.set(file.path, file)
+  for (const file of overlay) byPath.set(file.path, file)
+  return [...byPath.values()]
 }
 
 let operationInProgress = false
@@ -190,8 +264,24 @@ async function doFreshInstall(
     onProgress({ phase: 'downloading', processed, total })
   )
 
-  await extractZip(zipPath, installDir)
-  const newState: InstallState = { version: target.version, installDir, files: [] }
+  const gameFiles = await extractZip(zipPath, installDir)
+
+  let audioFiles: InstalledFileEntry[] = []
+  if (target.audio_pkgs && target.audio_pkgs.length > 0) {
+    const audioZipPath = `${zipPath}.audio.zip`
+    try {
+      await reassembleParts(target.audio_pkgs, audioZipPath, partsDir, (processed, total) =>
+        onProgress({ phase: 'downloading_audio', processed, total })
+      )
+      audioFiles = await extractZip(audioZipPath, installDir)
+      onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
+    } finally {
+      await rm(audioZipPath, { force: true })
+    }
+  }
+
+  const files = mergeFileLists(gameFiles, audioFiles)
+  const newState: InstallState = { version: target.version, installDir, files }
   await writeInstallState(installDir, newState)
 }
 
@@ -230,11 +320,105 @@ export async function performInstallOrUpdate(
         }
         throw err
       }
-      const newState: InstallState = { version: action.toVersion, installDir, files: [] }
+
+      let files = mergeManifestEntries(state?.files ?? [], manifest.entries)
+
+      if (action.patch.audio_pkgs && action.patch.audio_pkgs.length > 0) {
+        const audioZipPath = `${zipPath}.audio.zip`
+        try {
+          await reassembleParts(action.patch.audio_pkgs, audioZipPath, partsDir, (processed, total) =>
+            onProgress({ phase: 'downloading_audio', processed, total })
+          )
+          const audioManifest = await readManifest(audioZipPath)
+          await applyPatch(installDir, audioZipPath, audioManifest, bspatch)
+          files = mergeManifestEntries(files, audioManifest.entries)
+          onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
+        } finally {
+          await rm(audioZipPath, { force: true })
+        }
+      }
+
+      const newState: InstallState = { version: action.toVersion, installDir, files }
       await writeInstallState(installDir, newState)
     } finally {
       await rm(zipPath, { force: true })
     }
+  } finally {
+    operationInProgress = false
+  }
+}
+
+export interface VerifyResult {
+  ok: boolean
+  corruptFiles: string[]
+  missingFiles: string[]
+}
+
+function md5OfBuffer(buf: Buffer): string {
+  return createHash('md5').update(buf).digest('hex')
+}
+
+export async function verifyInstall(installDir: string): Promise<VerifyResult> {
+  const state = await readInstallState(installDir)
+  if (!state) {
+    throw new Error(`no install found at "${installDir}" -- nothing to verify`)
+  }
+
+  const corruptFiles: string[] = []
+  const missingFiles: string[] = []
+
+  for (const entry of state.files) {
+    const filePath = join(installDir, entry.path)
+    let bytes: Buffer
+    try {
+      bytes = await readFile(filePath)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        missingFiles.push(entry.path)
+        continue
+      }
+      throw err
+    }
+    if (md5OfBuffer(bytes) !== entry.md5) {
+      corruptFiles.push(entry.path)
+    }
+  }
+
+  return { ok: corruptFiles.length === 0 && missingFiles.length === 0, corruptFiles, missingFiles }
+}
+
+export async function repairInstall(
+  installDir: string,
+  onProgress: (update: ProgressUpdate) => void
+): Promise<void> {
+  if (operationInProgress) {
+    throw new Error('another operation (install/update/repair/uninstall) is already in progress')
+  }
+  operationInProgress = true
+  try {
+    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
+    if (!info.main.major) throw new Error('no published main version available for this game')
+
+    const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
+    const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
+    try {
+      await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress)
+    } finally {
+      await rm(zipPath, { force: true })
+    }
+  } finally {
+    operationInProgress = false
+  }
+}
+
+export async function uninstallGame(installDir: string): Promise<void> {
+  if (operationInProgress) {
+    throw new Error('another operation (install/update/repair) is already in progress -- cannot uninstall now')
+  }
+  operationInProgress = true
+  try {
+    await rm(installDir, { recursive: true, force: true })
+    await clearApprovedInstallDir()
   } finally {
     operationInProgress = false
   }

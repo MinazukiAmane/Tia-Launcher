@@ -9,7 +9,16 @@ import {
   checkDirWritable,
   setApprovedInstallDir,
   isApprovedInstallDir,
-  type ProgressUpdate
+  verifyInstall,
+  repairInstall,
+  uninstallGame,
+  getDWProtonStatus,
+  redownloadDWProton,
+  getWhiskyStatus,
+  type ProgressUpdate,
+  type VerifyResult,
+  type DWProtonStatus,
+  type WhiskyStatus
 } from './gameManager'
 
 export async function handlePing(): Promise<string> {
@@ -71,6 +80,45 @@ export function makeHandleStartInstallOrUpdate(
   }
 }
 
+export async function handleVerifyInstall(_event: unknown, installDir: string): Promise<VerifyResult> {
+  await assertApprovedInstallDir(installDir)
+  return verifyInstall(installDir)
+}
+
+export function makeHandleRepairInstall(
+  win: Electron.BrowserWindow
+): (_event: unknown, installDir: string) => Promise<void> {
+  return async (_event: unknown, installDir: string): Promise<void> => {
+    await assertApprovedInstallDir(installDir)
+    return repairInstall(installDir, (update: ProgressUpdate) => {
+      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+    })
+  }
+}
+
+export async function handleUninstallGame(_event: unknown, installDir: string): Promise<void> {
+  await assertApprovedInstallDir(installDir)
+  return uninstallGame(installDir)
+}
+
+export async function handleGetDWProtonStatus(): Promise<DWProtonStatus> {
+  return getDWProtonStatus()
+}
+
+export function makeHandleRedownloadDWProton(
+  win: Electron.BrowserWindow
+): () => Promise<void> {
+  return async (): Promise<void> => {
+    return redownloadDWProton((update: ProgressUpdate) => {
+      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+    })
+  }
+}
+
+export async function handleGetWhiskyStatus(): Promise<WhiskyStatus> {
+  return getWhiskyStatus()
+}
+
 const ALLOWED_EXTERNAL_HOSTS = new Set(['cso-rse.my.id'])
 
 export function isAllowedExternalUrl(url: string): boolean {
@@ -103,6 +151,12 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('game:setSettings', handleSetSettings)
   ipcMain.handle('game:launch', handleLaunchGame)
   ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
+  ipcMain.handle('game:verifyInstall', handleVerifyInstall)
+  ipcMain.handle('game:repairInstall', makeHandleRepairInstall(win))
+  ipcMain.handle('game:uninstall', handleUninstallGame)
+  ipcMain.handle('game:getDWProtonStatus', handleGetDWProtonStatus)
+  ipcMain.handle('game:redownloadDWProton', makeHandleRedownloadDWProton(win))
+  ipcMain.handle('game:getWhiskyStatus', handleGetWhiskyStatus)
   ipcMain.handle('app:getUserDataDir', () => app.getPath('userData'))
 
   ipcMain.handle('app:getPlatform', () => process.platform)

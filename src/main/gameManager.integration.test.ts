@@ -1,7 +1,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { createServer, type Server } from 'http'
-import { mkdtemp, rm, readFile } from 'fs/promises'
+import { mkdtemp, rm, readFile, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { createHash } from 'crypto'
@@ -262,5 +262,272 @@ describe('install -> patch -> launch integration', () => {
     expect(exePathArg).toBe(join(installDir, 'Bin', 'cstrike-online.exe'))
     expect(argsArg).toEqual(['-console'])
     expect(optsArg.cwd).toBe(join(installDir, 'Bin'))
+  })
+})
+
+const AUDIO_FILE_V1 = Buffer.from('fake voice-pack audio bytes v1')
+const AUDIO_SUFFIX = Buffer.from(' plus v1.1 audio patch suffix')
+const AUDIO_FILE_V2 = Buffer.concat([AUDIO_FILE_V1, AUDIO_SUFFIX])
+
+function buildAudioFreshZip(): Buffer {
+  const zip = new AdmZip()
+  zip.addFile('Audio/voice_en.bin', AUDIO_FILE_V1)
+  return zip.toBuffer()
+}
+
+function buildAudioPatchZip(): Buffer {
+  const zip = new AdmZip()
+  const manifest = {
+    entries: [
+      {
+        path: 'Audio/voice_en.bin',
+        action: 'modified',
+        delta_file: 'deltas/audio-0001.fake',
+        old_md5: md5(AUDIO_FILE_V1),
+        new_md5: md5(AUDIO_FILE_V2)
+      }
+    ]
+  }
+  zip.addFile('manifest.json', Buffer.from(JSON.stringify(manifest)))
+  zip.addFile('deltas/audio-0001.fake', AUDIO_SUFFIX)
+  return zip.toBuffer()
+}
+
+describe('audio_pkgs[] download + install/patch (spec gap)', () => {
+  let userDataDir: string
+  let installDir: string
+  let originalFetch: typeof fetch
+
+  afterEach(async () => {
+    vi.resetModules()
+    global.fetch = originalFetch
+    await rm(userDataDir, { recursive: true, force: true })
+    await rm(installDir, { recursive: true, force: true })
+  })
+
+  it('downloads and extracts audio_pkgs on fresh install, then downloads and applies an audio patch on update, recording both in InstallState.files', async () => {
+    originalFetch = global.fetch
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-audio-'))
+    mockUserDataDir.current = userDataDir
+    installDir = await mkdtemp(join(tmpdir(), 'csore-install-audio-'))
+
+    global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const url = new URL(urlString)
+      if (url.hostname === 'sg-csore-api.serenetia.com') {
+        const rewritten = new URL(baseUrl)
+        url.protocol = rewritten.protocol
+        url.hostname = rewritten.hostname
+        url.port = rewritten.port
+        return originalFetch(url.toString(), init)
+      }
+      return originalFetch(urlString, init)
+    }) as unknown as typeof fetch
+
+    // ---- Fresh install at 1.0.0, WITH audio_pkgs present ----
+    const clientZipV1 = buildClientZip(EXE_CONTENT_V1, DATA_FILE_V1)
+    const { parts: freshParts, bytesByPath: freshBytes } = splitIntoParts(clientZipV1, 2, baseUrl, 'audio-fresh-part')
+    const audioZipV1 = buildAudioFreshZip()
+    const { parts: audioFreshParts, bytesByPath: audioFreshBytes } = splitIntoParts(
+      audioZipV1,
+      1,
+      baseUrl,
+      'audio-fresh-audio-part'
+    )
+    servedFiles = new Map([...freshBytes, ...audioFreshBytes])
+
+    launcherInfoResponse = {
+      retcode: 0,
+      message: 'OK',
+      data: {
+        game_packages: [
+          {
+            game: { id: '1', biz: 'csore_global' },
+            main: {
+              major: {
+                version: '1.0.0',
+                game_pkgs: freshParts,
+                audio_pkgs: audioFreshParts.map((p) => ({ ...p, language: 'en' })),
+                res_list_url: ''
+              },
+              patches: [],
+              required_client_version: '1.0.0'
+            }
+          }
+        ]
+      }
+    }
+
+    vi.resetModules()
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return { ...actual, spawn: vi.fn() }
+    })
+
+    const progress1: { phase: string }[] = []
+    const { performInstallOrUpdate: install1 } = await import('./gameManager')
+    await install1(installDir, (u) => progress1.push(u))
+
+    const audioAfterInstall = await readFile(join(installDir, 'Audio', 'voice_en.bin'))
+    expect(audioAfterInstall.equals(AUDIO_FILE_V1)).toBe(true)
+    expect(progress1.some((u) => u.phase === 'downloading_audio')).toBe(true)
+    expect(progress1.some((u) => u.phase === 'extracting_audio')).toBe(true)
+
+    const { readInstallState } = await import('./installState')
+    const stateAfterInstall = await readInstallState(installDir)
+    const pathsAfterInstall = stateAfterInstall?.files.map((f) => f.path) ?? []
+    expect(pathsAfterInstall).toEqual(
+      expect.arrayContaining(['Bin/cstrike-online.exe', 'Data/file.txt', 'Audio/voice_en.bin'])
+    )
+    const audioEntryAfterInstall = stateAfterInstall?.files.find((f) => f.path === 'Audio/voice_en.bin')
+    expect(audioEntryAfterInstall?.md5).toBe(md5(AUDIO_FILE_V1))
+
+    // ---- Update to 1.1.0: game patch + an independent audio patch ----
+    const patchZip = buildPatchZip()
+    const { parts: patchParts, bytesByPath: patchBytes } = splitIntoParts(patchZip, 1, baseUrl, 'audio-game-patch-part')
+    const audioPatchZip = buildAudioPatchZip()
+    const { parts: audioPatchParts, bytesByPath: audioPatchBytes } = splitIntoParts(
+      audioPatchZip,
+      1,
+      baseUrl,
+      'audio-patch-part'
+    )
+    servedFiles = new Map([...patchBytes, ...audioPatchBytes])
+
+    launcherInfoResponse = {
+      retcode: 0,
+      message: 'OK',
+      data: {
+        game_packages: [
+          {
+            game: { id: '1', biz: 'csore_global' },
+            main: {
+              major: {
+                version: '1.1.0',
+                game_pkgs: freshParts,
+                audio_pkgs: audioFreshParts.map((p) => ({ ...p, language: 'en' })),
+                res_list_url: ''
+              },
+              patches: [
+                {
+                  version: '1.0.0',
+                  game_pkgs: patchParts,
+                  audio_pkgs: audioPatchParts.map((p) => ({ ...p, language: 'en' })),
+                  res_list_url: ''
+                }
+              ],
+              required_client_version: '1.0.0'
+            }
+          }
+        ]
+      }
+    }
+
+    const progress2: { phase: string }[] = []
+    const { performInstallOrUpdate: install2 } = await import('./gameManager')
+    await install2(installDir, (u) => progress2.push(u))
+
+    const audioAfterPatch = await readFile(join(installDir, 'Audio', 'voice_en.bin'))
+    expect(audioAfterPatch.equals(AUDIO_FILE_V2)).toBe(true)
+    expect(progress2.some((u) => u.phase === 'downloading_audio')).toBe(true)
+
+    const stateAfterPatch = await readInstallState(installDir)
+    expect(stateAfterPatch?.version).toBe('1.1.0')
+    const audioEntryAfterPatch = stateAfterPatch?.files.find((f) => f.path === 'Audio/voice_en.bin')
+    expect(audioEntryAfterPatch?.md5).toBe(md5(AUDIO_FILE_V2))
+    // Game patch's own file changes are still reflected alongside the audio ones.
+    const dataEntryAfterPatch = stateAfterPatch?.files.find((f) => f.path === 'Data/new.txt')
+    expect(dataEntryAfterPatch).toBeDefined()
+  })
+})
+
+describe('repairInstall (spec §6)', () => {
+  let userDataDir: string
+  let installDir: string
+  let originalFetch: typeof fetch
+
+  afterEach(async () => {
+    vi.resetModules()
+    global.fetch = originalFetch
+    await rm(userDataDir, { recursive: true, force: true })
+    await rm(installDir, { recursive: true, force: true })
+  })
+
+  it('force-reinstalls even when the current state is already up to date, fixing a corrupted file', async () => {
+    originalFetch = global.fetch
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-repair-'))
+    mockUserDataDir.current = userDataDir
+    installDir = await mkdtemp(join(tmpdir(), 'csore-install-repair-'))
+
+    global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const url = new URL(urlString)
+      if (url.hostname === 'sg-csore-api.serenetia.com') {
+        const rewritten = new URL(baseUrl)
+        url.protocol = rewritten.protocol
+        url.hostname = rewritten.hostname
+        url.port = rewritten.port
+        return originalFetch(url.toString(), init)
+      }
+      return originalFetch(urlString, init)
+    }) as unknown as typeof fetch
+
+    const clientZipV1 = buildClientZip(EXE_CONTENT_V1, DATA_FILE_V1)
+    const { parts: freshParts, bytesByPath: freshBytes } = splitIntoParts(clientZipV1, 2, baseUrl, 'repair-fresh-part')
+    servedFiles = freshBytes
+
+    launcherInfoResponse = {
+      retcode: 0,
+      message: 'OK',
+      data: {
+        game_packages: [
+          {
+            game: { id: '1', biz: 'csore_global' },
+            main: {
+              major: { version: '1.0.0', game_pkgs: freshParts, res_list_url: '' },
+              patches: [],
+              required_client_version: '1.0.0'
+            }
+          }
+        ]
+      }
+    }
+
+    vi.resetModules()
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return { ...actual, spawn: vi.fn() }
+    })
+
+    const { performInstallOrUpdate } = await import('./gameManager')
+    await performInstallOrUpdate(installDir, () => {})
+
+    const { writeFile } = await import('fs/promises')
+    await writeFile(join(installDir, 'Data', 'file.txt'), Buffer.from('corrupted!'))
+    const noopProgress: unknown[] = []
+    await performInstallOrUpdate(installDir, (u) => noopProgress.push(u))
+    expect(noopProgress).toEqual([]) // confirms up_to_date was genuinely taken, not a repair
+
+    const { repairInstall } = await import('./gameManager')
+    const repairProgress: unknown[] = []
+    await repairInstall(installDir, (u) => repairProgress.push(u))
+
+    expect(repairProgress.length).toBeGreaterThan(0)
+    const fixedFile = await readFile(join(installDir, 'Data', 'file.txt'))
+    expect(fixedFile.equals(DATA_FILE_V1)).toBe(true)
+  })
+
+  it('refuses to run while another operation is already in progress', async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-repair-race-'))
+    mockUserDataDir.current = userDataDir
+    installDir = await mkdtemp(join(tmpdir(), 'csore-install-repair-race-'))
+    await mkdir(installDir, { recursive: true })
+
+    vi.resetModules()
+    const { repairInstall, uninstallGame } = await import('./gameManager')
+
+    const firstCall = uninstallGame(installDir)
+    await expect(repairInstall(installDir, () => {})).rejects.toThrow(/already in progress/i)
+    await firstCall
   })
 })

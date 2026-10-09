@@ -7,7 +7,17 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { createHash } from 'crypto'
 import { EventEmitter } from 'events'
-import { selectLaunchFn, checkDirWritable, setApprovedInstallDir, isApprovedInstallDir } from './gameManager'
+import {
+  selectLaunchFn,
+  checkDirWritable,
+  setApprovedInstallDir,
+  isApprovedInstallDir,
+  verifyInstall,
+  uninstallGame,
+  getDWProtonStatus,
+  getWhiskyStatus,
+  redownloadDWProton
+} from './gameManager'
 import { writeInstallState } from './installState'
 
 const execFileAsync = promisify(execFile)
@@ -207,5 +217,202 @@ describe('runLinuxLaunch (via selectLaunchFn) starting from a clean machine', ()
     await expect(access(join(runtimesDir, 'proton', 'dwproton-1.0', 'proton'))).resolves.toBeUndefined()
     // The downloaded tarball must not be left behind.
     await expect(access(join(runtimesDir, 'dwproton-1.0.tar.xz'))).rejects.toThrow()
+  })
+})
+
+describe('verifyInstall', () => {
+  let installDir: string
+
+  afterEach(async () => {
+    await rm(installDir, { recursive: true, force: true })
+  })
+
+  it('throws a clear error when there is no InstallState at all', async () => {
+    installDir = await mkdtemp(join(tmpdir(), 'csore-verify-none-'))
+    await expect(verifyInstall(installDir)).rejects.toThrow(/no install found/i)
+  })
+
+  it('reports ok:true when every recorded file matches its recorded MD5', async () => {
+    installDir = await mkdtemp(join(tmpdir(), 'csore-verify-ok-'))
+    const content = Buffer.from('real game bytes')
+    await mkdir(join(installDir, 'Bin'), { recursive: true })
+    await writeFile(join(installDir, 'Bin', 'game.exe'), content)
+    const md5 = createHash('md5').update(content).digest('hex')
+    await writeInstallState(installDir, {
+      version: '1.0.0',
+      installDir,
+      files: [{ path: 'Bin/game.exe', md5 }]
+    })
+
+    const result = await verifyInstall(installDir)
+    expect(result).toEqual({ ok: true, corruptFiles: [], missingFiles: [] })
+  })
+
+  it('reports a mutated file as corrupt', async () => {
+    installDir = await mkdtemp(join(tmpdir(), 'csore-verify-corrupt-'))
+    const content = Buffer.from('real game bytes')
+    await mkdir(join(installDir, 'Bin'), { recursive: true })
+    const filePath = join(installDir, 'Bin', 'game.exe')
+    await writeFile(filePath, content)
+    const recordedMd5 = createHash('md5').update(content).digest('hex')
+    await writeInstallState(installDir, {
+      version: '1.0.0',
+      installDir,
+      files: [{ path: 'Bin/game.exe', md5: recordedMd5 }]
+    })
+
+    await writeFile(filePath, Buffer.from('corrupted bytes!'))
+
+    const result = await verifyInstall(installDir)
+    expect(result.ok).toBe(false)
+    expect(result.corruptFiles).toEqual(['Bin/game.exe'])
+    expect(result.missingFiles).toEqual([])
+  })
+
+  it('reports a deleted file as missing', async () => {
+    installDir = await mkdtemp(join(tmpdir(), 'csore-verify-missing-'))
+    await writeInstallState(installDir, {
+      version: '1.0.0',
+      installDir,
+      files: [{ path: 'Bin/game.exe', md5: 'deadbeef' }]
+    })
+
+    const result = await verifyInstall(installDir)
+    expect(result.ok).toBe(false)
+    expect(result.corruptFiles).toEqual([])
+    expect(result.missingFiles).toEqual(['Bin/game.exe'])
+  })
+})
+
+describe('uninstallGame', () => {
+  let installDir: string
+  let userDataDir: string
+
+  afterEach(async () => {
+    await rm(installDir, { recursive: true, force: true })
+    await rm(userDataDir, { recursive: true, force: true })
+  })
+
+  it('deletes the install directory and clears both the in-memory and persisted approval', async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-uninstall-'))
+    mockUserDataDir.current = userDataDir
+    installDir = await mkdtemp(join(tmpdir(), 'csore-install-uninstall-'))
+    await writeInstallState(installDir, { version: '1.0.0', installDir, files: [] })
+    await setApprovedInstallDir(installDir)
+
+    await uninstallGame(installDir)
+
+    await expect(access(installDir)).rejects.toThrow()
+    expect(await isApprovedInstallDir(installDir)).toBe(false)
+  })
+
+  it('refuses to run while another operation is already in progress', async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-uninstall-race-'))
+    mockUserDataDir.current = userDataDir
+    installDir = await mkdtemp(join(tmpdir(), 'csore-install-uninstall-race-'))
+    await writeInstallState(installDir, { version: '1.0.0', installDir, files: [] })
+
+    const firstCall = uninstallGame(installDir)
+    await expect(uninstallGame(installDir)).rejects.toThrow(/already in progress/i)
+    await firstCall
+  })
+})
+
+describe('getDWProtonStatus', () => {
+  let userDataDir: string
+
+  afterEach(async () => {
+    await rm(userDataDir, { recursive: true, force: true })
+  })
+
+  it('reports not installed when nothing is under runtimes/proton', async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-dwproton-status-none-'))
+    mockUserDataDir.current = userDataDir
+    expect(await getDWProtonStatus()).toEqual({ installed: false, version: null })
+  })
+
+  it('reports the installed tag when a complete DWProton build is present', async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-dwproton-status-'))
+    mockUserDataDir.current = userDataDir
+    const protonDir = join(userDataDir, 'runtimes', 'proton', 'dwproton-2.0')
+    await mkdir(protonDir, { recursive: true })
+    await writeFile(join(protonDir, 'proton'), '#!/bin/sh\n')
+
+    expect(await getDWProtonStatus()).toEqual({ installed: true, version: 'dwproton-2.0' })
+  })
+})
+
+describe('getWhiskyStatus', () => {
+  it('reports not found on a machine with no Whisky bottle (the normal case outside real macOS hardware)', async () => {
+    const status = await getWhiskyStatus()
+    expect(status.found).toBe(false)
+    expect(status.bottlePath).toBeNull()
+  })
+})
+
+describe('redownloadDWProton', () => {
+  let userDataDir: string
+  let fixtureServerDir: string
+  let originalFetch: typeof fetch
+
+  afterEach(async () => {
+    global.fetch = originalFetch
+    await rm(userDataDir, { recursive: true, force: true })
+    await rm(fixtureServerDir, { recursive: true, force: true })
+  })
+
+  it('forces a fresh download+extract even though a build is already installed', async () => {
+    originalFetch = global.fetch
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-dwproton-redownload-'))
+    mockUserDataDir.current = userDataDir
+
+    const staleDir = join(userDataDir, 'runtimes', 'proton', 'dwproton-old')
+    await mkdir(staleDir, { recursive: true })
+    await writeFile(join(staleDir, 'proton'), '#!/bin/sh\n')
+
+    fixtureServerDir = await mkdtemp(join(tmpdir(), 'csore-dwproton-redownload-fixture-'))
+    const srcDir = join(fixtureServerDir, 'src')
+    await mkdir(join(srcDir, 'dwproton-new'), { recursive: true })
+    await writeFile(join(srcDir, 'dwproton-new', 'proton'), '#!/bin/sh\n')
+    const tarballPath = join(fixtureServerDir, 'dwproton-new-x86_64.tar.xz')
+    await execFileAsync('tar', ['cJf', tarballPath, '-C', srcDir, 'dwproton-new'])
+    const { readFile } = await import('fs/promises')
+    const tarballBytes = await readFile(tarballPath)
+    const sha512 = createHash('sha512').update(tarballBytes).digest('hex')
+
+    const giteaReleasesJson = JSON.stringify([
+      {
+        tag_name: 'dwproton-new',
+        assets: [
+          { name: 'dwproton-new-x86_64.tar.xz', browser_download_url: 'https://fixture.test/redl-tarball' },
+          { name: 'dwproton-new-x86_64.sha512sum', browser_download_url: 'https://fixture.test/redl-sha512sum' }
+        ]
+      }
+    ])
+
+    let downloadCount = 0
+    global.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('dawn.wine')) return new Response(giteaReleasesJson, { status: 200 })
+      if (url === 'https://fixture.test/redl-tarball') {
+        downloadCount++
+        return new Response(new Uint8Array(tarballBytes), { status: 200 })
+      }
+      if (url === 'https://fixture.test/redl-sha512sum') {
+        return new Response(`${sha512}  dwproton-new-x86_64.tar.xz\n`, { status: 200 })
+      }
+      throw new Error(`unexpected fetch in test: ${url}`)
+    }) as unknown as typeof fetch
+
+    const progress: unknown[] = []
+    await redownloadDWProton((u) => progress.push(u))
+
+    expect(downloadCount).toBe(1)
+    expect(progress.length).toBeGreaterThan(0)
+    await expect(
+      access(join(userDataDir, 'runtimes', 'proton', 'dwproton-new', 'proton'))
+    ).resolves.toBeUndefined()
+    // Stale previously-installed tag is untouched by redownload.
+    await expect(access(join(staleDir, 'proton'))).resolves.toBeUndefined()
   })
 })

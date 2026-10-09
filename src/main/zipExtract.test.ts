@@ -43,12 +43,17 @@ describe('extractZip', () => {
     const readFileSyncSpy = vi.spyOn(fs, 'readFileSync')
     const readFileSpy = vi.spyOn(fs.promises, 'readFile')
 
-    await extractZip(zipPath, installDir)
+    const result = await extractZip(zipPath, installDir)
 
     const extractedBig = await readFile(join(installDir, 'Bin', 'big.bin'))
     expect(md5(extractedBig)).toBe(md5(bigContent))
     const extractedSmall = await readFile(join(installDir, 'Data', 'Nested', 'Deep', 'small.txt'))
     expect(extractedSmall.equals(smallContent)).toBe(true)
+
+    expect(result).toHaveLength(2)
+    const byPath = new Map(result.map((f) => [f.path, f.md5]))
+    expect(byPath.get('Bin/big.bin')).toBe(md5(bigContent))
+    expect(byPath.get('Data/Nested/Deep/small.txt')).toBe(md5(smallContent))
 
     const allCalls = [...readFileSyncSpy.mock.calls, ...readFileSpy.mock.calls]
     const calledWithZipPath = allCalls.some((args) => args[0] === zipPath)

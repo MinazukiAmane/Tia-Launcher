@@ -40,7 +40,7 @@ vi.mock('./patcher', async (importOriginal) => {
 })
 
 vi.mock('./zipExtract', () => ({
-  extractZip: vi.fn().mockResolvedValue(undefined)
+  extractZip: vi.fn().mockResolvedValue([])
 }))
 
 import { fetchLauncherInfo } from './launcherApi'
