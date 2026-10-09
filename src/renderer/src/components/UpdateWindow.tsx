@@ -6,6 +6,13 @@ export function UpdateWindow(): React.JSX.Element | null {
   const [downloaded, setDownloaded] = useState(false)
 
   useEffect(() => {
+
+    window.csore.getUpdateState().then((state) => {
+      if (state.available) setAvailable(state.available)
+      if (state.progress !== null) setProgress(state.progress)
+      if (state.downloaded) setDownloaded(true)
+    })
+
     const unsubAvailable = window.csore.onUpdateAvailable((info) => setAvailable(info))
     const unsubProgress = window.csore.onDownloadProgress((p) => setProgress(p.percent))
     const unsubDownloaded = window.csore.onUpdateDownloaded(() => setDownloaded(true))

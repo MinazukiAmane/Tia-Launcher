@@ -15,6 +15,8 @@ export function NoticesPanel(): React.JSX.Element | null {
   const [news, setNews] = useState<NewsItem[]>([])
 
   useEffect(() => {
+
+    window.csore.getNews().then((items: NewsItem[]) => setNews(items))
     const unsubscribe = window.csore.onNews((items: NewsItem[]) => setNews(items))
     return unsubscribe
   }, [])

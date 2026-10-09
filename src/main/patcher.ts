@@ -22,7 +22,9 @@ export interface Manifest {
 export class PatchVerificationError extends Error {
   constructor(
     public readonly entry: ManifestEntry,
-    reason: string
+    reason: string,
+
+    public readonly reasonCode: 'old_md5_mismatch' | 'other' = 'other'
   ) {
     super(`patch verification failed for ${entry.path}: ${reason}`)
     this.name = 'PatchVerificationError'
@@ -149,7 +151,8 @@ export async function applyPatch(
         if (oldMd5 !== entry.old_md5) {
           throw new PatchVerificationError(
             entry,
-            `installed file's MD5 (${oldMd5}) does not match old_md5 (${entry.old_md5}) -- stale or corrupted install`
+            `installed file's MD5 (${oldMd5}) does not match old_md5 (${entry.old_md5}) -- stale or corrupted install`,
+            'old_md5_mismatch'
           )
         }
         const deltaEntry = zip.getEntry(entry.delta_file)

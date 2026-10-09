@@ -1,7 +1,7 @@
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { createServer, type Server } from 'http'
-import { fetchNews } from './news'
+import { fetchNews, startNewsPolling, getCachedNews } from './news'
 
 const SAMPLE_RESPONSE = {
   success: true,
@@ -50,5 +50,37 @@ describe('fetchNews', () => {
     expect(got).toHaveLength(2)
     expect(got[0].title).toBe('RSE All Star Mode Event!')
     expect(got[0].slug).toBe('rse-all-star-mode-event')
+  })
+})
+
+describe('startNewsPolling caches the latest successful fetch', () => {
+  it('getCachedNews reflects the first poll, for a renderer that mounts after it fired', async () => {
+    const sampleNews = [
+      { id: 1, title: 'Cached Item', slug: 'cached-item', category: 'info', image: 'i.png', created_at: '2026-01-01T00:00:00Z' }
+    ]
+    const originalFetch = global.fetch
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, message: 'ok', data: { news: sampleNews } }), { status: 200 })
+    ) as unknown as typeof fetch
+
+    const setIntervalSpy = vi
+      .spyOn(global, 'setInterval')
+      .mockReturnValue(0 as unknown as ReturnType<typeof setInterval>)
+
+    try {
+      const fakeWin = {
+        isDestroyed: () => false,
+        webContents: { send: vi.fn() }
+      } as unknown as import('electron').BrowserWindow
+      startNewsPolling(fakeWin)
+
+      await new Promise((resolve) => setImmediate(resolve))
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(getCachedNews()).toEqual(sampleNews)
+    } finally {
+      setIntervalSpy.mockRestore()
+      global.fetch = originalFetch
+    }
   })
 })

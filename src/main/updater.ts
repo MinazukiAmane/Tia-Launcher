@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import { isOperationInProgress } from './gameManager'
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 
@@ -81,7 +82,15 @@ export function initAutoUpdater(win: BrowserWindow): void {
   }
 
   ipcMain.handle(IPC_UPDATE.START_DOWNLOAD, () => autoUpdater.downloadUpdate())
-  ipcMain.handle(IPC_UPDATE.QUIT_AND_INSTALL, () => autoUpdater.quitAndInstall())
+
+  ipcMain.handle(IPC_UPDATE.QUIT_AND_INSTALL, async () => {
+    if (isOperationInProgress()) {
+      throw new Error(
+        'Cannot restart to install the update: a game download or patch is still in progress. Please wait for it to finish.'
+      )
+    }
+    return autoUpdater.quitAndInstall()
+  })
   ipcMain.handle(IPC_UPDATE.CHECK, () => checkForUpdates())
   ipcMain.handle(IPC_UPDATE.GET_STATE, () => state)
 

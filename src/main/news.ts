@@ -29,10 +29,17 @@ export async function fetchNews(apiBaseUrl: string = NEWS_API_BASE): Promise<New
 
 export const NEWS_CHANNEL = 'news:update'
 
+let cachedNews: NewsItem[] = []
+
+export function getCachedNews(): NewsItem[] {
+  return cachedNews
+}
+
 export function startNewsPolling(win: BrowserWindow): void {
   async function poll(): Promise<void> {
     try {
       const news = await fetchNews()
+      cachedNews = news
       if (!win.isDestroyed()) win.webContents.send(NEWS_CHANNEL, news)
     } catch {
 

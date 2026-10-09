@@ -12,15 +12,23 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn() }
 }))
 
+const cachedNewsMock = vi.fn(() => [] as import('./news').NewsItem[])
+vi.mock('./news', () => ({
+  getCachedNews: () => cachedNewsMock()
+}))
+
 import {
   handlePing,
   isAllowedExternalUrl,
   handleOpenExternal,
   handleGetSettings,
   handleSetSettings,
+  handleGetNews,
   handleLaunchGame,
-  makeHandleStartInstallOrUpdate
+  makeHandleStartInstallOrUpdate,
+  registerGameIpcHandlers
 } from './ipc'
+import { ipcMain } from 'electron'
 import { readSettings, writeSettings, DEFAULT_SETTINGS } from './settings'
 
 describe('handlePing', () => {
@@ -98,6 +106,33 @@ describe('handleLaunchGame', () => {
   it('rejects an installDir that was never approved via chooseInstallFolder', async () => {
     const neverApprovedDir = join(tmpdir(), `csore-unapproved-${Date.now()}`)
     await expect(handleLaunchGame(undefined, neverApprovedDir)).rejects.toThrow(/not an approved install directory/i)
+  })
+})
+
+describe('handleGetNews', () => {
+  it('returns whatever news.ts currently has cached', async () => {
+    const sample = [
+      { id: 9, title: 'T', slug: 's', category: 'info', image: 'i.png', created_at: '2026-01-01T00:00:00Z' }
+    ]
+    cachedNewsMock.mockReturnValueOnce(sample)
+    expect(await handleGetNews()).toEqual(sample)
+  })
+
+  it('returns an empty array when nothing has been cached yet', async () => {
+    cachedNewsMock.mockReturnValueOnce([])
+    expect(await handleGetNews()).toEqual([])
+  })
+})
+
+describe('app:getPlatform handler', () => {
+  it('registers a handler that returns process.platform', () => {
+    const fakeWin = { isDestroyed: () => false, webContents: { send: vi.fn() } } as unknown as Electron.BrowserWindow
+    registerGameIpcHandlers(fakeWin)
+
+    const call = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'app:getPlatform')
+    expect(call).toBeDefined()
+    const handler = call?.[1] as () => string
+    expect(handler()).toBe(process.platform)
   })
 })
 

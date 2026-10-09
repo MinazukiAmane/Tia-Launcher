@@ -86,6 +86,45 @@ describe('isApprovedInstallDir / setApprovedInstallDir', () => {
   })
 })
 
+describe('persisted install-dir approval survives a simulated app restart', () => {
+  let userDataDir: string
+  let installDir: string
+
+  afterEach(async () => {
+    vi.resetModules()
+    await rm(userDataDir, { recursive: true, force: true })
+    await rm(installDir, { recursive: true, force: true })
+  })
+
+  it('stays approved after a fresh module load, without needing .csore_install.json to exist', async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-approve-'))
+    mockUserDataDir.current = userDataDir
+    installDir = await mkdtemp(join(tmpdir(), 'csore-approved-persist-'))
+
+    const { setApprovedInstallDir: setApprovedFresh } = await import('./gameManager')
+    await setApprovedFresh(installDir)
+
+    // Simulate the app restarting: a fresh module instance has no idea
+    // this directory was approved in memory.
+    vi.resetModules()
+    const { isApprovedInstallDir: isApprovedAfterRestart } = await import('./gameManager')
+
+    expect(await isApprovedAfterRestart(installDir)).toBe(true)
+
+    await expect(access(join(installDir, '.csore_install.json'))).rejects.toThrow()
+  })
+
+  it('does not approve a directory that was never chosen/persisted', async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-approve-empty-'))
+    mockUserDataDir.current = userDataDir
+    installDir = join(tmpdir(), `csore-not-approved-${Date.now()}`)
+
+    vi.resetModules()
+    const { isApprovedInstallDir: isApprovedFresh } = await import('./gameManager')
+    expect(await isApprovedFresh(installDir)).toBe(false)
+  })
+})
+
 describe('runLinuxLaunch (via selectLaunchFn) starting from a clean machine', () => {
   let userDataDir: string
   let installDir: string

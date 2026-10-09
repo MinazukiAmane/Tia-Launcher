@@ -1,11 +1,12 @@
 
 import { app } from 'electron'
 import { join } from 'path'
-import { writeFile, unlink, mkdir, rm } from 'fs/promises'
+import { writeFile, unlink, mkdir, rm, readFile } from 'fs/promises'
 import { readInstallState, writeInstallState, type InstallState } from './installState'
 import { fetchLauncherInfo } from './launcherApi'
+import type { VersionBlock } from './launcherApi'
 import { decideAction, reassembleParts } from './installManager'
-import { readManifest, applyPatch } from './patcher'
+import { readManifest, applyPatch, PatchVerificationError } from './patcher'
 import { bspatch } from './bsdiffAdapter'
 import { readSettings, buildGameLaunchArgs } from './settings'
 import { findGameExecutable, launchWindows } from './launcher/windows'
@@ -112,8 +113,31 @@ async function runMacLaunch(installDir: string, args: string[]): Promise<void> {
 
 let approvedInstallDir: string | null = null
 
-export function setApprovedInstallDir(dir: string): void {
+const APPROVED_INSTALL_DIR_FILENAME = 'approved-install-dir.json'
+
+function approvedInstallDirFilePath(): string {
+  return join(app.getPath('userData'), APPROVED_INSTALL_DIR_FILENAME)
+}
+
+async function readPersistedApprovedInstallDir(): Promise<string | null> {
+  try {
+    const raw = await readFile(approvedInstallDirFilePath(), 'utf-8')
+    const data = JSON.parse(raw) as { installDir?: unknown }
+    return typeof data.installDir === 'string' ? data.installDir : null
+  } catch {
+
+    return null
+  }
+}
+
+export async function setApprovedInstallDir(dir: string): Promise<void> {
   approvedInstallDir = dir
+  try {
+    await mkdir(app.getPath('userData'), { recursive: true })
+    await writeFile(approvedInstallDirFilePath(), JSON.stringify({ installDir: dir }), 'utf-8')
+  } catch {
+    // Keep session approval if persisting the selected folder fails.
+  }
 }
 
 export function getApprovedInstallDir(): string | null {
@@ -122,6 +146,7 @@ export function getApprovedInstallDir(): string | null {
 
 export async function isApprovedInstallDir(installDir: string): Promise<boolean> {
   if (installDir === approvedInstallDir) return true
+  if (installDir === (await readPersistedApprovedInstallDir())) return true
   return (await readInstallState(installDir)) !== null
 }
 
@@ -147,41 +172,70 @@ export interface ProgressUpdate {
   total: number
 }
 
+let operationInProgress = false
+
+export function isOperationInProgress(): boolean {
+  return operationInProgress
+}
+
+async function doFreshInstall(
+  target: VersionBlock,
+  installDir: string,
+  partsDir: string,
+  zipPath: string,
+  onProgress: (update: ProgressUpdate) => void
+): Promise<void> {
+  await reassembleParts(target.game_pkgs, zipPath, partsDir, (processed, total) =>
+    onProgress({ phase: 'downloading', processed, total })
+  )
+
+  const { default: AdmZip } = await import('adm-zip')
+  new AdmZip(zipPath).extractAllTo(installDir, true)
+  const newState: InstallState = { version: target.version, installDir, files: [] }
+  await writeInstallState(installDir, newState)
+}
+
 export async function performInstallOrUpdate(
   installDir: string,
   onProgress: (update: ProgressUpdate) => void
 ): Promise<void> {
-  const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
-  const state = await readInstallState(installDir)
-  const action = decideAction(info, state)
-
-  if (action.kind === 'up_to_date') return
-
-  const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
-  const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
-
+  operationInProgress = true
   try {
-    if (action.kind === 'fresh_install') {
-      await reassembleParts(action.target.game_pkgs, zipPath, partsDir, (processed, total) =>
+    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
+    const state = await readInstallState(installDir)
+    const action = decideAction(info, state)
+
+    if (action.kind === 'up_to_date') return
+
+    const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
+    const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
+
+    try {
+      if (action.kind === 'fresh_install') {
+        await doFreshInstall(action.target, installDir, partsDir, zipPath, onProgress)
+        return
+      }
+
+      // apply_patch
+      await reassembleParts(action.patch.game_pkgs, zipPath, partsDir, (processed, total) =>
         onProgress({ phase: 'downloading', processed, total })
       )
-
-      const { default: AdmZip } = await import('adm-zip')
-      new AdmZip(zipPath).extractAllTo(installDir, true)
-      const newState: InstallState = { version: action.target.version, installDir, files: [] }
+      const manifest = readManifest(zipPath)
+      try {
+        await applyPatch(installDir, zipPath, manifest, bspatch)
+      } catch (err) {
+        if (err instanceof PatchVerificationError && err.reasonCode === 'old_md5_mismatch' && info.main.major) {
+          await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress)
+          return
+        }
+        throw err
+      }
+      const newState: InstallState = { version: action.toVersion, installDir, files: [] }
       await writeInstallState(installDir, newState)
-      return
+    } finally {
+      await rm(zipPath, { force: true })
     }
-
-    // apply_patch
-    await reassembleParts(action.patch.game_pkgs, zipPath, partsDir, (processed, total) =>
-      onProgress({ phase: 'downloading', processed, total })
-    )
-    const manifest = readManifest(zipPath)
-    await applyPatch(installDir, zipPath, manifest, bspatch)
-    const newState: InstallState = { version: action.toVersion, installDir, files: [] }
-    await writeInstallState(installDir, newState)
   } finally {
-    await rm(zipPath, { force: true })
+    operationInProgress = false
   }
 }

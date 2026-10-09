@@ -2,6 +2,7 @@ import { app, dialog, ipcMain, shell } from 'electron'
 import { fetchLauncherInfo } from './launcherApi'
 import { readInstallState } from './installState'
 import { readSettings, writeSettings, type Settings } from './settings'
+import { getCachedNews, type NewsItem } from './news'
 import {
   performInstallOrUpdate,
   launchGame,
@@ -30,8 +31,12 @@ export async function handleChooseInstallFolder(): Promise<string | null> {
   if (!(await checkDirWritable(chosen))) {
     throw new Error(`"${chosen}" is not writable. Choose a different folder.`)
   }
-  setApprovedInstallDir(chosen)
+  await setApprovedInstallDir(chosen)
   return chosen
+}
+
+export async function handleGetNews(): Promise<NewsItem[]> {
+  return getCachedNews()
 }
 
 export async function handleGetSettings(): Promise<Settings> {
@@ -90,6 +95,7 @@ export function registerIpcHandlers(): void {
 }
 
 export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
+  ipcMain.handle('news:get', handleGetNews)
   ipcMain.handle('game:getLauncherInfo', handleGetLauncherInfo)
   ipcMain.handle('game:getInstallState', handleGetInstallState)
   ipcMain.handle('game:chooseInstallFolder', handleChooseInstallFolder)
@@ -98,6 +104,8 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('game:launch', handleLaunchGame)
   ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
   ipcMain.handle('app:getUserDataDir', () => app.getPath('userData'))
+
+  ipcMain.handle('app:getPlatform', () => process.platform)
   ipcMain.handle('window:minimize', () => win.minimize())
   ipcMain.handle('window:close', () => win.close())
 }

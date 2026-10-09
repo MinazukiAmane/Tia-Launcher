@@ -14,12 +14,18 @@ export function HomeScreen({ installDir, onNeedInstallDir }: HomeScreenProps): R
   const [state, setState] = useState<ActionState>('loading')
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isMac, setIsMac] = useState(false)
 
   useEffect(() => {
     const unsubscribe = window.csore.onProgress((update) => {
       setProgress(update)
     })
     return unsubscribe
+  }, [])
+
+  useEffect(() => {
+
+    window.csore.getPlatform().then((platform) => setIsMac(platform === 'darwin'))
   }, [])
 
   async function refreshState(): Promise<void> {
@@ -103,6 +109,11 @@ export function HomeScreen({ installDir, onNeedInstallDir }: HomeScreenProps): R
       </div>
 
       <div className="absolute bottom-8 right-8 flex flex-col items-end gap-3">
+        {isMac && (
+          <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-xs font-semibold tracking-wide text-yellow-300">
+            Experimental (macOS)
+          </span>
+        )}
         {state === 'working' && progress && (
           <ProgressBar processed={progress.processed} total={progress.total} label={buttonLabel.working} />
         )}
