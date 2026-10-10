@@ -60,6 +60,26 @@ describe('decideAction', () => {
     const action = decideAction(makeInfo('0.1.51', [{ version: '0.0.51' }]), state)
     expect(action.kind).toBe('fresh_install')
   })
+
+  it('returns resume_audio_patch when a pending marker exists and InstallState already agrees with it', () => {
+    const state: InstallState = { version: '1.1.0', installDir: '/x', files: [] }
+    const pending = { toVersion: '1.1.0', audioPkgs: [] }
+    const action = decideAction(makeInfo('1.1.0'), state, pending)
+    expect(action).toEqual({ kind: 'resume_audio_patch', pending })
+  })
+
+  it('does NOT return resume_audio_patch when the marker exists but InstallState has not been bumped to it yet (crash-between-writes window)', () => {
+    const state: InstallState = { version: '1.0.0', installDir: '/x', files: [] }
+    const pending = { toVersion: '1.1.0', audioPkgs: [] }
+    const action = decideAction(makeInfo('1.1.0', [{ version: '1.0.0' }]), state, pending)
+    expect(action.kind).toBe('apply_patch')
+  })
+
+  it('does NOT return resume_audio_patch when there is no InstallState at all', () => {
+    const pending = { toVersion: '1.1.0', audioPkgs: [] }
+    const action = decideAction(makeInfo('1.1.0'), null, pending)
+    expect(action.kind).toBe('fresh_install')
+  })
 })
 
 describe('reassembleParts', () => {
