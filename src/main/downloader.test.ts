@@ -25,7 +25,18 @@ beforeAll(async () => {
   server = createServer((req, res) => {
     if (req.url === '/throttle-target') {
       res.writeHead(200, { 'Content-Length': String(THROTTLE_CONTENT.length) })
-      res.end(THROTTLE_CONTENT)
+      const stepSize = 4000
+      let offset = 0
+      const sendNext = (): void => {
+        if (offset >= THROTTLE_CONTENT.length) {
+          res.end()
+          return
+        }
+        const slice = THROTTLE_CONTENT.subarray(offset, offset + stepSize)
+        offset += stepSize
+        res.write(slice, () => setImmediate(sendNext))
+      }
+      sendNext()
       return
     }
 
