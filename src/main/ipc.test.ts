@@ -300,25 +300,46 @@ describe('handleShowLogFileInFolder', () => {
 })
 
 describe('handleClearDownloadCache', () => {
+  it('rejects an installDir that was never approved via chooseInstallFolder', async () => {
+    const neverApprovedDir = join(tmpdir(), `csore-unapproved-clear-${Date.now()}`)
+    await expect(handleClearDownloadCache(undefined, neverApprovedDir)).rejects.toThrow(
+      /not an approved install directory/i
+    )
+  })
+
   it('resolves without throwing when nothing is there to clear', async () => {
+    const { handleChooseInstallFolder } = await import('./ipc')
+    const { dialog } = await import('electron')
     const dir = await mkdtemp(join(tmpdir(), 'csore-clear-cache-test-'))
-    getPathMock.mockImplementation((name: string) => (name === 'temp' ? dir : `/mock/${name}`))
-    await expect(handleClearDownloadCache()).resolves.toBeUndefined()
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+      canceled: false,
+      filePaths: [dir]
+    } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
+    await handleChooseInstallFolder()
+
+    await expect(handleClearDownloadCache(undefined, dir)).resolves.toBeUndefined()
     await rm(dir, { recursive: true, force: true })
   })
 
-  it('actually deletes the leftover parts dir and zip files when present', async () => {
+  it('actually deletes the leftover .csore_download_tmp staging folder when present', async () => {
+    const { handleChooseInstallFolder } = await import('./ipc')
+    const { dialog } = await import('electron')
     const dir = await mkdtemp(join(tmpdir(), 'csore-clear-cache-test-'))
-    getPathMock.mockImplementation((name: string) => (name === 'temp' ? dir : `/mock/${name}`))
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+      canceled: false,
+      filePaths: [dir]
+    } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
+    await handleChooseInstallFolder()
+
     const { mkdir, writeFile, access } = await import('fs/promises')
-    await mkdir(join(dir, 'csore-launcher-parts'), { recursive: true })
-    await writeFile(join(dir, 'csore-launcher-parts', 'part-0'), 'leftover')
-    await writeFile(join(dir, 'csore-launcher-download.zip'), 'leftover zip')
+    const stagingDir = join(dir, '.csore_download_tmp')
+    await mkdir(join(stagingDir, 'parts'), { recursive: true })
+    await writeFile(join(stagingDir, 'parts', 'part-0'), 'leftover')
+    await writeFile(join(stagingDir, 'download.zip'), 'leftover zip')
 
-    await handleClearDownloadCache()
+    await handleClearDownloadCache(undefined, dir)
 
-    await expect(access(join(dir, 'csore-launcher-parts'))).rejects.toThrow()
-    await expect(access(join(dir, 'csore-launcher-download.zip'))).rejects.toThrow()
+    await expect(access(stagingDir)).rejects.toThrow()
     await rm(dir, { recursive: true, force: true })
   })
 })

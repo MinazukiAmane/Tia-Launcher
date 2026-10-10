@@ -390,8 +390,10 @@ export async function performInstallOrUpdate(
     const state = await readInstallState(installDir)
 
     const maxBytesPerSecond = await resolveMaxBytesPerSecond()
-    const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
-    const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
+
+    const downloadTmpDir = join(installDir, '.csore_download_tmp')
+    const partsDir = join(downloadTmpDir, 'parts')
+    const zipPath = join(downloadTmpDir, 'download.zip')
 
     const pendingAudio = await readPendingAudioPatch(installDir)
     const action = decideAction(info, state, pendingAudio)
@@ -565,8 +567,10 @@ export async function repairInstall(
     if (!info.main.major) throw new Error('no published main version available for this game')
 
     const maxBytesPerSecond = await resolveMaxBytesPerSecond()
-    const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
-    const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
+
+    const downloadTmpDir = join(installDir, '.csore_download_tmp')
+    const partsDir = join(downloadTmpDir, 'parts')
+    const zipPath = join(downloadTmpDir, 'download.zip')
     try {
       await doFreshInstall(
         info.main.major,

@@ -37,7 +37,8 @@ const gameApi = {
   showInstallDirInFolder: (installDir: string): Promise<void> =>
     ipcRenderer.invoke('game:showInstallDirInFolder', installDir),
 
-  clearDownloadCache: (): Promise<void> => ipcRenderer.invoke('game:clearDownloadCache'),
+  clearDownloadCache: (installDir: string): Promise<void> =>
+    ipcRenderer.invoke('game:clearDownloadCache', installDir),
   onProgress: (callback: (update: import('../main/gameManager').ProgressUpdate) => void): (() => void) => {
     const listener = (_event: unknown, update: import('../main/gameManager').ProgressUpdate): void => callback(update)
     ipcRenderer.on('game:progress', listener)

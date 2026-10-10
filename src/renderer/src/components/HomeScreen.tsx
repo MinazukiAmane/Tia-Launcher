@@ -305,8 +305,9 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
 
   async function handleClearCache(): Promise<void> {
     setMenuOpen(false)
+    if (!installDir) return
     try {
-      await window.csore.clearDownloadCache()
+      await window.csore.clearDownloadCache(installDir)
       setToast('Download cache cleared.')
     } catch {
       setToast('Could not clear the download cache.')

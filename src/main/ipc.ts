@@ -182,13 +182,9 @@ export async function handleShowInstallDirInFolder(
   showFn(installDir)
 }
 
-export async function handleClearDownloadCache(): Promise<void> {
-  const tempDir = app.getPath('temp')
-  await Promise.all([
-    rm(join(tempDir, 'csore-launcher-parts'), { recursive: true, force: true }),
-    rm(join(tempDir, 'csore-launcher-download.zip'), { force: true }),
-    rm(join(tempDir, 'csore-launcher-download.zip.audio.zip'), { force: true })
-  ])
+export async function handleClearDownloadCache(_event: unknown, installDir: string): Promise<void> {
+  await assertApprovedInstallDir(installDir)
+  await rm(join(installDir, '.csore_download_tmp'), { recursive: true, force: true })
 }
 
 export function registerIpcHandlers(): void {

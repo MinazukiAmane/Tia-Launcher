@@ -214,7 +214,7 @@ describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercise
 
     await expect(readFile(join(installDir, 'Audio', 'voice_en.bin'))).rejects.toThrow()
 
-    const partsDir = join(tempDir, 'csore-launcher-parts')
+    const partsDir = join(installDir, '.csore_download_tmp', 'parts')
     const gamePartStat = await stat(join(partsDir, `part-${GAME_ZIP_MD5}`))
     expect(gamePartStat.size).toBe(GAME_ZIP.length)
     const audioPartStat = await stat(join(partsDir, `part-${AUDIO_ZIP_MD5}`))

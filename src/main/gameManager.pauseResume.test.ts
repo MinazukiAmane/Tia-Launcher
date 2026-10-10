@@ -168,7 +168,7 @@ describe('pause/resume (real local-server download)', () => {
 
     expect(isOperationInProgress()).toBe(false)
 
-    const partPath = join(tempDir, 'csore-launcher-parts', `part-${CLIENT_ZIP_MD5}`)
+    const partPath = join(installDir, '.csore_download_tmp', 'parts', `part-${CLIENT_ZIP_MD5}`)
     const partStat = await stat(partPath)
     expect(partStat.size).toBeGreaterThan(0)
     expect(partStat.size).toBeLessThan(CLIENT_ZIP.length)
