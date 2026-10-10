@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { HomeScreen } from './components/HomeScreen'
+import { HomeScreen, INSTALL_CONFIRMED_STORAGE_KEY } from './components/HomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UpdateWindow } from './components/UpdateWindow'
 
@@ -61,6 +61,7 @@ export default function App(): React.JSX.Element {
 
   function handleUninstalled(): void {
     localStorage.removeItem(INSTALL_DIR_STORAGE_KEY)
+    localStorage.removeItem(INSTALL_CONFIRMED_STORAGE_KEY)
     setInstallDir(null)
   }
 

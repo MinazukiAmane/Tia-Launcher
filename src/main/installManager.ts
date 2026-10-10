@@ -76,13 +76,14 @@ async function downloadPartWithRetry(
   maxBytesPerSecond: number | undefined,
   externalSignal: AbortSignal | undefined,
   retryOptions: Required<PartRetryOptions>,
-  idleTimeoutMs?: number
+  idleTimeoutMs?: number,
+  onBytes?: (bytesWritten: number) => void
 ): Promise<void> {
   let attempt = 0
   for (;;) {
     attempt++
     try {
-      await downloadPart(part, partPath, undefined, idleTimeoutMs, maxBytesPerSecond, externalSignal)
+      await downloadPart(part, partPath, onBytes, idleTimeoutMs, maxBytesPerSecond, externalSignal)
       return
     } catch (err) {
       if (err instanceof DownloadPausedError) throw err
@@ -114,6 +115,7 @@ export async function reassembleParts(
   parts: PkgEntry[],
   destZipPath: string,
   partsDir: string,
+
   onProgress?: (processed: number, total: number) => void,
 
   maxBytesPerSecond?: number,
@@ -126,8 +128,13 @@ export async function reassembleParts(
   const effectiveRetryOptions: Required<PartRetryOptions> = { ...DEFAULT_RETRY_OPTIONS, ...retryOptions }
   await mkdir(partsDir, { recursive: true })
 
+  const totalBytes = parts.reduce((sum, p) => sum + Number(p.size), 0)
+  let completedBytes = 0
+  let lastEmit = 0
+  onProgress?.(0, totalBytes)
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i]
+    const partSize = Number(part.size)
     const partPath = join(partsDir, `part-${part.md5}`)
     logDebug('reassembleParts: starting part download', { url: part.url, index: i, total: parts.length })
     await downloadPartWithRetry(
@@ -136,9 +143,17 @@ export async function reassembleParts(
       maxBytesPerSecond,
       externalSignal,
       effectiveRetryOptions,
-      idleTimeoutMsOverride
+      idleTimeoutMsOverride,
+      (written) => {
+        const now = Date.now()
+        if (now - lastEmit < 250) return
+        lastEmit = now
+        onProgress?.(completedBytes + Math.min(written, partSize), totalBytes)
+      }
     )
-    onProgress?.(i + 1, parts.length)
+    completedBytes += partSize
+    lastEmit = Date.now()
+    onProgress?.(completedBytes, totalBytes)
   }
 
   const destStream = createWriteStream(destZipPath, { flags: 'w' })

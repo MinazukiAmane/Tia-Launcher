@@ -45,6 +45,17 @@ function BurgerIcon(): React.JSX.Element {
   )
 }
 
+
+export const INSTALL_CONFIRMED_STORAGE_KEY = 'csore-install-path-confirmed'
+
+function isInstallPathConfirmed(dir: string): boolean {
+  try {
+    return localStorage.getItem(INSTALL_CONFIRMED_STORAGE_KEY) === dir
+  } catch {
+    return false
+  }
+}
+
 function FolderIcon(): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current" fill="none" strokeWidth={2}>
@@ -238,6 +249,10 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
     }
     if (state === 'fresh_install') {
       // Confirm the destination before downloading.
+      if (isInstallPathConfirmed(installDir)) {
+        await runInstallOrUpdate()
+        return
+      }
       setConfirmingInstall(true)
       return
     }
@@ -246,6 +261,11 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
 
   async function handleConfirmInstall(): Promise<void> {
     setConfirmingInstall(false)
+    try {
+      if (installDir) localStorage.setItem(INSTALL_CONFIRMED_STORAGE_KEY, installDir)
+    } catch {
+      // storage unavailable: worst case the dialog shows again next time
+    }
     await runInstallOrUpdate()
   }
 
@@ -509,7 +529,14 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Game Install Path</p>
               <div className="flex items-center gap-2 rounded bg-white/5 px-3 py-2 text-white/80">
                 <span className="flex-1 truncate">{installDir}</span>
-                <FolderIcon />
+                <button
+                  type="button"
+                  title="Choose a different folder"
+                  onClick={() => onNeedInstallDir()}
+                  className="flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/10 hover:text-white"
+                >
+                  <FolderIcon />
+                </button>
               </div>
             </div>
             {}

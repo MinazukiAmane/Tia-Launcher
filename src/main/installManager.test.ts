@@ -142,6 +142,40 @@ describe('reassembleParts', () => {
     expect(got.equals(Buffer.concat([chunkA, chunkB]))).toBe(true)
   })
 
+  it('reports progress in bytes across all parts (total = sum of part sizes, monotonic, ends at total)', async () => {
+    const dir = await makeTempDir()
+    const partsDir = join(dir, 'parts')
+    const destZip = join(dir, 'out.zip')
+
+    const chunkA = Buffer.alloc(3000, 'a')
+    const chunkB = Buffer.alloc(5000, 'b')
+    const byUrl: Record<string, Buffer> = { '/a': chunkA, '/b': chunkB }
+
+    server = createServer((req, res) => {
+      const body = byUrl[req.url ?? '']
+      res.writeHead(200, { 'Content-Length': String(body.length) })
+      res.end(body)
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('server did not bind')
+    baseUrl = `http://127.0.0.1:${address.port}`
+
+    const parts: PkgEntry[] = [
+      { url: `${baseUrl}/a`, md5: createHash('md5').update(chunkA).digest('hex'), size: String(chunkA.length), decompressed_size: '0' },
+      { url: `${baseUrl}/b`, md5: createHash('md5').update(chunkB).digest('hex'), size: String(chunkB.length), decompressed_size: '0' }
+    ]
+
+    const updates: Array<[number, number]> = []
+    await reassembleParts(parts, destZip, partsDir, (processed, total) => updates.push([processed, total]))
+
+    expect(updates.length).toBeGreaterThanOrEqual(3)
+    expect(updates.every(([, total]) => total === 8000)).toBe(true)
+    for (let i = 1; i < updates.length; i++) expect(updates[i][0]).toBeGreaterThanOrEqual(updates[i - 1][0])
+    expect(updates.map(([p]) => p)).toContain(3000)
+    expect(updates[updates.length - 1]).toEqual([8000, 8000])
+  })
+
   it('downloads parts in array order even when later parts would resolve faster', async () => {
     const dir = await makeTempDir()
     const partsDir = join(dir, 'parts')
