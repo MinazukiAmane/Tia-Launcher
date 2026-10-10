@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import heroBackground from '../assets/hero-background.png'
 import { NoticesPanel } from './NoticesPanel'
 import { SystemNotificationModal } from './SystemNotificationModal'
+import { ProgressBar } from './ProgressBar'
 
 
 type ActionState = 'loading' | 'fresh_install' | 'up_to_date' | 'apply_patch' | 'working' | 'paused' | 'error'
@@ -375,6 +376,15 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
         {verifying && <p className="text-xs text-white/60">Checking game integrity…</p>}
         {verifyMessage && <p className="text-xs text-white/70">{verifyMessage}</p>}
         {errorMessage && <p className="max-w-xs text-right text-sm text-red-400">{errorMessage}</p>}
+
+        {}
+        {(state === 'working' || repairing) && progress && (
+          <ProgressBar
+            processed={progress.processed}
+            total={progress.total}
+            label={PHASE_LABEL[progress.phase] ?? progress.phase}
+          />
+        )}
 
         {/* Detailed hover popup (ref/launcher-cursor-hover-ondownloading- button-change.png): phase, percent + byte counts, speed, ETA. */}
         {isHovering && (state === 'working' || repairing) && progress && (
