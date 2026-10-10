@@ -18,6 +18,12 @@ export default function App(): React.JSX.Element {
     window.csore.getUserDataDir().then(setUserDataDir)
   }, [])
 
+
+  function handleUninstalled(): void {
+    localStorage.removeItem(INSTALL_DIR_STORAGE_KEY)
+    setInstallDir(null)
+  }
+
   async function pickInstallDir(): Promise<void> {
     setPickError(null)
     try {
@@ -84,6 +90,7 @@ export default function App(): React.JSX.Element {
           userDataDir={userDataDir}
           onChangeInstallDir={pickInstallDir}
           onClose={() => setSettingsOpen(false)}
+          onUninstalled={handleUninstalled}
         />
       )}
 
