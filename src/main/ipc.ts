@@ -172,6 +172,16 @@ export function handleShowLogFileInFolder(
   showFn(logFilePath())
 }
 
+// Open the selected installation folder.
+export async function handleShowInstallDirInFolder(
+  _event: unknown,
+  installDir: string,
+  showFn: (path: string) => void = shell.showItemInFolder
+): Promise<void> {
+  await assertApprovedInstallDir(installDir)
+  showFn(installDir)
+}
+
 export async function handleClearDownloadCache(): Promise<void> {
   const tempDir = app.getPath('temp')
   await Promise.all([
@@ -204,6 +214,7 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('game:getWhiskyStatus', handleGetWhiskyStatus)
   ipcMain.handle('game:getLogFilePath', handleGetLogFilePath)
   ipcMain.handle('game:showLogFileInFolder', () => handleShowLogFileInFolder())
+  ipcMain.handle('game:showInstallDirInFolder', handleShowInstallDirInFolder)
   ipcMain.handle('game:clearDownloadCache', handleClearDownloadCache)
   ipcMain.handle('app:getUserDataDir', () => app.getPath('userData'))
 

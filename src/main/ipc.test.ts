@@ -35,6 +35,7 @@ import {
   handlePauseInstallOrUpdate,
   handleGetLogFilePath,
   handleShowLogFileInFolder,
+  handleShowInstallDirInFolder,
   handleClearDownloadCache,
   registerGameIpcHandlers
 } from './ipc'
@@ -135,6 +136,31 @@ describe('handleLaunchGame', () => {
   it('rejects an installDir that was never approved via chooseInstallFolder', async () => {
     const neverApprovedDir = join(tmpdir(), `csore-unapproved-${Date.now()}`)
     await expect(handleLaunchGame(undefined, neverApprovedDir)).rejects.toThrow(/not an approved install directory/i)
+  })
+})
+
+describe('handleShowInstallDirInFolder', () => {
+  it('rejects an installDir that was never approved via chooseInstallFolder', async () => {
+    const neverApprovedDir = join(tmpdir(), `csore-unapproved-reveal-${Date.now()}`)
+    await expect(handleShowInstallDirInFolder(undefined, neverApprovedDir)).rejects.toThrow(
+      /not an approved install directory/i
+    )
+  })
+
+  it('invokes the injected showFn with the approved install dir', async () => {
+    const { handleChooseInstallFolder } = await import('./ipc')
+    const { dialog } = await import('electron')
+    const dir = await mkdtemp(join(tmpdir(), 'csore-reveal-test-'))
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+      canceled: false,
+      filePaths: [dir]
+    } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
+    await handleChooseInstallFolder()
+
+    const calls: string[] = []
+    await handleShowInstallDirInFolder(undefined, dir, (p) => calls.push(p))
+    expect(calls).toEqual([dir])
+    await rm(dir, { recursive: true, force: true })
   })
 })
 
@@ -243,6 +269,7 @@ describe('new IPC channels are all registered', () => {
         'game:pauseInstallOrUpdate',
         'game:getLogFilePath',
         'game:showLogFileInFolder',
+        'game:showInstallDirInFolder',
         'game:clearDownloadCache'
       ])
     )

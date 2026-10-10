@@ -34,6 +34,9 @@ const gameApi = {
   getLogFilePath: (): Promise<string> => ipcRenderer.invoke('game:getLogFilePath'),
   showLogFileInFolder: (): Promise<void> => ipcRenderer.invoke('game:showLogFileInFolder'),
 
+  showInstallDirInFolder: (installDir: string): Promise<void> =>
+    ipcRenderer.invoke('game:showInstallDirInFolder', installDir),
+
   clearDownloadCache: (): Promise<void> => ipcRenderer.invoke('game:clearDownloadCache'),
   onProgress: (callback: (update: import('../main/gameManager').ProgressUpdate) => void): (() => void) => {
     const listener = (_event: unknown, update: import('../main/gameManager').ProgressUpdate): void => callback(update)
