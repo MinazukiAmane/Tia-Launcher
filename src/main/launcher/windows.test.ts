@@ -1,8 +1,13 @@
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mkdtemp, rm, mkdir, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join, dirname } from 'path'
+
+vi.mock('electron', () => ({
+  app: { getPath: (name: string) => `/mock/${name}` }
+}))
+
 import { findGameExecutable, launchWindows } from './windows'
 
 let tempDirs: string[] = []
@@ -55,5 +60,93 @@ describe('launchWindows', () => {
     const { readFile } = await import('fs/promises')
     const cwdSeen = await readFile(outPath, 'utf-8')
     expect(cwdSeen.trim()).toBe(dirname(process.execPath))
+  })
+})
+
+describe('launchWindows: Launch Command wrapper', () => {
+  afterEach(() => {
+    vi.doUnmock('child_process')
+    vi.resetModules()
+  })
+
+  it('with no launchCommand, spawns in the exact same array-form shape as before (no regression)', async () => {
+    vi.resetModules()
+    const spawnCalls: unknown[][] = []
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return {
+        ...actual,
+        spawn: vi.fn((...args: unknown[]) => {
+          spawnCalls.push(args)
+          const { EventEmitter } = require('events')
+          const child = new EventEmitter()
+          child.unref = () => {}
+          setImmediate(() => child.emit('spawn'))
+          return child
+        })
+      }
+    })
+
+    const { launchWindows: launchWindowsMocked } = await import('./windows')
+    await launchWindowsMocked('C:\\Games\\Bin\\cstrike-online.exe', ['-lang', 'na_en'], null)
+
+    expect(spawnCalls).toHaveLength(1)
+    const [command, args, options] = spawnCalls[0] as [string, string[], { shell?: boolean }]
+    expect(command).toBe('C:\\Games\\Bin\\cstrike-online.exe')
+    expect(args).toEqual(['-lang', 'na_en'])
+    expect(options.shell).toBeUndefined()
+  })
+
+  it('with a launchCommand containing %command%, substitutes the real quoted command and spawns via shell:true', async () => {
+    vi.resetModules()
+    const spawnCalls: unknown[][] = []
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return {
+        ...actual,
+        spawn: vi.fn((...args: unknown[]) => {
+          spawnCalls.push(args)
+          const { EventEmitter } = require('events')
+          const child = new EventEmitter()
+          child.unref = () => {}
+          setImmediate(() => child.emit('spawn'))
+          return child
+        })
+      }
+    })
+
+    const { launchWindows: launchWindowsMocked } = await import('./windows')
+    await launchWindowsMocked('C:\\Games\\Bin\\cstrike-online.exe', ['-lang', 'na_en'], 'echo before && %command%')
+
+    expect(spawnCalls).toHaveLength(1)
+    const [command, options] = spawnCalls[0] as [string, { shell?: boolean }]
+    expect(command).toBe('echo before && "C:\\Games\\Bin\\cstrike-online.exe" "-lang" "na_en"')
+    expect(options.shell).toBe(true)
+  })
+
+  it('with a launchCommand missing %command%, appends the real command at the end', async () => {
+    vi.resetModules()
+    const spawnCalls: unknown[][] = []
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return {
+        ...actual,
+        spawn: vi.fn((...args: unknown[]) => {
+          spawnCalls.push(args)
+          const { EventEmitter } = require('events')
+          const child = new EventEmitter()
+          child.unref = () => {}
+          setImmediate(() => child.emit('spawn'))
+          return child
+        })
+      }
+    })
+
+    const { launchWindows: launchWindowsMocked } = await import('./windows')
+    await launchWindowsMocked('C:\\Games\\Bin\\cstrike-online.exe', [], 'prime-run')
+
+    expect(spawnCalls).toHaveLength(1)
+    const [command] = spawnCalls[0] as [string]
+    expect(command).toBe('prime-run "C:\\Games\\Bin\\cstrike-online.exe"')
   })
 })

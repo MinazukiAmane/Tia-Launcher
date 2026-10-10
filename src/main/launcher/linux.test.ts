@@ -7,6 +7,11 @@ import { join } from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { createHash } from 'crypto'
+
+vi.mock('electron', () => ({
+  app: { getPath: (name: string) => `/mock/${name}` }
+}))
+
 import {
   fetchLatestDWProtonRelease,
   dwprotonInstallDir,
@@ -248,5 +253,74 @@ describe('launchLinux', () => {
 
     vi.doUnmock('child_process')
     vi.resetModules()
+  })
+})
+
+describe('launchLinux: Launch Command wrapper', () => {
+  afterEach(() => {
+    vi.doUnmock('child_process')
+    vi.resetModules()
+  })
+
+  it('with no launchCommand, spawns umu-run in the exact same array-form shape as before (no regression)', async () => {
+    vi.resetModules()
+    const spawnCalls: unknown[][] = []
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return {
+        ...actual,
+        spawn: vi.fn((...args: unknown[]) => {
+          spawnCalls.push(args)
+          const child = new EventEmitter() as EventEmitter & { unref: () => void }
+          child.unref = () => {}
+          setImmediate(() => child.emit('spawn'))
+          return child
+        })
+      }
+    })
+
+    const { launchLinux: launchLinuxMocked } = await import('./linux')
+    await launchLinuxMocked('/fake/proton', '/fake/prefix', '/fake/Bin/cstrike-online.exe', ['-lang', 'na_en'], null)
+
+    expect(spawnCalls).toHaveLength(1)
+    const [command, args, options] = spawnCalls[0] as [string, string[], { shell?: boolean; env: Record<string, string> }]
+    expect(command).toBe('umu-run')
+    expect(args).toEqual(['/fake/Bin/cstrike-online.exe', '-lang', 'na_en'])
+    expect(options.shell).toBeUndefined()
+    expect(options.env.PROTONPATH).toBe('/fake/proton')
+  })
+
+  it('with a launchCommand containing %command%, wraps the FULL umu-run invocation and spawns via shell:true, env still set', async () => {
+    vi.resetModules()
+    const spawnCalls: unknown[][] = []
+    vi.doMock('child_process', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('child_process')>()
+      return {
+        ...actual,
+        spawn: vi.fn((...args: unknown[]) => {
+          spawnCalls.push(args)
+          const child = new EventEmitter() as EventEmitter & { unref: () => void }
+          child.unref = () => {}
+          setImmediate(() => child.emit('spawn'))
+          return child
+        })
+      }
+    })
+
+    const { launchLinux: launchLinuxMocked } = await import('./linux')
+    await launchLinuxMocked(
+      '/fake/proton',
+      '/fake/prefix',
+      '/fake/Bin/cstrike-online.exe',
+      [],
+      'prime-run %command%'
+    )
+
+    expect(spawnCalls).toHaveLength(1)
+    const [command, options] = spawnCalls[0] as [string, { shell?: boolean; env: Record<string, string> }]
+    expect(command).toBe("prime-run 'umu-run' '/fake/Bin/cstrike-online.exe'")
+    expect(options.shell).toBe(true)
+    expect(options.env.PROTONPATH).toBe('/fake/proton')
+    expect(options.env.WINEPREFIX).toBe('/fake/prefix')
   })
 })

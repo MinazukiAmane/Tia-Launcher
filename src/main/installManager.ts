@@ -31,7 +31,9 @@ export async function reassembleParts(
   partsDir: string,
   onProgress?: (processed: number, total: number) => void,
 
-  maxBytesPerSecond?: number
+  maxBytesPerSecond?: number,
+  // Optional pause/cancellation signal, forwarded unchanged to every downloadPart call below.
+  externalSignal?: AbortSignal
 ): Promise<void> {
   await mkdir(partsDir, { recursive: true })
 
@@ -43,7 +45,8 @@ export async function reassembleParts(
       partPath,
       undefined,
       undefined,
-      maxBytesPerSecond
+      maxBytesPerSecond,
+      externalSignal
     )
     onProgress?.(i + 1, parts.length)
   }

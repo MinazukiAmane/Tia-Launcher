@@ -6,6 +6,8 @@ import { access, mkdir, rm, rename } from 'fs/promises'
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
 import { pipeline } from 'stream/promises'
+import { buildWrappedCommand, quoteShellArgUnix } from './launchCommand'
+import { logInfo, logDebug, logError } from '../logger'
 
 const execFileAsync = promisify(execFile)
 
@@ -103,33 +105,55 @@ export async function extractDWProtonTarball(tarballPath: string, destDir: strin
   }
 }
 
-export function launchLinux(protonDir: string, compatDataDir: string, exePath: string, args: string[]): Promise<void> {
+export function launchLinux(
+  protonDir: string,
+  compatDataDir: string,
+  exePath: string,
+  args: string[],
+  launchCommand?: string | null
+): Promise<void> {
+  logInfo('launchLinux: attempting launch', { exePath, protonDir })
+  const env = {
+    ...process.env,
+    PROTONPATH: protonDir,
+    GAMEID: 'csore-launcher',
+    WINEPREFIX: compatDataDir
+  }
+  const realCommand = ['umu-run', exePath, ...args].map(quoteShellArgUnix).join(' ')
+  const wrapped = buildWrappedCommand(launchCommand, realCommand)
+  if (wrapped) logDebug('launchLinux: resolved launch command', { command: wrapped })
+
   return new Promise((resolve, reject) => {
-    const child = spawn('umu-run', [exePath, ...args], {
-      cwd: dirname(exePath),
-      env: {
-        ...process.env,
-        PROTONPATH: protonDir,
-        GAMEID: 'csore-launcher',
-        WINEPREFIX: compatDataDir
-      },
-      detached: true,
-      stdio: 'ignore'
-    })
+    const child =
+      wrapped === null
+        ? spawn('umu-run', [exePath, ...args], {
+            cwd: dirname(exePath),
+            env,
+            detached: true,
+            stdio: 'ignore'
+          })
+        : spawn(wrapped, {
+            cwd: dirname(exePath),
+            env,
+            detached: true,
+            stdio: 'ignore',
+            // Launch Command wrappers require a shell.
+            shell: true
+          })
 
     child.once('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'ENOENT') {
-        reject(
-          new Error(
-            'umu-launcher is not installed (umu-run not found on PATH). Install it from https://github.com/Open-Wine-Components/umu-launcher and try again.'
-          )
-        )
-        return
-      }
-      reject(new Error(`Could not start the game: ${err.message}`))
+      const launchErr =
+        wrapped === null && err.code === 'ENOENT'
+          ? new Error(
+              'umu-launcher is not installed (umu-run not found on PATH). Install it from https://github.com/Open-Wine-Components/umu-launcher and try again.'
+            )
+          : new Error(`Could not start the game: ${err.message}`)
+      logError('launchLinux: failed', { exePath, error: launchErr.message })
+      reject(launchErr)
     })
     child.once('spawn', () => {
       child.unref()
+      logInfo('launchLinux: succeeded', { exePath })
       resolve()
     })
   })

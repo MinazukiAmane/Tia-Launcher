@@ -5,7 +5,7 @@ import { mkdtemp, rm, writeFile, readFile, access } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { createHash } from 'crypto'
-import { downloadPart, DownloadVerificationError, type DownloadPart } from './downloader'
+import { downloadPart, DownloadVerificationError, DownloadPausedError, type DownloadPart } from './downloader'
 
 const CONTENT = Buffer.from('x'.repeat(5000), 'utf-8')
 const CONTENT_MD5 = createHash('md5').update(CONTENT).digest('hex')
@@ -191,6 +191,62 @@ describe('downloadPart', () => {
 
     expect(got.length).toBe(CONTENT.length)
     expect(got.equals(CONTENT)).toBe(true)
+  })
+
+  describe('externalSignal pause/resume', () => {
+    it('stops cleanly mid-transfer, leaves the partial file intact, and rejects with DownloadPausedError (not DownloadVerificationError)', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'part1')
+
+      const part: DownloadPart = { url: `${baseUrl}/slow-but-steady`, md5: CONTENT_MD5, size: CONTENT.length }
+
+      const controller = new AbortController()
+      setTimeout(() => controller.abort(), 65) // after roughly 2 chunks
+
+      await expect(downloadPart(part, dest, undefined, undefined, undefined, controller.signal)).rejects.toBeInstanceOf(
+        DownloadPausedError
+      )
+
+      const partial = await readFile(dest)
+      expect(partial.length).toBeGreaterThan(0)
+      expect(partial.length).toBeLessThan(CONTENT.length)
+      expect(CONTENT.subarray(0, partial.length).equals(partial)).toBe(true)
+    })
+
+    it('genuinely resumes and completes after a pause, passing MD5 verification', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'part1')
+      const part: DownloadPart = { url: `${baseUrl}/slow-but-steady`, md5: CONTENT_MD5, size: CONTENT.length }
+
+      const controller = new AbortController()
+      setTimeout(() => controller.abort(), 65)
+      await expect(downloadPart(part, dest, undefined, undefined, undefined, controller.signal)).rejects.toBeInstanceOf(
+        DownloadPausedError
+      )
+      const partialSize = (await readFile(dest)).length
+      expect(partialSize).toBeGreaterThan(0)
+      expect(partialSize).toBeLessThan(CONTENT.length)
+
+      await downloadPart(part, dest)
+
+      const got = await readFile(dest)
+      expect(got.length).toBe(CONTENT.length)
+      expect(got.equals(CONTENT)).toBe(true)
+    })
+
+    it('throws DownloadPausedError immediately if the signal is already aborted before starting', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'part1')
+      const part: DownloadPart = { url: baseUrl, md5: CONTENT_MD5, size: CONTENT.length }
+
+      const controller = new AbortController()
+      controller.abort()
+
+      await expect(downloadPart(part, dest, undefined, undefined, undefined, controller.signal)).rejects.toBeInstanceOf(
+        DownloadPausedError
+      )
+      await expect(access(dest)).rejects.toThrow() // never started, nothing written
+    })
   })
 
   describe('maxBytesPerSecond throttling', () => {

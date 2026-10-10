@@ -8,7 +8,7 @@ const getPathMock = vi.fn((name: string) => `/mock/${name}`)
 vi.mock('electron', () => ({
   app: { getPath: (name: string) => getPathMock(name) },
   dialog: { showOpenDialog: vi.fn() },
-  shell: { openExternal: vi.fn() },
+  shell: { openExternal: vi.fn(), showItemInFolder: vi.fn() },
   ipcMain: { handle: vi.fn(), on: vi.fn() }
 }))
 
@@ -32,6 +32,10 @@ import {
   handleGetDWProtonStatus,
   makeHandleRedownloadDWProton,
   handleGetWhiskyStatus,
+  handlePauseInstallOrUpdate,
+  handleGetLogFilePath,
+  handleShowLogFileInFolder,
+  handleClearDownloadCache,
   registerGameIpcHandlers
 } from './ipc'
 import { ipcMain } from 'electron'
@@ -62,6 +66,10 @@ describe('isAllowedExternalUrl', () => {
 
   it('rejects a different https host', () => {
     expect(isAllowedExternalUrl('https://evil.example.com/phish')).toBe(false)
+  })
+
+  it('allows an https tako.id URL (donate button)', () => {
+    expect(isAllowedExternalUrl('https://tako.id/csorseid')).toBe(true)
   })
 
   it('rejects an unparseable string', () => {
@@ -208,6 +216,68 @@ describe('new IPC channels are all registered', () => {
         'game:getWhiskyStatus'
       ])
     )
+  })
+
+  it('registers game:pauseInstallOrUpdate, game:getLogFilePath, game:showLogFileInFolder, game:clearDownloadCache', () => {
+    const fakeWin = { isDestroyed: () => false, webContents: { send: vi.fn() } } as unknown as Electron.BrowserWindow
+    registerGameIpcHandlers(fakeWin)
+
+    const registeredChannels = vi.mocked(ipcMain.handle).mock.calls.map(([channel]) => channel)
+    expect(registeredChannels).toEqual(
+      expect.arrayContaining([
+        'game:pauseInstallOrUpdate',
+        'game:getLogFilePath',
+        'game:showLogFileInFolder',
+        'game:clearDownloadCache'
+      ])
+    )
+  })
+})
+
+describe('handlePauseInstallOrUpdate', () => {
+  it('resolves without throwing even when nothing is currently running', async () => {
+    await expect(handlePauseInstallOrUpdate()).resolves.toBeUndefined()
+  })
+})
+
+describe('handleGetLogFilePath', () => {
+  it('returns logger.ts logFilePath()', async () => {
+    getPathMock.mockImplementation((name: string) => `/mock/${name}`)
+    const { logFilePath } = await import('./logger')
+    expect(await handleGetLogFilePath()).toBe(logFilePath())
+  })
+})
+
+describe('handleShowLogFileInFolder', () => {
+  it('invokes the injected showFn with the log file path', async () => {
+    const { logFilePath } = await import('./logger')
+    const calls: string[] = []
+    handleShowLogFileInFolder((p) => calls.push(p))
+    expect(calls).toEqual([logFilePath()])
+  })
+})
+
+describe('handleClearDownloadCache', () => {
+  it('resolves without throwing when nothing is there to clear', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'csore-clear-cache-test-'))
+    getPathMock.mockImplementation((name: string) => (name === 'temp' ? dir : `/mock/${name}`))
+    await expect(handleClearDownloadCache()).resolves.toBeUndefined()
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('actually deletes the leftover parts dir and zip files when present', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'csore-clear-cache-test-'))
+    getPathMock.mockImplementation((name: string) => (name === 'temp' ? dir : `/mock/${name}`))
+    const { mkdir, writeFile, access } = await import('fs/promises')
+    await mkdir(join(dir, 'csore-launcher-parts'), { recursive: true })
+    await writeFile(join(dir, 'csore-launcher-parts', 'part-0'), 'leftover')
+    await writeFile(join(dir, 'csore-launcher-download.zip'), 'leftover zip')
+
+    await handleClearDownloadCache()
+
+    await expect(access(join(dir, 'csore-launcher-parts'))).rejects.toThrow()
+    await expect(access(join(dir, 'csore-launcher-download.zip'))).rejects.toThrow()
+    await rm(dir, { recursive: true, force: true })
   })
 })
 

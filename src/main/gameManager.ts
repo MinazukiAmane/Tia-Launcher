@@ -13,11 +13,13 @@ import {
 import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
 import { decideAction, reassembleParts } from './installManager'
+import { DownloadPausedError } from './downloader'
 import { readManifest, applyPatch, PatchVerificationError } from './patcher'
 import { extractZip } from './zipExtract'
 import { bspatch } from './bsdiffAdapter'
 import { readSettings, buildGameLaunchArgs } from './settings'
 import { findGameExecutable, launchWindows } from './launcher/windows'
+import { logInfo, logError } from './logger'
 import {
   launchLinux,
   fetchLatestDWProtonRelease,
@@ -44,9 +46,9 @@ export async function checkDirWritable(dir: string): Promise<boolean> {
   }
 }
 
-async function runWindowsLaunch(installDir: string, args: string[]): Promise<void> {
+async function runWindowsLaunch(installDir: string, args: string[], launchCommand?: string | null): Promise<void> {
   const exePath = await findGameExecutable(installDir)
-  await launchWindows(exePath, args)
+  await launchWindows(exePath, args, launchCommand)
 }
 
 let dwprotonEnsurePromise: Promise<string> | null = null
@@ -148,19 +150,19 @@ export async function redownloadDWProton(onProgress?: (update: ProgressUpdate) =
   }
 }
 
-async function runLinuxLaunch(installDir: string, args: string[]): Promise<void> {
+async function runLinuxLaunch(installDir: string, args: string[], launchCommand?: string | null): Promise<void> {
   const exePath = await findGameExecutable(installDir) // Bin/ layout is the same across platforms; the exe itself differs, see Task 9/10's open assumption
   const baseDir = join(app.getPath('userData'), 'runtimes')
   const tagName = await ensureDWProtonInstalled(baseDir)
   const compatDataDir = join(baseDir, 'prefix')
-  await launchLinux(dwprotonInstallDir(baseDir, tagName), compatDataDir, exePath, args)
+  await launchLinux(dwprotonInstallDir(baseDir, tagName), compatDataDir, exePath, args, launchCommand)
 }
 
-async function runMacLaunch(installDir: string, args: string[]): Promise<void> {
+async function runMacLaunch(installDir: string, args: string[], launchCommand?: string | null): Promise<void> {
   const exePath = await findGameExecutable(installDir)
   const bottle = await findWhiskyBottle('csore-launcher')
   if (!bottle) throw new WhiskyNotFoundError()
-  await launchMacOS(bottle, exePath, args)
+  await launchMacOS(bottle, exePath, args, launchCommand)
 }
 
 export interface WhiskyStatus {
@@ -220,7 +222,7 @@ export async function isApprovedInstallDir(installDir: string): Promise<boolean>
 
 export function selectLaunchFn(
   platform: NodeJS.Platform
-): (installDir: string, args: string[]) => Promise<void> {
+): (installDir: string, args: string[], launchCommand?: string | null) => Promise<void> {
   if (platform === 'win32') return runWindowsLaunch
   if (platform === 'linux') return runLinuxLaunch
   if (platform === 'darwin') return runMacLaunch
@@ -231,13 +233,13 @@ export async function launchGame(installDir: string): Promise<void> {
   const settings = await readSettings(app.getPath('userData'))
   const args = buildGameLaunchArgs(settings)
   const launch = selectLaunchFn(process.platform)
-  await launch(installDir, args)
+  await launch(installDir, args, settings.launchCommand)
 }
 
 async function resolveMaxBytesPerSecond(): Promise<number | undefined> {
   const settings = await readSettings(app.getPath('userData'))
-  if (!settings.downloadSpeedLimitMbps || settings.downloadSpeedLimitMbps <= 0) return undefined
-  return settings.downloadSpeedLimitMbps * 1_000_000
+  if (!settings.downloadSpeedLimitKbps || settings.downloadSpeedLimitKbps <= 0) return undefined
+  return settings.downloadSpeedLimitKbps * 1024
 }
 
 export interface ProgressUpdate {
@@ -259,20 +261,32 @@ export function isOperationInProgress(): boolean {
   return operationInProgress
 }
 
+// Cancellation preserves downloaded parts for resume.
+let currentOperationAbortController: AbortController | null = null
+
+// Return whether an active operation was paused.
+export function pauseCurrentOperation(): boolean {
+  if (!currentOperationAbortController) return false
+  currentOperationAbortController.abort()
+  return true
+}
+
 async function doFreshInstall(
   target: VersionBlock,
   installDir: string,
   partsDir: string,
   zipPath: string,
   onProgress: (update: ProgressUpdate) => void,
-  maxBytesPerSecond?: number
+  maxBytesPerSecond?: number,
+  externalSignal?: AbortSignal
 ): Promise<void> {
   await reassembleParts(
     target.game_pkgs,
     zipPath,
     partsDir,
     (processed, total) => onProgress({ phase: 'downloading', processed, total }),
-    maxBytesPerSecond
+    maxBytesPerSecond,
+    externalSignal
   )
 
   const gameFiles = await extractZip(zipPath, installDir)
@@ -286,7 +300,8 @@ async function doFreshInstall(
         audioZipPath,
         partsDir,
         (processed, total) => onProgress({ phase: 'downloading_audio', processed, total }),
-        maxBytesPerSecond
+        maxBytesPerSecond,
+        externalSignal
       )
       audioFiles = await extractZip(audioZipPath, installDir)
       onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
@@ -305,12 +320,19 @@ export async function performInstallOrUpdate(
   onProgress: (update: ProgressUpdate) => void
 ): Promise<void> {
   operationInProgress = true
+  const abortController = new AbortController()
+  currentOperationAbortController = abortController
+  const signal = abortController.signal
+  logInfo('performInstallOrUpdate: starting', { installDir })
   try {
     const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
     const state = await readInstallState(installDir)
     const action = decideAction(info, state)
 
-    if (action.kind === 'up_to_date') return
+    if (action.kind === 'up_to_date') {
+      logInfo('performInstallOrUpdate: already up to date', { installDir })
+      return
+    }
 
     const maxBytesPerSecond = await resolveMaxBytesPerSecond()
     const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
@@ -318,7 +340,8 @@ export async function performInstallOrUpdate(
 
     try {
       if (action.kind === 'fresh_install') {
-        await doFreshInstall(action.target, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond)
+        await doFreshInstall(action.target, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond, signal)
+        logInfo('performInstallOrUpdate: fresh install succeeded', { installDir, version: action.target.version })
         return
       }
 
@@ -328,14 +351,24 @@ export async function performInstallOrUpdate(
         zipPath,
         partsDir,
         (processed, total) => onProgress({ phase: 'downloading', processed, total }),
-        maxBytesPerSecond
+        maxBytesPerSecond,
+        signal
       )
       const manifest = await readManifest(zipPath)
       try {
         await applyPatch(installDir, zipPath, manifest, bspatch)
       } catch (err) {
         if (err instanceof PatchVerificationError && err.reasonCode === 'old_md5_mismatch' && info.main.major) {
-          await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond)
+          await doFreshInstall(
+            info.main.major,
+            installDir,
+            partsDir,
+            zipPath,
+            onProgress,
+            maxBytesPerSecond,
+            signal
+          )
+          logInfo('performInstallOrUpdate: recovered via fresh install after old_md5_mismatch', { installDir })
           return
         }
         throw err
@@ -351,7 +384,8 @@ export async function performInstallOrUpdate(
             audioZipPath,
             partsDir,
             (processed, total) => onProgress({ phase: 'downloading_audio', processed, total }),
-            maxBytesPerSecond
+            maxBytesPerSecond,
+            signal
           )
           const audioManifest = await readManifest(audioZipPath)
           await applyPatch(installDir, audioZipPath, audioManifest, bspatch)
@@ -364,11 +398,20 @@ export async function performInstallOrUpdate(
 
       const newState: InstallState = { version: action.toVersion, installDir, files }
       await writeInstallState(installDir, newState)
+      logInfo('performInstallOrUpdate: patch applied successfully', { installDir, version: action.toVersion })
     } finally {
       await rm(zipPath, { force: true })
     }
+  } catch (err) {
+    if (err instanceof DownloadPausedError) {
+      logInfo('performInstallOrUpdate: paused by player', { installDir })
+    } else {
+      logError('performInstallOrUpdate: failed', { installDir, error: (err as Error).message })
+    }
+    throw err
   } finally {
     operationInProgress = false
+    if (currentOperationAbortController === abortController) currentOperationAbortController = null
   }
 }
 
@@ -419,6 +462,9 @@ export async function repairInstall(
     throw new Error('another operation (install/update/repair/uninstall) is already in progress')
   }
   operationInProgress = true
+  const abortController = new AbortController()
+  currentOperationAbortController = abortController
+  logInfo('repairInstall: starting', { installDir })
   try {
     const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
     if (!info.main.major) throw new Error('no published main version available for this game')
@@ -427,12 +473,29 @@ export async function repairInstall(
     const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
     const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
     try {
-      await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond)
+      await doFreshInstall(
+        info.main.major,
+        installDir,
+        partsDir,
+        zipPath,
+        onProgress,
+        maxBytesPerSecond,
+        abortController.signal
+      )
+      logInfo('repairInstall: succeeded', { installDir, version: info.main.major.version })
     } finally {
       await rm(zipPath, { force: true })
     }
+  } catch (err) {
+    if (err instanceof DownloadPausedError) {
+      logInfo('repairInstall: paused by player', { installDir })
+    } else {
+      logError('repairInstall: failed', { installDir, error: (err as Error).message })
+    }
+    throw err
   } finally {
     operationInProgress = false
+    if (currentOperationAbortController === abortController) currentOperationAbortController = null
   }
 }
 

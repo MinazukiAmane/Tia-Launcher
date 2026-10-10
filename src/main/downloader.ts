@@ -18,6 +18,14 @@ export class DownloadVerificationError extends Error {
   }
 }
 
+// Pausing preserves partial downloads and remains distinct from transfer failure.
+export class DownloadPausedError extends Error {
+  constructor(public readonly part: DownloadPart) {
+    super(`download paused by caller: ${part.url}`)
+    this.name = 'DownloadPausedError'
+  }
+}
+
 async function existingSize(destPath: string): Promise<number> {
   try {
     return (await stat(destPath)).size
@@ -47,7 +55,9 @@ export async function downloadPart(
   // Overridable only for tests: production always uses DOWNLOAD_TIMEOUT_MS.
   idleTimeoutMs: number = DOWNLOAD_TIMEOUT_MS,
   // Optional bytes-per-second limit; zero or undefined means unlimited.
-  maxBytesPerSecond?: number
+  maxBytesPerSecond?: number,
+  // Caller cancellation preserves the partial file for resume.
+  externalSignal?: AbortSignal
 ): Promise<void> {
   let existing = await existingSize(destPath)
 
@@ -57,6 +67,10 @@ export async function downloadPart(
   }
 
   if (existing < part.size) {
+    if (externalSignal?.aborted) {
+      throw new DownloadPausedError(part)
+    }
+
     const controller = new AbortController()
     let timeout: ReturnType<typeof setTimeout> | undefined
     const armIdleTimeout = (): void => {
@@ -67,6 +81,14 @@ export async function downloadPart(
       )
     }
     armIdleTimeout()
+
+    // Abort only when data stops arriving; slow downloads remain valid.
+    let pausedByCaller = false
+    const onExternalAbort = (): void => {
+      pausedByCaller = true
+      controller.abort(new Error('download paused by caller'))
+    }
+    externalSignal?.addEventListener('abort', onExternalAbort)
 
     try {
       const headers: Record<string, string> = existing > 0 ? { Range: `bytes=${existing}-` } : {}
@@ -136,7 +158,13 @@ export async function downloadPart(
         }
         throw err
       }
+    } catch (err) {
+      if (pausedByCaller) {
+        throw new DownloadPausedError(part)
+      }
+      throw err
     } finally {
+      externalSignal?.removeEventListener('abort', onExternalAbort)
       clearTimeout(timeout)
     }
   }

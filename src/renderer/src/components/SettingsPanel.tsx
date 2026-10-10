@@ -17,11 +17,15 @@ function GearIcon(): React.JSX.Element {
   )
 }
 
+
 interface Settings {
   lang: 'na_id' | 'na_en'
   classicUi: boolean
   alternateRenderer: boolean
-  downloadSpeedLimitMbps: number | null
+  downloadSpeedLimitKbps: number | null
+  launchCommand: string | null
+  troubleshootingMode: boolean
+  windowCloseBehavior: 'minimize_to_tray' | 'exit'
 }
 
 interface SettingsPanelProps {
@@ -100,7 +104,7 @@ export function SettingsPanel({
 
     window.csore.getSettings().then((s) => {
       setSettings(s)
-      setSpeedLimitInput(s.downloadSpeedLimitMbps == null ? '' : String(s.downloadSpeedLimitMbps))
+      setSpeedLimitInput(s.downloadSpeedLimitKbps == null ? '' : String(s.downloadSpeedLimitKbps))
     })
   }, [])
 
@@ -132,13 +136,13 @@ export function SettingsPanel({
   function commitSpeedLimit(raw: string): void {
     const trimmed = raw.trim()
     if (trimmed === '') {
-      update({ downloadSpeedLimitMbps: null })
+      update({ downloadSpeedLimitKbps: null })
       return
     }
     const parsed = Number(trimmed)
 
     if (!Number.isFinite(parsed) || parsed < 0) return
-    update({ downloadSpeedLimitMbps: parsed === 0 ? null : parsed })
+    update({ downloadSpeedLimitKbps: parsed === 0 ? null : parsed })
   }
 
   async function handleVerify(): Promise<void> {

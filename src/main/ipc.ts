@@ -1,8 +1,12 @@
 import { app, dialog, ipcMain, shell } from 'electron'
+import { rm } from 'fs/promises'
+import { join } from 'path'
 import { fetchLauncherInfo } from './launcherApi'
 import { readInstallState } from './installState'
 import { readSettings, writeSettings, type Settings } from './settings'
 import { getCachedNews, type NewsItem } from './news'
+import { DownloadPausedError } from './downloader'
+import { logFilePath, setTroubleshootingMode } from './logger'
 import {
   performInstallOrUpdate,
   launchGame,
@@ -15,6 +19,7 @@ import {
   getDWProtonStatus,
   redownloadDWProton,
   getWhiskyStatus,
+  pauseCurrentOperation,
   type ProgressUpdate,
   type VerifyResult,
   type DWProtonStatus,
@@ -53,7 +58,9 @@ export async function handleGetSettings(): Promise<Settings> {
 }
 
 export async function handleSetSettings(_event: unknown, settings: Settings): Promise<void> {
-  return writeSettings(app.getPath('userData'), settings)
+  await writeSettings(app.getPath('userData'), settings)
+
+  setTroubleshootingMode(settings.troubleshootingMode)
 }
 
 async function assertApprovedInstallDir(installDir: string): Promise<void> {
@@ -69,15 +76,30 @@ export async function handleLaunchGame(_event: unknown, installDir: string): Pro
   return launchGame(installDir)
 }
 
+async function swallowPause(promise: Promise<void>): Promise<void> {
+  try {
+    await promise
+  } catch (err) {
+    if (err instanceof DownloadPausedError) return
+    throw err
+  }
+}
+
 export function makeHandleStartInstallOrUpdate(
   win: Electron.BrowserWindow
 ): (_event: unknown, installDir: string) => Promise<void> {
   return async (_event: unknown, installDir: string): Promise<void> => {
     await assertApprovedInstallDir(installDir)
-    return performInstallOrUpdate(installDir, (update: ProgressUpdate) => {
-      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
-    })
+    return swallowPause(
+      performInstallOrUpdate(installDir, (update: ProgressUpdate) => {
+        if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+      })
+    )
   }
+}
+
+export async function handlePauseInstallOrUpdate(): Promise<void> {
+  pauseCurrentOperation()
 }
 
 export async function handleVerifyInstall(_event: unknown, installDir: string): Promise<VerifyResult> {
@@ -90,9 +112,11 @@ export function makeHandleRepairInstall(
 ): (_event: unknown, installDir: string) => Promise<void> {
   return async (_event: unknown, installDir: string): Promise<void> => {
     await assertApprovedInstallDir(installDir)
-    return repairInstall(installDir, (update: ProgressUpdate) => {
-      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
-    })
+    return swallowPause(
+      repairInstall(installDir, (update: ProgressUpdate) => {
+        if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+      })
+    )
   }
 }
 
@@ -119,7 +143,7 @@ export async function handleGetWhiskyStatus(): Promise<WhiskyStatus> {
   return getWhiskyStatus()
 }
 
-const ALLOWED_EXTERNAL_HOSTS = new Set(['cso-rse.my.id', 'discord.gg'])
+const ALLOWED_EXTERNAL_HOSTS = new Set(['cso-rse.my.id', 'discord.gg', 'tako.id'])
 
 export function isAllowedExternalUrl(url: string): boolean {
   let parsed: URL
@@ -137,6 +161,26 @@ export function handleOpenExternal(url: string, openFn: (url: string) => void = 
   openFn(url)
 }
 
+// Client log actions.
+export async function handleGetLogFilePath(): Promise<string> {
+  return logFilePath()
+}
+
+export function handleShowLogFileInFolder(
+  showFn: (path: string) => void = shell.showItemInFolder
+): void {
+  showFn(logFilePath())
+}
+
+export async function handleClearDownloadCache(): Promise<void> {
+  const tempDir = app.getPath('temp')
+  await Promise.all([
+    rm(join(tempDir, 'csore-launcher-parts'), { recursive: true, force: true }),
+    rm(join(tempDir, 'csore-launcher-download.zip'), { force: true }),
+    rm(join(tempDir, 'csore-launcher-download.zip.audio.zip'), { force: true })
+  ])
+}
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('ping', handlePing)
   ipcMain.on('shell:open-external', (_event, url: string) => handleOpenExternal(url))
@@ -151,12 +195,16 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('game:setSettings', handleSetSettings)
   ipcMain.handle('game:launch', handleLaunchGame)
   ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
+  ipcMain.handle('game:pauseInstallOrUpdate', handlePauseInstallOrUpdate)
   ipcMain.handle('game:verifyInstall', handleVerifyInstall)
   ipcMain.handle('game:repairInstall', makeHandleRepairInstall(win))
   ipcMain.handle('game:uninstall', handleUninstallGame)
   ipcMain.handle('game:getDWProtonStatus', handleGetDWProtonStatus)
   ipcMain.handle('game:redownloadDWProton', makeHandleRedownloadDWProton(win))
   ipcMain.handle('game:getWhiskyStatus', handleGetWhiskyStatus)
+  ipcMain.handle('game:getLogFilePath', handleGetLogFilePath)
+  ipcMain.handle('game:showLogFileInFolder', () => handleShowLogFileInFolder())
+  ipcMain.handle('game:clearDownloadCache', handleClearDownloadCache)
   ipcMain.handle('app:getUserDataDir', () => app.getPath('userData'))
 
   ipcMain.handle('app:getPlatform', () => process.platform)

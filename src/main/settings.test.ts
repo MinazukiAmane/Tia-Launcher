@@ -2,7 +2,16 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mkdtemp, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { readSettings, writeSettings, buildGameLaunchArgs, DEFAULT_SETTINGS, type Settings } from './settings'
+import {
+  readSettings,
+  writeSettings,
+  buildGameLaunchArgs,
+  DEFAULT_SETTINGS,
+  MIN_DOWNLOAD_SPEED_LIMIT_KBPS,
+  MAX_DOWNLOAD_SPEED_LIMIT_KBPS,
+  MAX_LAUNCH_COMMAND_LENGTH,
+  type Settings
+} from './settings'
 
 let tempDirs: string[] = []
 
@@ -17,6 +26,16 @@ afterEach(async () => {
   tempDirs = []
 })
 
+const BASE_SETTINGS: Settings = {
+  lang: 'na_en',
+  classicUi: false,
+  alternateRenderer: false,
+  downloadSpeedLimitKbps: null,
+  launchCommand: null,
+  troubleshootingMode: false,
+  windowCloseBehavior: 'exit'
+}
+
 describe('readSettings', () => {
   it('returns defaults when no file exists', async () => {
     const dir = await makeTempDir()
@@ -29,7 +48,10 @@ describe('readSettings', () => {
       lang: 'na_id',
       classicUi: true,
       alternateRenderer: false,
-      downloadSpeedLimitMbps: 25
+      downloadSpeedLimitKbps: 4096,
+      launchCommand: 'prime-run %command%',
+      troubleshootingMode: true,
+      windowCloseBehavior: 'minimize_to_tray'
     }
     await writeSettings(dir, settings)
     expect(await readSettings(dir)).toEqual(settings)
@@ -42,18 +64,78 @@ describe('readSettings', () => {
     const got = await readSettings(dir)
     expect(got).toEqual({ ...DEFAULT_SETTINGS, lang: 'na_id' })
   })
+
+  it('ignores a saved old-field-name value (downloadSpeedLimitMbps) and falls back to the new default', async () => {
+    const dir = await makeTempDir()
+    const { writeFile } = await import('fs/promises')
+    await writeFile(
+      join(dir, 'settings.json'),
+      JSON.stringify({ lang: 'na_id', downloadSpeedLimitMbps: 25 }),
+      'utf-8'
+    )
+    const got = await readSettings(dir)
+    expect(got.downloadSpeedLimitKbps).toBe(null)
+  })
+
+  it('clamps an out-of-range downloadSpeedLimitKbps found on disk rather than passing it through', async () => {
+    const dir = await makeTempDir()
+    const { writeFile } = await import('fs/promises')
+    await writeFile(join(dir, 'settings.json'), JSON.stringify({ downloadSpeedLimitKbps: 999999 }), 'utf-8')
+    const got = await readSettings(dir)
+    expect(got.downloadSpeedLimitKbps).toBe(MAX_DOWNLOAD_SPEED_LIMIT_KBPS)
+  })
+})
+
+describe('writeSettings: downloadSpeedLimitKbps validation', () => {
+  it('clamps a value above the max down to MAX_DOWNLOAD_SPEED_LIMIT_KBPS', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, { ...BASE_SETTINGS, downloadSpeedLimitKbps: 999999 })
+    expect((await readSettings(dir)).downloadSpeedLimitKbps).toBe(MAX_DOWNLOAD_SPEED_LIMIT_KBPS)
+  })
+
+  it('clamps a value below the min up to MIN_DOWNLOAD_SPEED_LIMIT_KBPS', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, { ...BASE_SETTINGS, downloadSpeedLimitKbps: 1 })
+    expect((await readSettings(dir)).downloadSpeedLimitKbps).toBe(MIN_DOWNLOAD_SPEED_LIMIT_KBPS)
+  })
+
+  it('leaves an in-range value untouched', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, { ...BASE_SETTINGS, downloadSpeedLimitKbps: 4096 })
+    expect((await readSettings(dir)).downloadSpeedLimitKbps).toBe(4096)
+  })
+
+  it('keeps null (no limit) as null', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, { ...BASE_SETTINGS, downloadSpeedLimitKbps: null })
+    expect((await readSettings(dir)).downloadSpeedLimitKbps).toBe(null)
+  })
+})
+
+describe('writeSettings: launchCommand validation', () => {
+  it('truncates a launchCommand longer than MAX_LAUNCH_COMMAND_LENGTH', async () => {
+    const dir = await makeTempDir()
+    const long = 'a'.repeat(600)
+    await writeSettings(dir, { ...BASE_SETTINGS, launchCommand: long })
+    const got = await readSettings(dir)
+    expect(got.launchCommand).toHaveLength(MAX_LAUNCH_COMMAND_LENGTH)
+    expect(got.launchCommand).toBe('a'.repeat(MAX_LAUNCH_COMMAND_LENGTH))
+  })
+
+  it('treats an empty string the same as null', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, { ...BASE_SETTINGS, launchCommand: '' })
+    expect((await readSettings(dir)).launchCommand).toBe(null)
+  })
 })
 
 describe('buildGameLaunchArgs', () => {
   it('always includes -lang with the configured language', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_en', classicUi: false, alternateRenderer: false, downloadSpeedLimitMbps: null })).toEqual([
-      '-lang',
-      'na_en'
-    ])
+    expect(buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_en' })).toEqual(['-lang', 'na_en'])
   })
 
   it('appends bare -classicui when the toggle is on', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_en', classicUi: true, alternateRenderer: false, downloadSpeedLimitMbps: null })).toEqual([
+    expect(buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_en', classicUi: true })).toEqual([
       '-lang',
       'na_en',
       '-classicui'
@@ -61,7 +143,7 @@ describe('buildGameLaunchArgs', () => {
   })
 
   it('appends bare -renderer when the toggle is on, no value', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_id', classicUi: false, alternateRenderer: true, downloadSpeedLimitMbps: null })).toEqual([
+    expect(buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_id', alternateRenderer: true })).toEqual([
       '-lang',
       'na_id',
       '-renderer'
@@ -69,11 +151,8 @@ describe('buildGameLaunchArgs', () => {
   })
 
   it('both toggles on appends both flags after -lang', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_id', classicUi: true, alternateRenderer: true, downloadSpeedLimitMbps: null })).toEqual([
-      '-lang',
-      'na_id',
-      '-classicui',
-      '-renderer'
-    ])
+    expect(
+      buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_id', classicUi: true, alternateRenderer: true })
+    ).toEqual(['-lang', 'na_id', '-classicui', '-renderer'])
   })
 })
