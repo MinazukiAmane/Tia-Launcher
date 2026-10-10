@@ -68,6 +68,8 @@ describe('checkDirWritable', () => {
     await chmod(dir, 0o555) // read+execute only, no write
 
     if (process.getuid && process.getuid() === 0) return
+
+    if (process.platform === 'win32') return
     expect(await checkDirWritable(dir)).toBe(false)
   })
 })
