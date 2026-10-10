@@ -6,12 +6,15 @@ export interface Settings {
   lang: 'na_id' | 'na_en'
   classicUi: boolean
   alternateRenderer: boolean
+
+  downloadSpeedLimitMbps: number | null
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   lang: 'na_en',
   classicUi: false,
-  alternateRenderer: false
+  alternateRenderer: false,
+  downloadSpeedLimitMbps: null
 }
 
 export function settingsPath(userDataDir: string): string {

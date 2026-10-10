@@ -25,7 +25,12 @@ describe('readSettings', () => {
 
   it('round-trips what writeSettings wrote', async () => {
     const dir = await makeTempDir()
-    const settings: Settings = { lang: 'na_id', classicUi: true, alternateRenderer: false }
+    const settings: Settings = {
+      lang: 'na_id',
+      classicUi: true,
+      alternateRenderer: false,
+      downloadSpeedLimitMbps: 25
+    }
     await writeSettings(dir, settings)
     expect(await readSettings(dir)).toEqual(settings)
   })
@@ -41,14 +46,14 @@ describe('readSettings', () => {
 
 describe('buildGameLaunchArgs', () => {
   it('always includes -lang with the configured language', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_en', classicUi: false, alternateRenderer: false })).toEqual([
+    expect(buildGameLaunchArgs({ lang: 'na_en', classicUi: false, alternateRenderer: false, downloadSpeedLimitMbps: null })).toEqual([
       '-lang',
       'na_en'
     ])
   })
 
   it('appends bare -classicui when the toggle is on', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_en', classicUi: true, alternateRenderer: false })).toEqual([
+    expect(buildGameLaunchArgs({ lang: 'na_en', classicUi: true, alternateRenderer: false, downloadSpeedLimitMbps: null })).toEqual([
       '-lang',
       'na_en',
       '-classicui'
@@ -56,7 +61,7 @@ describe('buildGameLaunchArgs', () => {
   })
 
   it('appends bare -renderer when the toggle is on, no value', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_id', classicUi: false, alternateRenderer: true })).toEqual([
+    expect(buildGameLaunchArgs({ lang: 'na_id', classicUi: false, alternateRenderer: true, downloadSpeedLimitMbps: null })).toEqual([
       '-lang',
       'na_id',
       '-renderer'
@@ -64,7 +69,7 @@ describe('buildGameLaunchArgs', () => {
   })
 
   it('both toggles on appends both flags after -lang', () => {
-    expect(buildGameLaunchArgs({ lang: 'na_id', classicUi: true, alternateRenderer: true })).toEqual([
+    expect(buildGameLaunchArgs({ lang: 'na_id', classicUi: true, alternateRenderer: true, downloadSpeedLimitMbps: null })).toEqual([
       '-lang',
       'na_id',
       '-classicui',

@@ -234,6 +234,12 @@ export async function launchGame(installDir: string): Promise<void> {
   await launch(installDir, args)
 }
 
+async function resolveMaxBytesPerSecond(): Promise<number | undefined> {
+  const settings = await readSettings(app.getPath('userData'))
+  if (!settings.downloadSpeedLimitMbps || settings.downloadSpeedLimitMbps <= 0) return undefined
+  return settings.downloadSpeedLimitMbps * 1_000_000
+}
+
 export interface ProgressUpdate {
   phase: 'downloading' | 'applying_patch' | 'extracting' | 'downloading_audio' | 'extracting_audio'
   processed: number
@@ -258,10 +264,15 @@ async function doFreshInstall(
   installDir: string,
   partsDir: string,
   zipPath: string,
-  onProgress: (update: ProgressUpdate) => void
+  onProgress: (update: ProgressUpdate) => void,
+  maxBytesPerSecond?: number
 ): Promise<void> {
-  await reassembleParts(target.game_pkgs, zipPath, partsDir, (processed, total) =>
-    onProgress({ phase: 'downloading', processed, total })
+  await reassembleParts(
+    target.game_pkgs,
+    zipPath,
+    partsDir,
+    (processed, total) => onProgress({ phase: 'downloading', processed, total }),
+    maxBytesPerSecond
   )
 
   const gameFiles = await extractZip(zipPath, installDir)
@@ -270,8 +281,12 @@ async function doFreshInstall(
   if (target.audio_pkgs && target.audio_pkgs.length > 0) {
     const audioZipPath = `${zipPath}.audio.zip`
     try {
-      await reassembleParts(target.audio_pkgs, audioZipPath, partsDir, (processed, total) =>
-        onProgress({ phase: 'downloading_audio', processed, total })
+      await reassembleParts(
+        target.audio_pkgs,
+        audioZipPath,
+        partsDir,
+        (processed, total) => onProgress({ phase: 'downloading_audio', processed, total }),
+        maxBytesPerSecond
       )
       audioFiles = await extractZip(audioZipPath, installDir)
       onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
@@ -297,25 +312,30 @@ export async function performInstallOrUpdate(
 
     if (action.kind === 'up_to_date') return
 
+    const maxBytesPerSecond = await resolveMaxBytesPerSecond()
     const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
     const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
 
     try {
       if (action.kind === 'fresh_install') {
-        await doFreshInstall(action.target, installDir, partsDir, zipPath, onProgress)
+        await doFreshInstall(action.target, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond)
         return
       }
 
       // apply_patch
-      await reassembleParts(action.patch.game_pkgs, zipPath, partsDir, (processed, total) =>
-        onProgress({ phase: 'downloading', processed, total })
+      await reassembleParts(
+        action.patch.game_pkgs,
+        zipPath,
+        partsDir,
+        (processed, total) => onProgress({ phase: 'downloading', processed, total }),
+        maxBytesPerSecond
       )
       const manifest = await readManifest(zipPath)
       try {
         await applyPatch(installDir, zipPath, manifest, bspatch)
       } catch (err) {
         if (err instanceof PatchVerificationError && err.reasonCode === 'old_md5_mismatch' && info.main.major) {
-          await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress)
+          await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond)
           return
         }
         throw err
@@ -326,8 +346,12 @@ export async function performInstallOrUpdate(
       if (action.patch.audio_pkgs && action.patch.audio_pkgs.length > 0) {
         const audioZipPath = `${zipPath}.audio.zip`
         try {
-          await reassembleParts(action.patch.audio_pkgs, audioZipPath, partsDir, (processed, total) =>
-            onProgress({ phase: 'downloading_audio', processed, total })
+          await reassembleParts(
+            action.patch.audio_pkgs,
+            audioZipPath,
+            partsDir,
+            (processed, total) => onProgress({ phase: 'downloading_audio', processed, total }),
+            maxBytesPerSecond
           )
           const audioManifest = await readManifest(audioZipPath)
           await applyPatch(installDir, audioZipPath, audioManifest, bspatch)
@@ -399,10 +423,11 @@ export async function repairInstall(
     const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
     if (!info.main.major) throw new Error('no published main version available for this game')
 
+    const maxBytesPerSecond = await resolveMaxBytesPerSecond()
     const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
     const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
     try {
-      await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress)
+      await doFreshInstall(info.main.major, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond)
     } finally {
       await rm(zipPath, { force: true })
     }

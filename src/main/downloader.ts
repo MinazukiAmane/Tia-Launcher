@@ -36,12 +36,18 @@ async function md5OfFile(path: string): Promise<string> {
 // Abort only when data stops arriving; slow downloads remain valid.
 const DOWNLOAD_TIMEOUT_MS = 30_000
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export async function downloadPart(
   part: DownloadPart,
   destPath: string,
   onProgress?: (bytesWritten: number, totalBytes: number) => void,
   // Overridable only for tests: production always uses DOWNLOAD_TIMEOUT_MS.
-  idleTimeoutMs: number = DOWNLOAD_TIMEOUT_MS
+  idleTimeoutMs: number = DOWNLOAD_TIMEOUT_MS,
+  // Optional bytes-per-second limit; zero or undefined means unlimited.
+  maxBytesPerSecond?: number
 ): Promise<void> {
   let existing = await existingSize(destPath)
 
@@ -77,6 +83,24 @@ export async function downloadPart(
 
       let sizeExceeded = false
       const nodeStream = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
+
+      const rateStart = Date.now()
+      let throttledBytesThisSession = 0
+      // Keep throttling delays separate from network stalls.
+      const idleKeepAliveStepMs = Math.max(50, Math.floor(idleTimeoutMs / 4))
+
+      // Pace reads when the transfer exceeds the configured rate.
+      async function pacedResume(delayMs: number): Promise<void> {
+        let remaining = delayMs
+        while (remaining > 0 && !nodeStream.destroyed) {
+          const step = Math.min(remaining, idleKeepAliveStepMs)
+          await sleep(step)
+          armIdleTimeout()
+          remaining -= step
+        }
+        if (!nodeStream.destroyed) nodeStream.resume()
+      }
+
       nodeStream.on('data', (chunk: Buffer) => {
         armIdleTimeout()
         written += chunk.length
@@ -89,6 +113,18 @@ export async function downloadPart(
           )
           nodeStream.destroy(err)
           controller.abort(err)
+          return
+        }
+
+        if (maxBytesPerSecond && maxBytesPerSecond > 0) {
+          throttledBytesThisSession += chunk.length
+          const elapsedMs = Date.now() - rateStart
+          const expectedMs = (throttledBytesThisSession / maxBytesPerSecond) * 1000
+          const delayMs = expectedMs - elapsedMs
+          if (delayMs > 0) {
+            nodeStream.pause()
+            void pacedResume(delayMs)
+          }
         }
       })
 

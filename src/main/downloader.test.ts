@@ -10,6 +10,9 @@ import { downloadPart, DownloadVerificationError, type DownloadPart } from './do
 const CONTENT = Buffer.from('x'.repeat(5000), 'utf-8')
 const CONTENT_MD5 = createHash('md5').update(CONTENT).digest('hex')
 
+const THROTTLE_CONTENT = Buffer.from('z'.repeat(40_000), 'utf-8')
+const THROTTLE_CONTENT_MD5 = createHash('md5').update(THROTTLE_CONTENT).digest('hex')
+
 let server: Server
 let baseUrl: string
 
@@ -20,6 +23,12 @@ const STEADY_CHUNK_DELAY_MS = 30
 
 beforeAll(async () => {
   server = createServer((req, res) => {
+    if (req.url === '/throttle-target') {
+      res.writeHead(200, { 'Content-Length': String(THROTTLE_CONTENT.length) })
+      res.end(THROTTLE_CONTENT)
+      return
+    }
+
     if (req.url === '/always-200') {
 
       res.writeHead(200, { 'Content-Length': String(CONTENT.length) })
@@ -182,5 +191,87 @@ describe('downloadPart', () => {
 
     expect(got.length).toBe(CONTENT.length)
     expect(got.equals(CONTENT)).toBe(true)
+  })
+
+  describe('maxBytesPerSecond throttling', () => {
+    it('measurably slows a download while still completing and passing MD5 verification', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'part1')
+      const part: DownloadPart = {
+        url: `${baseUrl}/throttle-target`,
+        md5: THROTTLE_CONTENT_MD5,
+        size: THROTTLE_CONTENT.length
+      }
+
+      // 10,000 bytes/sec against a 40,000 byte body should take at least
+      // ~4 seconds if the cap is genuinely enforced.
+      const maxBytesPerSecond = 10_000
+      const start = Date.now()
+      await downloadPart(part, dest, undefined, undefined, maxBytesPerSecond)
+      const elapsedMs = Date.now() - start
+
+      const got = await readFile(dest)
+      expect(got.equals(THROTTLE_CONTENT)).toBe(true)
+
+      const expectedMinMs = (THROTTLE_CONTENT.length / maxBytesPerSecond) * 1000
+
+      expect(elapsedMs).toBeGreaterThan(expectedMinMs * 0.8)
+    }, 15_000)
+
+    it('does not slow down the default (no limit) path at all', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'part1')
+      const part: DownloadPart = {
+        url: `${baseUrl}/throttle-target`,
+        md5: THROTTLE_CONTENT_MD5,
+        size: THROTTLE_CONTENT.length
+      }
+
+      const start = Date.now()
+      // No maxBytesPerSecond argument at all -- the untouched default path.
+      await downloadPart(part, dest)
+      const elapsedMs = Date.now() - start
+
+      const got = await readFile(dest)
+      expect(got.equals(THROTTLE_CONTENT)).toBe(true)
+
+      expect(elapsedMs).toBeLessThan(1000)
+    })
+
+    it('treats maxBytesPerSecond: 0 as unlimited (same as undefined)', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'part1')
+      const part: DownloadPart = {
+        url: `${baseUrl}/throttle-target`,
+        md5: THROTTLE_CONTENT_MD5,
+        size: THROTTLE_CONTENT.length
+      }
+
+      const start = Date.now()
+      await downloadPart(part, dest, undefined, undefined, 0)
+      const elapsedMs = Date.now() - start
+
+      const got = await readFile(dest)
+      expect(got.equals(THROTTLE_CONTENT)).toBe(true)
+      expect(elapsedMs).toBeLessThan(1000)
+    })
+
+    it('still only aborts the idle timer on genuine silence, not on its own throttle pacing', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'part1')
+      const part: DownloadPart = {
+        url: `${baseUrl}/throttle-target`,
+        md5: THROTTLE_CONTENT_MD5,
+        size: THROTTLE_CONTENT.length
+      }
+
+      // Abort only when data stops arriving; slow downloads remain valid.
+      const idleTimeoutMs = 200
+      const maxBytesPerSecond = 5_000 // ~8s to fully deliver 40,000 bytes
+      await downloadPart(part, dest, undefined, idleTimeoutMs, maxBytesPerSecond)
+
+      const got = await readFile(dest)
+      expect(got.equals(THROTTLE_CONTENT)).toBe(true)
+    }, 15_000)
   })
 })

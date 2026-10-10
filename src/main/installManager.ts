@@ -29,14 +29,22 @@ export async function reassembleParts(
   parts: PkgEntry[],
   destZipPath: string,
   partsDir: string,
-  onProgress?: (processed: number, total: number) => void
+  onProgress?: (processed: number, total: number) => void,
+
+  maxBytesPerSecond?: number
 ): Promise<void> {
   await mkdir(partsDir, { recursive: true })
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i]
     const partPath = join(partsDir, `part-${i}`)
-    await downloadPart({ url: part.url, md5: part.md5, size: Number(part.size) }, partPath)
+    await downloadPart(
+      { url: part.url, md5: part.md5, size: Number(part.size) },
+      partPath,
+      undefined,
+      undefined,
+      maxBytesPerSecond
+    )
     onProgress?.(i + 1, parts.length)
   }
 
