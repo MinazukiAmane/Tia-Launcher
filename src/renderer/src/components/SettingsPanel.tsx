@@ -376,34 +376,6 @@ export function SettingsPanel({
 
           {settings && activeTab === 'launcher' && (
             <div className="space-y-4 pr-8">
-              <SectionCard title="Language Settings">
-                <label className="flex items-center justify-between text-sm">
-                  Language
-                  <select
-                    value={settings.lang}
-                    onChange={(e) => update({ lang: e.target.value as Settings['lang'] })}
-                    className="rounded bg-white/10 px-2 py-1"
-                  >
-                    <option value="na_en">English</option>
-                    <option value="na_id">Bahasa Indonesia</option>
-                  </select>
-                </label>
-              </SectionCard>
-
-              <SectionCard title="Launch Settings">
-                <label className="flex items-center justify-between text-sm">
-                  <span>
-                    Classic UI
-                    <span className="block text-xs text-white/40">Use the previous launcher interface.</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={settings.classicUi}
-                    onChange={(e) => update({ classicUi: e.target.checked })}
-                  />
-                </label>
-              </SectionCard>
-
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
               <SectionCard title="Update Settings">
                 <div className="flex items-center justify-between text-sm">
@@ -529,10 +501,38 @@ export function SettingsPanel({
               </SectionCard>
 
               {}
-              <SectionCard title="Rendering Mode">
-                <p className="text-xs text-white/50">Try switching this if the game encounters issues launching.</p>
+              <SectionCard title="Game Launch Options">
                 <label className="flex items-center justify-between text-sm">
-                  <span>Use alternate renderer</span>
+                  Language
+                  <select
+                    value={settings.lang}
+                    onChange={(e) => update({ lang: e.target.value as Settings['lang'] })}
+                    className="rounded bg-white/10 px-2 py-1"
+                  >
+                    <option value="na_en">English</option>
+                    <option value="na_id">Bahasa Indonesia</option>
+                  </select>
+                </label>
+
+                <label className="flex items-center justify-between text-sm">
+                  <span>
+                    Classic UI
+                    <span className="block text-xs text-white/40">Use the previous launcher interface.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={settings.classicUi}
+                    onChange={(e) => update({ classicUi: e.target.checked })}
+                  />
+                </label>
+
+                <label className="flex items-center justify-between text-sm">
+                  <span>
+                    Use alternate renderer
+                    <span className="block text-xs text-white/40">
+                      Try switching this if the game encounters issues launching.
+                    </span>
+                  </span>
                   <input
                     type="checkbox"
                     checked={settings.alternateRenderer}
