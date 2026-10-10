@@ -1,13 +1,25 @@
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mkdtemp, rm, readFile } from 'fs/promises'
 import { createServer, type Server } from 'http'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import { decideAction, reassembleParts } from './installManager'
+import { DownloadPausedError } from './downloader'
 import type { GamePackageEntry, PkgEntry } from './launcherApi'
 import type { InstallState } from './installState'
+
+const mockUserDataDir = { current: '' }
+vi.mock('electron', () => ({
+  app: {
+    getPath: (name: string) => {
+      if (name === 'userData') return mockUserDataDir.current
+      if (name === 'temp') return tmpdir()
+      return `/mock/${name}`
+    }
+  }
+}))
 
 function makeInfo(majorVersion: string, patches: Array<{ version: string }> = []): GamePackageEntry {
   return {
@@ -90,6 +102,7 @@ describe('reassembleParts', () => {
   async function makeTempDir(): Promise<string> {
     const dir = await mkdtemp(join(tmpdir(), 'csore-reassemble-test-'))
     tempDirs.push(dir)
+    mockUserDataDir.current = dir
     return dir
   }
 
@@ -161,5 +174,174 @@ describe('reassembleParts', () => {
 
     const got = await readFile(destZip)
     expect(got.equals(Buffer.concat([chunkA, chunkB]))).toBe(true)
+  })
+
+  const FAST_RETRY_OPTIONS = { maxAttempts: 4, baseDelayMs: 10, maxDelayMs: 50 }
+
+  it('retries a part that fails transiently and succeeds once the server recovers', async () => {
+    const dir = await makeTempDir()
+    const partsDir = join(dir, 'parts')
+    const destZip = join(dir, 'out.zip')
+
+    const chunk = Buffer.from('flaky-part-content')
+    let requestCount = 0
+
+    server = createServer((req, res) => {
+      requestCount++
+      if (requestCount <= 2) {
+
+        req.socket.destroy()
+        return
+      }
+      res.writeHead(200, { 'Content-Length': String(chunk.length) })
+      res.end(chunk)
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('server did not bind')
+    baseUrl = `http://127.0.0.1:${address.port}`
+
+    const parts: PkgEntry[] = [
+      { url: `${baseUrl}/flaky`, md5: createHash('md5').update(chunk).digest('hex'), size: String(chunk.length), decompressed_size: '0' }
+    ]
+
+    await reassembleParts(parts, destZip, partsDir, undefined, undefined, undefined, FAST_RETRY_OPTIONS)
+
+    expect(requestCount).toBe(3) // 2 failures + 1 success
+    const got = await readFile(destZip)
+    expect(got.equals(chunk)).toBe(true)
+  })
+
+  it('propagates the error once retries are exhausted, exactly as a non-retried failure would', async () => {
+    const dir = await makeTempDir()
+    const partsDir = join(dir, 'parts')
+    const destZip = join(dir, 'out.zip')
+
+    let requestCount = 0
+    server = createServer((_req, res) => {
+      requestCount++
+      res.writeHead(500)
+      res.end()
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('server did not bind')
+    baseUrl = `http://127.0.0.1:${address.port}`
+
+    const parts: PkgEntry[] = [
+      { url: `${baseUrl}/always-fails`, md5: createHash('md5').update(Buffer.from('x')).digest('hex'), size: '1', decompressed_size: '0' }
+    ]
+
+    await expect(
+      reassembleParts(parts, destZip, partsDir, undefined, undefined, undefined, FAST_RETRY_OPTIONS)
+    ).rejects.toThrow(/download failed/)
+
+    // maxAttempts: 4 -- the initial attempt plus exactly 3 retries, never
+    // more (retries are bounded, not unbounded).
+    expect(requestCount).toBe(4)
+  })
+
+  it('never retries DownloadPausedError and propagates it with no backoff delay', async () => {
+    const dir = await makeTempDir()
+    const partsDir = join(dir, 'parts')
+    const destZip = join(dir, 'out.zip')
+
+    let requestCount = 0
+    server = createServer((_req, res) => {
+      requestCount++
+
+      res.writeHead(200, { 'Content-Length': '1' })
+      res.end('x')
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('server did not bind')
+    baseUrl = `http://127.0.0.1:${address.port}`
+
+    const parts: PkgEntry[] = [
+      { url: `${baseUrl}/paused`, md5: createHash('md5').update(Buffer.from('x')).digest('hex'), size: '1', decompressed_size: '0' }
+    ]
+
+    const controller = new AbortController()
+    controller.abort()
+
+    // A retry would exceed the 50 ms backoff budget.
+    const start = Date.now()
+    await expect(
+      reassembleParts(parts, destZip, partsDir, undefined, undefined, controller.signal, FAST_RETRY_OPTIONS)
+    ).rejects.toBeInstanceOf(DownloadPausedError)
+    const elapsedMs = Date.now() - start
+
+    expect(elapsedMs).toBeLessThan(50)
+    expect(requestCount).toBe(0)
+  })
+
+  it('stops promptly when the external signal fires DURING a retry backoff sleep, instead of waiting out the full delay', async () => {
+    const dir = await makeTempDir()
+    const partsDir = join(dir, 'parts')
+    const destZip = join(dir, 'out.zip')
+
+    let requestCount = 0
+    server = createServer((req, _res) => {
+      requestCount++
+
+      req.socket.destroy()
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('server did not bind')
+    baseUrl = `http://127.0.0.1:${address.port}`
+
+    const parts: PkgEntry[] = [
+      { url: `${baseUrl}/fails-then-paused`, md5: createHash('md5').update(Buffer.from('x')).digest('hex'), size: '1', decompressed_size: '0' }
+    ]
+
+    const controller = new AbortController()
+
+    const SLOW_BACKOFF = { maxAttempts: 4, baseDelayMs: 2000, maxDelayMs: 2000 }
+
+    // Fire the abort shortly after the first attempt is expected to have
+    // failed and entered its backoff sleep.
+    setTimeout(() => controller.abort(), 50)
+
+    const start = Date.now()
+    await expect(
+      reassembleParts(parts, destZip, partsDir, undefined, undefined, controller.signal, SLOW_BACKOFF)
+    ).rejects.toBeInstanceOf(DownloadPausedError)
+    const elapsedMs = Date.now() - start
+
+    expect(elapsedMs).toBeLessThan(500)
+    expect(requestCount).toBe(1) // only the initial attempt, no retry fired
+  })
+
+  it('has no retry overhead on a normal, successful first attempt', async () => {
+    const dir = await makeTempDir()
+    const partsDir = join(dir, 'parts')
+    const destZip = join(dir, 'out.zip')
+
+    const chunk = Buffer.from('clean-first-try')
+    let requestCount = 0
+    server = createServer((_req, res) => {
+      requestCount++
+      res.writeHead(200, { 'Content-Length': String(chunk.length) })
+      res.end(chunk)
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    if (address === null || typeof address === 'string') throw new Error('server did not bind')
+    baseUrl = `http://127.0.0.1:${address.port}`
+
+    const parts: PkgEntry[] = [
+      { url: `${baseUrl}/clean`, md5: createHash('md5').update(chunk).digest('hex'), size: String(chunk.length), decompressed_size: '0' }
+    ]
+
+    const start = Date.now()
+    await reassembleParts(parts, destZip, partsDir, undefined, undefined, undefined, FAST_RETRY_OPTIONS)
+    const elapsedMs = Date.now() - start
+
+    expect(requestCount).toBe(1)
+    expect(elapsedMs).toBeLessThan(50)
+    const got = await readFile(destZip)
+    expect(got.equals(chunk)).toBe(true)
   })
 })
