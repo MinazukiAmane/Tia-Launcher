@@ -19,12 +19,12 @@ export function decideAction(
   state: InstallState | null,
   pendingAudioPatch: PendingAudioPatch | null = null
 ): InstallAction {
-  const major = info.main.major
-  if (!major) throw new Error('no published main version available for this game')
-
   if (pendingAudioPatch && state && state.version === pendingAudioPatch.toVersion) {
     return { kind: 'resume_audio_patch', pending: pendingAudioPatch }
   }
+
+  const major = info.main.major
+  if (!major) throw new Error('no published main version available for this game')
 
   if (!state) return { kind: 'fresh_install', target: major }
   if (state.version === major.version) return { kind: 'up_to_date' }

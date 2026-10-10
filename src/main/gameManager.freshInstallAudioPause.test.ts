@@ -37,6 +37,8 @@ let server: Server
 let baseUrl: string
 let gameFreshRequestCount = 0
 
+let audioChunksSent = 0
+
 beforeAll(async () => {
   server = createServer((req, res) => {
     if (req.url?.startsWith('/api/launcher_info')) {
@@ -124,6 +126,7 @@ beforeAll(async () => {
         }
         const slice = AUDIO_ZIP.subarray(offset, offset + step)
         offset += step
+        audioChunksSent++
         res.write(slice, () => setTimeout(sendNext, 20))
       }
       sendNext()
@@ -166,6 +169,7 @@ describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercise
     await rm(installDir, { recursive: true, force: true })
     await rm(tempDir, { recursive: true, force: true })
     gameFreshRequestCount = 0
+    audioChunksSent = 0
   })
 
   it('leaves a complete GAME part and a partial AUDIO part coexisting in partsDir without corruption, and completes correctly on resume', async () => {
@@ -193,7 +197,11 @@ describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercise
 
     const installPromise = performInstallOrUpdate(installDir, () => {})
 
-    await new Promise((r) => setTimeout(r, 150))
+    const deadline = Date.now() + 10_000
+    while (audioChunksSent < 3 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 10))
+    }
+    expect(audioChunksSent).toBeGreaterThanOrEqual(3)
     expect(isOperationInProgress()).toBe(true)
 
     const paused = pauseCurrentOperation()

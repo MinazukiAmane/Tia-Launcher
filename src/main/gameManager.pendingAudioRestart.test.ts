@@ -63,6 +63,8 @@ const AUDIO_PATCH_ZIP_MD5 = md5(AUDIO_PATCH_ZIP)
 let server: Server
 let baseUrl: string
 
+let audioChunksSent = 0
+
 beforeAll(async () => {
   server = createServer((req, res) => {
     if (req.url?.startsWith('/api/launcher_info')) {
@@ -145,6 +147,7 @@ beforeAll(async () => {
         }
         const slice = AUDIO_PATCH_ZIP.subarray(offset, offset + step)
         offset += step
+        audioChunksSent++
         res.write(slice, () => setTimeout(sendNext, 20))
       }
       sendNext()
@@ -205,6 +208,7 @@ describe('pending audio patch survives a simulated app restart', () => {
     await rm(userDataDir, { recursive: true, force: true })
     await rm(installDir, { recursive: true, force: true })
     await rm(tempDir, { recursive: true, force: true })
+    audioChunksSent = 0
   })
 
   it('is reported as NOT up-to-date by the getInstallState IPC handler after a restart, and resumes to completion', async () => {
@@ -233,7 +237,12 @@ describe('pending audio patch survives a simulated app restart', () => {
     // ---- Session 1: start the patch, pause mid-audio-download. ----
     const { performInstallOrUpdate, pauseCurrentOperation } = await import('./gameManager')
     const updatePromise = performInstallOrUpdate(installDir, () => {})
-    await new Promise((r) => setTimeout(r, 150))
+
+    const deadline = Date.now() + 10_000
+    while (audioChunksSent < 3 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 10))
+    }
+    expect(audioChunksSent).toBeGreaterThanOrEqual(3)
     const paused = pauseCurrentOperation()
     expect(paused).toBe(true)
     await expect(updatePromise).resolves.toEqual({ status: 'paused' })
