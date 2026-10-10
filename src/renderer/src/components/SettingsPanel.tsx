@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
 import { ProgressBar } from './ProgressBar'
+import { SystemNotificationModal } from './SystemNotificationModal'
+import gameIcon from '../assets/game-icon.png'
+
+
+const MAX_LAUNCH_COMMAND_LENGTH = 500
 
 function CloseIcon(): React.JSX.Element {
   return (
@@ -17,20 +22,29 @@ function GearIcon(): React.JSX.Element {
   )
 }
 
-
-interface Settings {
-  lang: 'na_id' | 'na_en'
-  classicUi: boolean
-  alternateRenderer: boolean
-  downloadSpeedLimitKbps: number | null
-  launchCommand: string | null
-  troubleshootingMode: boolean
-  windowCloseBehavior: 'minimize_to_tray' | 'exit'
+function ChevronIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current" fill="none" strokeWidth={2}>
+      <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
+
+function TrashIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current" fill="none" strokeWidth={2}>
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+
+type Settings = Awaited<ReturnType<typeof window.csore.getSettings>>
 
 interface SettingsPanelProps {
   installDir: string | null
   userDataDir: string
+  initialTab?: NavTab
   onChangeInstallDir: () => void
   onClose: () => void
 
@@ -42,33 +56,98 @@ type DWProtonStatus = Awaited<ReturnType<typeof window.csore.getDWProtonStatus>>
 type WhiskyStatus = Awaited<ReturnType<typeof window.csore.getWhiskyStatus>>
 type UpdateState = Awaited<ReturnType<typeof window.csore.getUpdateState>>
 type Progress = { processed: number; total: number; phase: string }
-type NavTab = 'launcher' | 'about'
+export type NavTab = 'launcher' | 'manage' | 'advanced' | 'logs' | 'about'
+
+const NAV_ITEMS: { key: NavTab; label: string }[] = [
+  { key: 'launcher', label: 'Launcher Settings' },
+  { key: 'manage', label: 'Manage Games' },
+  { key: 'advanced', label: 'Advanced Settings' },
+  { key: 'logs', label: 'Game Logs' },
+  { key: 'about', label: 'About' }
+]
 
 // Shared settings section layout.
 function SectionCard({
   title,
+  right,
   children
 }: {
   title: string
+  right?: React.ReactNode
   children: React.ReactNode
 }): React.JSX.Element {
   return (
     <div className="rounded-lg bg-white/[0.04] border border-white/5">
-      <h3 className="px-5 py-3 text-sm font-bold text-white border-b border-white/10">{title}</h3>
+      <h3 className="flex items-center justify-between px-5 py-3 text-sm font-bold text-white border-b border-white/10">
+        <span>{title}</span>
+        {right}
+      </h3>
       <div className="p-5 space-y-3">{children}</div>
     </div>
+  )
+}
+
+
+function Row({
+  label,
+  sublabel,
+  onClick,
+  disabled,
+  trailing
+}: {
+  label: string
+  sublabel?: string
+  onClick?: () => void
+  disabled?: boolean
+  trailing?: React.ReactNode
+}): React.JSX.Element {
+  const content = (
+    <>
+      <span className="flex flex-col items-start gap-0.5 text-left">
+        <span className={disabled ? 'text-white/30' : 'text-white'}>{label}</span>
+        {sublabel && <span className="text-xs text-white/40">{sublabel}</span>}
+      </span>
+      {trailing ?? (onClick && !disabled && <ChevronIcon />)}
+    </>
+  )
+  if (!onClick || disabled) {
+    return <div className="flex items-center justify-between py-1 text-sm text-white/30">{content}</div>
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between py-1 text-sm text-white/80 hover:text-white"
+    >
+      {content}
+    </button>
+  )
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`flex h-6 w-14 items-center justify-center rounded-full text-xs font-semibold transition ${
+        checked ? 'bg-yellow-400 text-black' : 'bg-white/10 text-white/50'
+      }`}
+    >
+      {checked ? 'ON' : 'OFF'}
+    </button>
   )
 }
 
 export function SettingsPanel({
   installDir,
   userDataDir,
+  initialTab,
   onChangeInstallDir,
   onClose,
   onUninstalled
 }: SettingsPanelProps): React.JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [activeTab, setActiveTab] = useState<NavTab>('launcher')
+  const [activeTab, setActiveTab] = useState<NavTab>(initialTab ?? 'launcher')
 
 
   const [speedLimitInput, setSpeedLimitInput] = useState('')
@@ -77,12 +156,13 @@ export function SettingsPanel({
   const [verifying, setVerifying] = useState(false)
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null)
   const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [confirmingRepair, setConfirmingRepair] = useState(false)
   const [repairing, setRepairing] = useState(false)
   const [repairProgress, setRepairProgress] = useState<Progress | null>(null)
   const [repairError, setRepairError] = useState<string | null>(null)
   const [repairDone, setRepairDone] = useState(false)
 
-  // Uninstall state
+  // Confirm uninstall before deleting files.
   const [confirmingUninstall, setConfirmingUninstall] = useState(false)
   const [uninstalling, setUninstalling] = useState(false)
   const [uninstallError, setUninstallError] = useState<string | null>(null)
@@ -95,10 +175,19 @@ export function SettingsPanel({
   const [redownloadError, setRedownloadError] = useState<string | null>(null)
   const [whiskyStatus, setWhiskyStatus] = useState<WhiskyStatus | null>(null)
 
-  // Update status (About/Update Settings section) -- read-only status + a manual check trigger.
+  // About tab update status and manual check.
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [appVersion, setAppVersion] = useState<string | null>(null)
+
+  // Game Logs / About "View" rows
+  const [logPath, setLogPath] = useState<string | null>(null)
+
+  // Manage Games "game version" display
+  const [installedVersion, setInstalledVersion] = useState<string | null>(null)
+
+
+  const [expandedAgreement, setExpandedAgreement] = useState<'tos' | 'privacy' | null>(null)
 
   useEffect(() => {
 
@@ -124,7 +213,16 @@ export function SettingsPanel({
   useEffect(() => {
     window.csore.getUpdateState().then(setUpdateState)
     window.csore.getAppVersion().then(setAppVersion)
+    window.csore.getLogFilePath().then(setLogPath)
   }, [])
+
+  useEffect(() => {
+    if (!installDir) {
+      setInstalledVersion(null)
+      return
+    }
+    window.csore.getInstallState(installDir).then((s) => setInstalledVersion(s?.version ?? null))
+  }, [installDir])
 
   async function update(patch: Partial<Settings>): Promise<void> {
     if (!settings) return
@@ -154,6 +252,7 @@ export function SettingsPanel({
     try {
       const result = await window.csore.verifyInstall(installDir)
       setVerifyResult(result)
+      if (!result.ok) setConfirmingRepair(true)
     } catch (err) {
       setVerifyError(err instanceof Error ? err.message : 'Could not verify the install.')
     } finally {
@@ -163,6 +262,7 @@ export function SettingsPanel({
 
   async function handleRepair(): Promise<void> {
     if (!installDir) return
+    setConfirmingRepair(false)
     setRepairing(true)
     setRepairError(null)
     setRepairDone(false)
@@ -225,6 +325,15 @@ export function SettingsPanel({
     }
   }
 
+  async function handleViewLogs(): Promise<void> {
+    await window.csore.showLogFileInFolder()
+  }
+
+  async function handleOpenInstallDir(): Promise<void> {
+    if (!installDir) return
+    await window.csore.showInstallDirInFolder(installDir)
+  }
+
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/60 p-6">
       <div className="flex h-[85vh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-zinc-950 text-white shadow-2xl">
@@ -235,24 +344,20 @@ export function SettingsPanel({
             Settings
           </div>
           <nav className="mt-2 flex flex-col gap-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab('launcher')}
-              className={`rounded-md px-3 py-2 text-left text-sm transition ${
-                activeTab === 'launcher' ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              Launcher Settings
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('about')}
-              className={`rounded-md px-3 py-2 text-left text-sm transition ${
-                activeTab === 'about' ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              About
-            </button>
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setActiveTab(item.key)}
+                className={`rounded-md px-3 py-2 text-left text-sm transition ${
+                  activeTab === item.key
+                    ? 'bg-white/15 text-white'
+                    : 'text-white/60 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
           </nav>
         </div>
 
@@ -267,20 +372,9 @@ export function SettingsPanel({
             <CloseIcon />
           </button>
 
-          {activeTab === 'about' && (
-            <div className="space-y-4 pr-8">
-              <h2 className="text-lg font-semibold">About</h2>
-              <div className="rounded-lg bg-white/[0.04] border border-white/5 p-5 space-y-2 text-sm">
-                <p className="text-white/80">CSORE Launcher</p>
-                <p className="text-white/50">Version {appVersion ?? '…'}</p>
-                <p className="truncate text-xs text-white/40">Launcher data: {userDataDir}</p>
-              </div>
-            </div>
-          )}
+          {!settings && <div className="text-white/60">Loading…</div>}
 
-          {activeTab === 'launcher' && !settings && <div className="text-white/60">Loading…</div>}
-
-          {activeTab === 'launcher' && settings && (
+          {settings && activeTab === 'launcher' && (
             <div className="space-y-4 pr-8">
               <SectionCard title="Language Settings">
                 <label className="flex items-center justify-between text-sm">
@@ -298,149 +392,16 @@ export function SettingsPanel({
 
               <SectionCard title="Launch Settings">
                 <label className="flex items-center justify-between text-sm">
-                  Classic UI
+                  <span>
+                    Classic UI
+                    <span className="block text-xs text-white/40">Use the previous launcher interface.</span>
+                  </span>
                   <input
                     type="checkbox"
                     checked={settings.classicUi}
                     onChange={(e) => update({ classicUi: e.target.checked })}
                   />
                 </label>
-                <label className="flex items-center justify-between text-sm">
-                  Alternate renderer
-                  <input
-                    type="checkbox"
-                    checked={settings.alternateRenderer}
-                    onChange={(e) => update({ alternateRenderer: e.target.checked })}
-                  />
-                </label>
-              </SectionCard>
-
-              <SectionCard title="Download Settings">
-                <label className="flex items-center justify-between text-sm gap-3">
-                  <span>
-                    Download speed limit
-                    {}
-                    <span className="block text-xs text-white/40">0 or empty = unlimited, else 100~20480 KB/S</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 flex-shrink-0">
-                    <input
-                      type="number"
-                      min={0}
-                      step="any"
-                      inputMode="decimal"
-                      placeholder="Unlimited"
-                      value={speedLimitInput}
-                      onChange={(e) => setSpeedLimitInput(e.target.value)}
-                      onBlur={(e) => commitSpeedLimit(e.target.value)}
-                      className="w-24 rounded bg-white/10 px-2 py-1 text-right"
-                    />
-                    <span className="text-white/50">KB/S</span>
-                  </span>
-                </label>
-              </SectionCard>
-
-              <SectionCard title="Install">
-                <div className="space-y-2">
-                  <p className="truncate text-xs text-white/50">{installDir ?? 'Not installed yet'}</p>
-                  <button
-                    type="button"
-                    onClick={onChangeInstallDir}
-                    className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
-                  >
-                    Change install location
-                  </button>
-                </div>
-
-                {installDir && (
-                  <div className="space-y-2 border-t border-white/10 pt-3">
-                    <h4 className="text-xs font-medium uppercase tracking-wide text-white/40">Verify / repair files</h4>
-                    <button
-                      type="button"
-                      onClick={handleVerify}
-                      disabled={verifying || repairing}
-                      className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
-                    >
-                      {verifying ? 'Verifying…' : 'Verify files'}
-                    </button>
-
-                    {verifyError && <p className="text-xs text-red-400">{verifyError}</p>}
-
-                    {verifyResult && (
-                      <p className="text-xs text-white/70">
-                        {verifyResult.ok
-                          ? 'All files verified OK.'
-                          : `${verifyResult.corruptFiles.length} file(s) corrupt, ${verifyResult.missingFiles.length} file(s) missing.`}
-                      </p>
-                    )}
-
-                    {verifyResult && !verifyResult.ok && !repairDone && (
-                      <div className="space-y-2">
-                        <p className="text-xs text-white/50">
-                          Repair re-downloads the full game client from scratch (not just the affected
-                          files) -- expect a multi-GB download.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleRepair}
-                          disabled={repairing}
-                          className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
-                        >
-                          {repairing ? 'Repairing…' : 'Repair (full re-download)'}
-                        </button>
-                      </div>
-                    )}
-
-                    {repairing && repairProgress && (
-                      <ProgressBar
-                        processed={repairProgress.processed}
-                        total={repairProgress.total}
-                        label="Repairing…"
-                      />
-                    )}
-
-                    {repairError && <p className="text-xs text-red-400">{repairError}</p>}
-                    {repairDone && <p className="text-xs text-white/70">Repair complete.</p>}
-                  </div>
-                )}
-
-                <div className="space-y-2 border-t border-white/10 pt-3">
-                  <h4 className="text-xs font-medium uppercase tracking-wide text-white/40">Uninstall</h4>
-                  {!confirmingUninstall ? (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmingUninstall(true)}
-                      disabled={!installDir || uninstalling}
-                      className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
-                    >
-                      Uninstall
-                    </button>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-xs text-red-300">
-                        Are you sure? This deletes all installed game files. Click again to confirm.
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleUninstallConfirmed}
-                          disabled={uninstalling}
-                          className="rounded bg-red-500/80 px-3 py-1.5 text-sm hover:bg-red-500 disabled:opacity-60"
-                        >
-                          {uninstalling ? 'Uninstalling…' : 'Confirm uninstall'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmingUninstall(false)}
-                          disabled={uninstalling}
-                          className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {uninstallError && <p className="text-xs text-red-400">{uninstallError}</p>}
-                </div>
               </SectionCard>
 
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
@@ -465,6 +426,151 @@ export function SettingsPanel({
                   </button>
                 </div>
               </SectionCard>
+
+              <SectionCard title="When Closing Window">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="windowCloseBehavior"
+                      checked={settings.windowCloseBehavior === 'minimize_to_tray'}
+                      onChange={() => update({ windowCloseBehavior: 'minimize_to_tray' })}
+                    />
+                    Minimize to tray
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="windowCloseBehavior"
+                      checked={settings.windowCloseBehavior === 'exit'}
+                      onChange={() => update({ windowCloseBehavior: 'exit' })}
+                    />
+                    Exit launcher
+                  </label>
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Download Speed Limit">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="speedLimitMode"
+                      checked={settings.downloadSpeedLimitKbps == null}
+                      onChange={() => {
+                        setSpeedLimitInput('')
+                        update({ downloadSpeedLimitKbps: null })
+                      }}
+                    />
+                    No limit
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="speedLimitMode"
+                      checked={settings.downloadSpeedLimitKbps != null}
+                      onChange={() => {
+                        const fallback = speedLimitInput.trim() === '' ? '4096' : speedLimitInput
+                        setSpeedLimitInput(fallback)
+                        commitSpeedLimit(fallback)
+                      }}
+                    />
+                    <input
+                      type="number"
+                      min={100}
+                      max={20480}
+                      step="any"
+                      inputMode="decimal"
+                      disabled={settings.downloadSpeedLimitKbps == null}
+                      value={speedLimitInput}
+                      onChange={(e) => setSpeedLimitInput(e.target.value)}
+                      onBlur={(e) => commitSpeedLimit(e.target.value)}
+                      className="w-24 rounded bg-white/10 px-2 py-1 text-right disabled:opacity-40"
+                    />
+                    <span className="text-white/50">KB/S (100~20480)</span>
+                  </label>
+                </div>
+              </SectionCard>
+            </div>
+          )}
+
+          {settings && activeTab === 'manage' && (
+            <div className="space-y-4 pr-8">
+              <SectionCard
+                title="CSORE"
+                right={
+                  installDir && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingUninstall(true)}
+                      className="flex items-center gap-1.5 text-xs font-normal text-white/50 hover:text-red-400"
+                    >
+                      <TrashIcon />
+                      Uninstall game
+                    </button>
+                  )
+                }
+              >
+                <div className="flex items-center gap-3">
+                  <img src={gameIcon} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                  <div>
+                    <p className="text-sm text-white">CSORE</p>
+                    <p className="text-xs text-white/40">
+                      {installedVersion ? `Game Version: ${installedVersion}` : 'Not installed'}
+                    </p>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Game Install Path">
+                <p className="truncate text-xs text-white/50">{installDir ?? 'Not installed yet'}</p>
+                <Row label="Change game install path" onClick={onChangeInstallDir} />
+                <Row label="Open file directory" onClick={handleOpenInstallDir} disabled={!installDir} />
+              </SectionCard>
+
+              {}
+              <SectionCard title="Rendering Mode">
+                <p className="text-xs text-white/50">Try switching this if the game encounters issues launching.</p>
+                <label className="flex items-center justify-between text-sm">
+                  <span>Use alternate renderer</span>
+                  <input
+                    type="checkbox"
+                    checked={settings.alternateRenderer}
+                    onChange={(e) => update({ alternateRenderer: e.target.checked })}
+                  />
+                </label>
+              </SectionCard>
+
+              {installDir && (
+                <SectionCard title="Verify / Repair Files">
+                  <button
+                    type="button"
+                    onClick={handleVerify}
+                    disabled={verifying || repairing}
+                    className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
+                  >
+                    {verifying ? 'Verifying…' : 'Check Game Integrity'}
+                  </button>
+
+                  {verifyError && <p className="text-xs text-red-400">{verifyError}</p>}
+                  {verifyResult && (
+                    <p className="text-xs text-white/70">
+                      {verifyResult.ok
+                        ? 'All files verified OK.'
+                        : `${verifyResult.corruptFiles.length} file(s) corrupt, ${verifyResult.missingFiles.length} file(s) missing.`}
+                    </p>
+                  )}
+                  {repairing && repairProgress && (
+                    <ProgressBar
+                      processed={repairProgress.processed}
+                      total={repairProgress.total}
+                      label="Repairing…"
+                    />
+                  )}
+                  {repairError && <p className="text-xs text-red-400">{repairError}</p>}
+                  {repairDone && <p className="text-xs text-white/70">Repair complete.</p>}
+                </SectionCard>
+              )}
 
               {platform === 'linux' && (
                 <SectionCard title="DWProton (Linux)">
@@ -501,16 +607,137 @@ export function SettingsPanel({
                       ? 'Checking…'
                       : whiskyStatus.found
                         ? `Whisky bottle found at ${whiskyStatus.bottlePath}.`
-                        : // Whisky's own site isn't on the renderer's external-link
-
-                          'No Whisky bottle found -- install Whisky manually and create a bottle named "csore-launcher" before playing.'}
+                        : 'No Whisky bottle found -- install Whisky manually and create a bottle named "csore-launcher" before playing.'}
                   </p>
                 </SectionCard>
               )}
+
+              {uninstallError && <p className="text-xs text-red-400">{uninstallError}</p>}
+            </div>
+          )}
+
+          {settings && activeTab === 'advanced' && (
+            <div className="space-y-4 pr-8">
+              <SectionCard title="Launch Command">
+                <textarea
+                  value={settings.launchCommand ?? ''}
+                  maxLength={MAX_LAUNCH_COMMAND_LENGTH}
+                  placeholder="e.g. _GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1 %command%"
+                  onChange={(e) => update({ launchCommand: e.target.value === '' ? null : e.target.value })}
+                  rows={3}
+                  className="w-full resize-none rounded bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30"
+                />
+                <div className="flex items-center justify-between text-xs text-white/40">
+                  <span>Leave this blank unless necessary</span>
+                  <span>
+                    {(settings.launchCommand ?? '').length}/{MAX_LAUNCH_COMMAND_LENGTH}
+                  </span>
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Launch Options">
+                <label className="flex items-center justify-between text-sm">
+                  <span>
+                    Troubleshooting Mode
+                    <span className="block text-xs text-white/40">
+                      Enable this to generate logs for customer support if you have trouble running the game.
+                    </span>
+                  </span>
+                  <Toggle
+                    checked={settings.troubleshootingMode}
+                    onChange={(v) => update({ troubleshootingMode: v })}
+                  />
+                </label>
+              </SectionCard>
+            </div>
+          )}
+
+          {settings && activeTab === 'logs' && (
+            <div className="space-y-4 pr-8">
+              <SectionCard title="Log Information">
+                <Row label="View Client Logs" sublabel={logPath ?? undefined} onClick={handleViewLogs} />
+              </SectionCard>
+            </div>
+          )}
+
+          {settings && activeTab === 'about' && (
+            <div className="space-y-4 pr-8">
+              <SectionCard title="Launcher Version" right={<span className="text-xs text-white/40">v{appVersion ?? '…'}</span>}>
+                <Row
+                  label={checkingUpdate ? 'Checking…' : 'Check for updates'}
+                  onClick={handleCheckForUpdate}
+                />
+                {updateState?.available && (
+                  <p className="text-xs text-white/50">Update available: v{updateState.available.version}</p>
+                )}
+                {updateState?.downloaded && (
+                  <p className="text-xs text-white/50">Update downloaded -- restart to install.</p>
+                )}
+                {updateState?.error && <p className="text-xs text-red-400">{updateState.error}</p>}
+              </SectionCard>
+
+              <SectionCard title="Client Log">
+                <Row label="View" onClick={handleViewLogs} />
+                {}
+                <Row label="Submit Logs (Login Required)" disabled />
+              </SectionCard>
+
+              <SectionCard title="Launcher Service Agreements">
+                <div>
+                  <Row
+                    label="Game Launcher Terms of Service"
+                    onClick={() => setExpandedAgreement((v) => (v === 'tos' ? null : 'tos'))}
+                  />
+                  {expandedAgreement === 'tos' && (
+                    <p className="mt-1 text-xs text-white/40">
+                      Not yet available -- this launcher doesn't have a published Terms of Service yet.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Row
+                    label="Game Launcher Privacy Policy"
+                    onClick={() => setExpandedAgreement((v) => (v === 'privacy' ? null : 'privacy'))}
+                  />
+                  {expandedAgreement === 'privacy' && (
+                    <p className="mt-1 text-xs text-white/40">
+                      Not yet available -- this launcher doesn't have a published Privacy Policy yet.
+                    </p>
+                  )}
+                </div>
+              </SectionCard>
+
+              <div className="rounded-lg bg-white/[0.04] border border-white/5 p-5 space-y-2 text-xs">
+                <p className="truncate text-white/40">Launcher data: {userDataDir}</p>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {confirmingUninstall && (
+        <SystemNotificationModal
+          title="System Notification"
+          confirmLabel="Confirm"
+          confirmBusy={uninstalling}
+          onCancel={() => setConfirmingUninstall(false)}
+          onConfirm={handleUninstallConfirmed}
+        >
+          We&apos;re sorry to see you go! Are you sure you want to uninstall the game?
+        </SystemNotificationModal>
+      )}
+
+      {confirmingRepair && (
+        <SystemNotificationModal
+          title="Quick Repair Notice"
+          confirmLabel="Start Checking"
+          onCancel={() => setConfirmingRepair(false)}
+          onConfirm={handleRepair}
+        >
+          Your game installation will be scanned for missing and corrupted files. This repair process may take
+          some time. Interrupting the process may cause file loss or corruption.
+        </SystemNotificationModal>
+      )}
     </div>
   )
 }
