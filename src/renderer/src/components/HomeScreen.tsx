@@ -5,6 +5,25 @@ import { ProgressBar } from './ProgressBar'
 
 type ActionState = 'loading' | 'fresh_install' | 'up_to_date' | 'apply_patch' | 'working' | 'error'
 
+
+function PlayIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6 translate-x-[1px] fill-current">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  )
+}
+
+function DownloadIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" className="h-6 w-6 stroke-current" fill="none" strokeWidth={2.5}>
+      <path d="M12 3v12" strokeLinecap="round" />
+      <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 20h14" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 interface HomeScreenProps {
   installDir: string | null
   onNeedInstallDir: () => void
@@ -124,7 +143,7 @@ export function HomeScreen({ installDir, onNeedInstallDir }: HomeScreenProps): R
           onClick={onPrimaryAction}
           className="flex h-16 w-16 items-center justify-center rounded-full bg-yellow-400 text-black font-bold shadow-lg transition hover:bg-yellow-300 disabled:opacity-60"
         >
-          {state === 'up_to_date' ? '▶' : '⬇'}
+          {state === 'up_to_date' ? <PlayIcon /> : <DownloadIcon />}
         </button>
         <span className="text-sm font-medium text-white/80 drop-shadow">{buttonLabel[state]}</span>
       </div>

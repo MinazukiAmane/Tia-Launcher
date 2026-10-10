@@ -27,3 +27,5 @@ linux:
     - pacman
   category: Game
   maintainer: Serenetia <amane@serenetia.com>
+  syncDesktopName: true
+  icon: build/icons
