@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import heroBackground from '../assets/hero-background.png'
 import { NoticesPanel } from './NoticesPanel'
 import { SystemNotificationModal } from './SystemNotificationModal'
-import { ProgressBar } from './ProgressBar'
 
 
 type ActionState = 'loading' | 'fresh_install' | 'up_to_date' | 'apply_patch' | 'working' | 'paused' | 'error'
@@ -370,6 +369,34 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
     return <DownloadIcon />
   }
 
+
+  const ringFraction =
+    progress && progress.total > 0 && isDownloadingPhase ? Math.min(1, progress.processed / progress.total) : null
+  const showRing = (state === 'working' || state === 'paused' || repairing) && ringFraction !== null
+
+  function renderIconWithRing(): React.JSX.Element {
+    if (!showRing || ringFraction === null) return renderIcon()
+    const r = 11
+    const c = 2 * Math.PI * r
+    return (
+      <span className="relative flex h-7 w-7 items-center justify-center">
+        <svg viewBox="0 0 28 28" className="absolute inset-0 h-7 w-7 -rotate-90" fill="none" strokeWidth={2.5}>
+          <circle cx="14" cy="14" r={r} className="stroke-black/20" />
+          <circle
+            cx="14"
+            cy="14"
+            r={r}
+            className="stroke-black"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={c * (1 - ringFraction)}
+          />
+        </svg>
+        <span className="flex scale-75 items-center justify-center">{renderIcon()}</span>
+      </span>
+    )
+  }
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white">
       <div
@@ -397,15 +424,6 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
         {verifying && <p className="text-xs text-white/60">Checking game integrity…</p>}
         {verifyMessage && <p className="text-xs text-white/70">{verifyMessage}</p>}
         {errorMessage && <p className="max-w-xs text-right text-sm text-red-400">{errorMessage}</p>}
-
-        {}
-        {(state === 'working' || repairing) && progress && (
-          <ProgressBar
-            processed={progress.processed}
-            total={progress.total}
-            label={PHASE_LABEL[progress.phase] ?? progress.phase}
-          />
-        )}
 
         {/* Detailed hover popup (ref/launcher-cursor-hover-ondownloading- button-change.png): phase, percent + byte counts, speed, ETA. */}
         {isHovering && (state === 'working' || repairing) && progress && (
@@ -449,7 +467,7 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
             onMouseLeave={() => setIsHovering(false)}
             className="flex h-11 items-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-black shadow-lg transition hover:bg-yellow-300 disabled:opacity-60"
           >
-            {renderIcon()}
+            {renderIconWithRing()}
             {label}
           </button>
 
