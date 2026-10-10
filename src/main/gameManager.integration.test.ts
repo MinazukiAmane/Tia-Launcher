@@ -107,11 +107,13 @@ beforeAll(async () => {
 afterAll(() => server.close())
 
 const mockUserDataDir = { current: '' }
+
+const mockTempDir = { current: '' }
 vi.mock('electron', () => ({
   app: {
     getPath: (name: string) => {
       if (name === 'userData') return mockUserDataDir.current
-      if (name === 'temp') return tmpdir()
+      if (name === 'temp') return mockTempDir.current
       return `/mock/${name}`
     }
   }
@@ -124,6 +126,7 @@ vi.mock('./bsdiffAdapter', () => ({
 describe('install -> patch -> launch integration', () => {
   let userDataDir: string
   let installDir: string
+  let tempDir: string
   let originalFetch: typeof fetch
 
   afterEach(async () => {
@@ -132,6 +135,7 @@ describe('install -> patch -> launch integration', () => {
     global.fetch = originalFetch
     await rm(userDataDir, { recursive: true, force: true })
     await rm(installDir, { recursive: true, force: true })
+    await rm(tempDir, { recursive: true, force: true })
   })
 
   it('installs fresh, applies a patch, and launches, with real reassembleParts/applyPatch/launch code throughout', async () => {
@@ -139,6 +143,8 @@ describe('install -> patch -> launch integration', () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-integration-'))
     mockUserDataDir.current = userDataDir
     installDir = await mkdtemp(join(tmpdir(), 'csore-install-integration-'))
+    tempDir = await mkdtemp(join(tmpdir(), 'csore-temp-integration-'))
+    mockTempDir.current = tempDir
 
     global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -296,6 +302,7 @@ function buildAudioPatchZip(): Buffer {
 describe('audio_pkgs[] download + install/patch (spec gap)', () => {
   let userDataDir: string
   let installDir: string
+  let tempDir: string
   let originalFetch: typeof fetch
 
   afterEach(async () => {
@@ -303,6 +310,7 @@ describe('audio_pkgs[] download + install/patch (spec gap)', () => {
     global.fetch = originalFetch
     await rm(userDataDir, { recursive: true, force: true })
     await rm(installDir, { recursive: true, force: true })
+    await rm(tempDir, { recursive: true, force: true })
   })
 
   it('downloads and extracts audio_pkgs on fresh install, then downloads and applies an audio patch on update, recording both in InstallState.files', async () => {
@@ -310,6 +318,8 @@ describe('audio_pkgs[] download + install/patch (spec gap)', () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-audio-'))
     mockUserDataDir.current = userDataDir
     installDir = await mkdtemp(join(tmpdir(), 'csore-install-audio-'))
+    tempDir = await mkdtemp(join(tmpdir(), 'csore-temp-audio-'))
+    mockTempDir.current = tempDir
 
     global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -444,6 +454,7 @@ describe('audio_pkgs[] download + install/patch (spec gap)', () => {
 describe('repairInstall (spec §6)', () => {
   let userDataDir: string
   let installDir: string
+  let tempDir: string
   let originalFetch: typeof fetch
 
   afterEach(async () => {
@@ -451,6 +462,7 @@ describe('repairInstall (spec §6)', () => {
     global.fetch = originalFetch
     await rm(userDataDir, { recursive: true, force: true })
     await rm(installDir, { recursive: true, force: true })
+    await rm(tempDir, { recursive: true, force: true })
   })
 
   it('force-reinstalls even when the current state is already up to date, fixing a corrupted file', async () => {
@@ -458,6 +470,8 @@ describe('repairInstall (spec §6)', () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-repair-'))
     mockUserDataDir.current = userDataDir
     installDir = await mkdtemp(join(tmpdir(), 'csore-install-repair-'))
+    tempDir = await mkdtemp(join(tmpdir(), 'csore-temp-repair-'))
+    mockTempDir.current = tempDir
 
     global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
@@ -521,6 +535,8 @@ describe('repairInstall (spec §6)', () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-repair-race-'))
     mockUserDataDir.current = userDataDir
     installDir = await mkdtemp(join(tmpdir(), 'csore-install-repair-race-'))
+    tempDir = await mkdtemp(join(tmpdir(), 'csore-temp-repair-race-'))
+    mockTempDir.current = tempDir
     await mkdir(installDir, { recursive: true })
 
     vi.resetModules()
