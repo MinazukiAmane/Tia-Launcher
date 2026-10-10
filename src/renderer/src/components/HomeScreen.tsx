@@ -57,6 +57,9 @@ export function HomeScreen({ installDir, onNeedInstallDir }: HomeScreenProps): R
       const installState = await window.csore.getInstallState(installDir)
       if (!installState) {
         setState('fresh_install')
+      } else if (installState.pendingAudioPatch) {
+
+        setState('apply_patch')
       } else if (installState.version === info.main.major?.version) {
         setState('up_to_date')
       } else {

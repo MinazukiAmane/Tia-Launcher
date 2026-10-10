@@ -2,7 +2,7 @@ import { app, dialog, ipcMain, shell } from 'electron'
 import { rm } from 'fs/promises'
 import { join } from 'path'
 import { fetchLauncherInfo } from './launcherApi'
-import { readInstallState } from './installState'
+import { readInstallState, readPendingAudioPatch, type InstallState } from './installState'
 import { readSettings, writeSettings, setCachedWindowCloseBehavior, type Settings } from './settings'
 import { getCachedNews, type NewsItem } from './news'
 import { logFilePath, setTroubleshootingMode } from './logger'
@@ -34,8 +34,19 @@ export async function handleGetLauncherInfo(): Promise<unknown> {
   return fetchLauncherInfo('https://sg-csore-api.serenetia.com', 'csore_global')
 }
 
-export async function handleGetInstallState(_event: unknown, installDir: string) {
-  return readInstallState(installDir)
+// Persisted audio work keeps an otherwise current install in the update state.
+export interface InstallStateResponse extends InstallState {
+  pendingAudioPatch: boolean
+}
+
+export async function handleGetInstallState(
+  _event: unknown,
+  installDir: string
+): Promise<InstallStateResponse | null> {
+  const state = await readInstallState(installDir)
+  if (!state) return null
+  const pending = await readPendingAudioPatch(installDir)
+  return { ...state, pendingAudioPatch: pending !== null }
 }
 
 export async function handleChooseInstallFolder(): Promise<string | null> {

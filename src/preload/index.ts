@@ -5,7 +5,8 @@ import { IPC_UPDATE } from '../main/updater'
 const gameApi = {
   getLauncherInfo: (): Promise<import('../main/launcherApi').GamePackageEntry> =>
     ipcRenderer.invoke('game:getLauncherInfo'),
-  getInstallState: (installDir: string): Promise<import('../main/installState').InstallState | null> =>
+
+  getInstallState: (installDir: string): Promise<import('../main/ipc').InstallStateResponse | null> =>
     ipcRenderer.invoke('game:getInstallState', installDir),
   chooseInstallFolder: (): Promise<string | null> => ipcRenderer.invoke('game:chooseInstallFolder'),
 

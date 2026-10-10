@@ -319,6 +319,8 @@ async function doFreshInstall(
   await writeInstallState(installDir, newState)
 
   await clearPendingAudioPatch(installDir)
+
+  await rm(partsDir, { recursive: true, force: true })
 }
 
 async function applyAudioPatchContinuation(
@@ -329,7 +331,8 @@ async function applyAudioPatchContinuation(
   zipPath: string,
   onProgress: (update: ProgressUpdate) => void,
   maxBytesPerSecond: number | undefined,
-  externalSignal: AbortSignal
+  externalSignal: AbortSignal,
+  recoveryTarget?: VersionBlock
 ): Promise<void> {
   const audioZipPath = `${zipPath}.audio.zip`
   try {
@@ -342,12 +345,25 @@ async function applyAudioPatchContinuation(
       externalSignal
     )
     const audioManifest = await readManifest(audioZipPath)
-    await applyPatch(installDir, audioZipPath, audioManifest, bspatch)
+    try {
+      await applyPatch(installDir, audioZipPath, audioManifest, bspatch)
+    } catch (err) {
+      if (err instanceof PatchVerificationError && err.reasonCode === 'old_md5_mismatch' && recoveryTarget) {
+        logInfo('applyAudioPatchContinuation: recovering via fresh install after audio-side old_md5_mismatch', {
+          installDir
+        })
+        await doFreshInstall(recoveryTarget, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond, externalSignal)
+        return
+      }
+      throw err
+    }
     const files = mergeManifestEntries(baseFiles, audioManifest.entries)
     const newState: InstallState = { version: pending.toVersion, installDir, files }
     await writeInstallState(installDir, newState)
     await clearPendingAudioPatch(installDir)
     onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
+
+    await rm(partsDir, { recursive: true, force: true })
   } finally {
     await rm(audioZipPath, { force: true })
   }
@@ -378,31 +394,35 @@ export async function performInstallOrUpdate(
     const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
 
     const pendingAudio = await readPendingAudioPatch(installDir)
-    if (pendingAudio && state && state.version === pendingAudio.toVersion) {
+    const action = decideAction(info, state, pendingAudio)
+
+    if (pendingAudio && action.kind !== 'resume_audio_patch') {
+      await clearPendingAudioPatch(installDir)
+    }
+
+    if (action.kind === 'resume_audio_patch') {
       try {
         await applyAudioPatchContinuation(
           installDir,
-          pendingAudio,
-          state.files,
+          action.pending,
+
+          state!.files,
           partsDir,
           zipPath,
           onProgress,
           maxBytesPerSecond,
-          signal
+          signal,
+          info.main.major ?? undefined
         )
         logInfo('performInstallOrUpdate: resumed audio-only patch succeeded', {
           installDir,
-          version: pendingAudio.toVersion
+          version: action.pending.toVersion
         })
         return { status: 'completed' }
       } finally {
         await rm(zipPath, { force: true })
       }
-    } else if (pendingAudio) {
-      await clearPendingAudioPatch(installDir)
     }
-
-    const action = decideAction(info, state)
 
     if (action.kind === 'up_to_date') {
       logInfo('performInstallOrUpdate: already up to date', { installDir })
@@ -448,11 +468,12 @@ export async function performInstallOrUpdate(
       const files = mergeManifestEntries(state?.files ?? [], manifest.entries)
 
       const gameSideState: InstallState = { version: action.toVersion, installDir, files }
-      await writeInstallState(installDir, gameSideState)
 
       if (action.patch.audio_pkgs && action.patch.audio_pkgs.length > 0) {
         const pending: PendingAudioPatch = { toVersion: action.toVersion, audioPkgs: action.patch.audio_pkgs }
+
         await writePendingAudioPatch(installDir, pending)
+        await writeInstallState(installDir, gameSideState)
         await applyAudioPatchContinuation(
           installDir,
           pending,
@@ -461,10 +482,14 @@ export async function performInstallOrUpdate(
           zipPath,
           onProgress,
           maxBytesPerSecond,
-          signal
+          signal,
+          info.main.major ?? undefined
         )
       } else {
+        await writeInstallState(installDir, gameSideState)
         await clearPendingAudioPatch(installDir)
+
+        await rm(partsDir, { recursive: true, force: true })
       }
 
       logInfo('performInstallOrUpdate: patch applied successfully', { installDir, version: action.toVersion })

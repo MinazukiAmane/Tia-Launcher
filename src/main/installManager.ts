@@ -1,20 +1,30 @@
 
 import { join } from 'path'
-import { mkdir, rm } from 'fs/promises'
+import { mkdir } from 'fs/promises'
 import { createReadStream, createWriteStream } from 'fs'
 import { pipeline } from 'stream/promises'
 import type { GamePackageEntry, PkgEntry, VersionBlock } from './launcherApi'
-import type { InstallState } from './installState'
+import type { InstallState, PendingAudioPatch } from './installState'
 import { downloadPart } from './downloader'
 
 export type InstallAction =
   | { kind: 'fresh_install'; target: VersionBlock }
   | { kind: 'apply_patch'; patch: VersionBlock; toVersion: string }
+
+  | { kind: 'resume_audio_patch'; pending: PendingAudioPatch }
   | { kind: 'up_to_date' }
 
-export function decideAction(info: GamePackageEntry, state: InstallState | null): InstallAction {
+export function decideAction(
+  info: GamePackageEntry,
+  state: InstallState | null,
+  pendingAudioPatch: PendingAudioPatch | null = null
+): InstallAction {
   const major = info.main.major
   if (!major) throw new Error('no published main version available for this game')
+
+  if (pendingAudioPatch && state && state.version === pendingAudioPatch.toVersion) {
+    return { kind: 'resume_audio_patch', pending: pendingAudioPatch }
+  }
 
   if (!state) return { kind: 'fresh_install', target: major }
   if (state.version === major.version) return { kind: 'up_to_date' }
@@ -63,5 +73,4 @@ export async function reassembleParts(
     destStream.end()
   })
 
-  await rm(partsDir, { recursive: true, force: true })
 }

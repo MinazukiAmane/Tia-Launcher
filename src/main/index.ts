@@ -60,15 +60,15 @@ function trayIconPath(): string {
   return join(__dirname, '../../build/icon.png')
 }
 
-function createTray(win: BrowserWindow): Tray {
+function createTray(): Tray {
   const icon = nativeImage.createFromPath(trayIconPath())
   const trayIcon = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }))
   trayIcon.setToolTip('CSORE Launcher')
 
   const showWindow = (): void => {
-    if (win.isDestroyed()) return
-    win.show()
-    win.focus()
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    mainWindow.show()
+    mainWindow.focus()
   }
 
   trayIcon.setContextMenu(
@@ -107,7 +107,7 @@ if (!gotSingleInstanceLock) {
     registerGameIpcHandlers(mainWindow)
     initAutoUpdater(mainWindow)
     startNewsPolling(mainWindow)
-    tray = createTray(mainWindow)
+    tray = createTray()
 
     try {
       const settings = await readSettings(app.getPath('userData'))
