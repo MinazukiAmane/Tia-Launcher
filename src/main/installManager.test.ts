@@ -167,7 +167,20 @@ describe('reassembleParts', () => {
     ]
 
     const updates: Array<[number, number]> = []
-    await reassembleParts(parts, destZip, partsDir, (processed, total) => updates.push([processed, total]))
+    const assemble: Array<[number, number]> = []
+    await reassembleParts(
+      parts,
+      destZip,
+      partsDir,
+      (processed, total) => updates.push([processed, total]),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      (processed, total) => assemble.push([processed, total])
+    )
+    expect(assemble[0]).toEqual([0, 8000])
+    expect(assemble[assemble.length - 1]).toEqual([8000, 8000])
 
     expect(updates.length).toBeGreaterThanOrEqual(3)
     expect(updates.every(([, total]) => total === 8000)).toBe(true)

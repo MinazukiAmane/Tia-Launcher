@@ -89,6 +89,8 @@ function formatEta(seconds: number): string {
 const PHASE_LABEL: Record<string, string> = {
   downloading: 'Downloading',
   downloading_audio: 'Downloading voice pack',
+  assembling: 'Preparing files',
+  assembling_audio: 'Preparing voice pack',
   extracting: 'Extracting',
   extracting_audio: 'Extracting voice pack',
   applying_patch: 'Applying patch'
@@ -343,6 +345,9 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
   }
 
   const isDownloadingPhase = progress?.phase === 'downloading' || progress?.phase === 'downloading_audio'
+  const isAssemblingPhase = progress?.phase === 'assembling' || progress?.phase === 'assembling_audio'
+  const isExtractingPhase = progress?.phase === 'extracting' || progress?.phase === 'extracting_audio'
+  const hasRealTotal = isDownloadingPhase || isAssemblingPhase || isExtractingPhase
 
   const idleLabel: Record<ActionState, string> = {
     loading: 'Loading…',
@@ -371,7 +376,7 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
 
 
   const ringFraction =
-    progress && progress.total > 0 && isDownloadingPhase ? Math.min(1, progress.processed / progress.total) : null
+    progress && progress.total > 0 && hasRealTotal ? Math.min(1, progress.processed / progress.total) : null
   const showRing = (state === 'working' || state === 'paused' || repairing) && ringFraction !== null
 
   function renderIconWithRing(): React.JSX.Element {
@@ -429,12 +434,14 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
         {isHovering && (state === 'working' || repairing) && progress && (
           <div className="w-72 rounded-lg border border-white/10 bg-zinc-950/95 p-4 shadow-xl">
             <p className="text-sm font-semibold text-white">{PHASE_LABEL[progress.phase] ?? progress.phase}</p>
-            {isDownloadingPhase ? (
+            {hasRealTotal ? (
               <>
                 <p className="mt-2 text-sm text-white">
                   {progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0}%{' '}
                   <span className="text-white/50">
-                    ({formatBytes(progress.processed)} / {formatBytes(progress.total)})
+                    {isExtractingPhase
+                      ? `(${progress.processed} / ${progress.total} files)`
+                      : `(${formatBytes(progress.processed)} / ${formatBytes(progress.total)})`}
                   </span>
                 </p>
                 <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
@@ -445,12 +452,14 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
                     }}
                   />
                 </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-white/60">
-                  <span>{speedBps > 0 ? `${formatBytes(speedBps)}/S` : '--'}</span>
-                  <span>
-                    {speedBps > 0 ? formatEta((progress.total - progress.processed) / speedBps) : '--:--:--'}
-                  </span>
-                </div>
+                {isDownloadingPhase && (
+                  <div className="mt-3 flex items-center justify-between text-xs text-white/60">
+                    <span>{speedBps > 0 ? `${formatBytes(speedBps)}/S` : '--'}</span>
+                    <span>
+                      {speedBps > 0 ? formatEta((progress.total - progress.processed) / speedBps) : '--:--:--'}
+                    </span>
+                  </div>
+                )}
               </>
             ) : (
               <p className="mt-2 text-xs text-white/50">Working…</p>

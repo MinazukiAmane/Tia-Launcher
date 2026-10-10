@@ -123,7 +123,9 @@ export async function reassembleParts(
   externalSignal?: AbortSignal,
   // Abort only when data stops arriving; slow downloads remain valid.
   retryOptions?: PartRetryOptions,
-  idleTimeoutMsOverride?: number
+  idleTimeoutMsOverride?: number,
+  // Bytes concatenated into the final zip so far / total, throttled ~4/s.
+  onAssemble?: (processed: number, total: number) => void
 ): Promise<void> {
   const effectiveRetryOptions: Required<PartRetryOptions> = { ...DEFAULT_RETRY_OPTIONS, ...retryOptions }
   await mkdir(partsDir, { recursive: true })
@@ -157,11 +159,26 @@ export async function reassembleParts(
   }
 
   const destStream = createWriteStream(destZipPath, { flags: 'w' })
+  let assembled = 0
+  let lastAssembleEmit = 0
+  onAssemble?.(0, totalBytes)
   for (let i = 0; i < parts.length; i++) {
     const partPath = join(partsDir, `part-${parts[i].md5}`)
+    const readStream = createReadStream(partPath)
+    if (onAssemble) {
+      readStream.on('data', (chunk) => {
+        assembled += chunk.length
+        const now = Date.now()
+        if (now - lastAssembleEmit >= 250) {
+          lastAssembleEmit = now
+          onAssemble(Math.min(assembled, totalBytes), totalBytes)
+        }
+      })
+    }
     // Keep the destination stream open between parts.
-    await pipeline(createReadStream(partPath), destStream, { end: false })
+    await pipeline(readStream, destStream, { end: false })
   }
+  onAssemble?.(totalBytes, totalBytes)
   await new Promise<void>((resolve, reject) => {
     destStream.on('finish', resolve)
     destStream.on('error', reject)

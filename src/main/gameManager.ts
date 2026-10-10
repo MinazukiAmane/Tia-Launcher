@@ -247,7 +247,14 @@ async function resolveMaxBytesPerSecond(): Promise<number | undefined> {
 }
 
 export interface ProgressUpdate {
-  phase: 'downloading' | 'applying_patch' | 'extracting' | 'downloading_audio' | 'extracting_audio'
+  phase:
+    | 'downloading'
+    | 'assembling'
+    | 'applying_patch'
+    | 'extracting'
+    | 'downloading_audio'
+    | 'assembling_audio'
+    | 'extracting_audio'
   processed: number
   total: number
 }
@@ -290,10 +297,15 @@ async function doFreshInstall(
     partsDir,
     (processed, total) => onProgress({ phase: 'downloading', processed, total }),
     maxBytesPerSecond,
-    externalSignal
+    externalSignal,
+    undefined,
+    undefined,
+    (processed, total) => onProgress({ phase: 'assembling', processed, total })
   )
 
-  const gameFiles = await extractZip(zipPath, installDir)
+  const gameFiles = await extractZip(zipPath, installDir, (processed, total) =>
+    onProgress({ phase: 'extracting', processed, total })
+  )
 
   let audioFiles: InstalledFileEntry[] = []
   if (target.audio_pkgs && target.audio_pkgs.length > 0) {
@@ -305,10 +317,14 @@ async function doFreshInstall(
         partsDir,
         (processed, total) => onProgress({ phase: 'downloading_audio', processed, total }),
         maxBytesPerSecond,
-        externalSignal
+        externalSignal,
+        undefined,
+        undefined,
+        (processed, total) => onProgress({ phase: 'assembling_audio', processed, total })
       )
-      audioFiles = await extractZip(audioZipPath, installDir)
-      onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
+      audioFiles = await extractZip(audioZipPath, installDir, (processed, total) =>
+        onProgress({ phase: 'extracting_audio', processed, total })
+      )
     } finally {
       await rm(audioZipPath, { force: true })
     }

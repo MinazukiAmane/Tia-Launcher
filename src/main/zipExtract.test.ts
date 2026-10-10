@@ -98,3 +98,22 @@ describe('extractZip', () => {
     await expect(readFile('/etc/evil.txt')).rejects.toThrow()
   })
 })
+
+describe('extractZip progress', () => {
+  it('reports entries done/total, ending at the full entry count', async () => {
+    const dir = await makeTempDir()
+    const zip = new AdmZip()
+    for (let i = 0; i < 5; i++) zip.addFile(`d/f${i}.txt`, Buffer.from(`file ${i}`))
+    const zipPath = join(dir, 'in.zip')
+    zip.writeZip(zipPath)
+
+    const updates: Array<[number, number]> = []
+    const files = await extractZip(zipPath, join(dir, 'out'), (done, total) => updates.push([done, total]))
+
+    expect(files).toHaveLength(5)
+    expect(updates.length).toBeGreaterThanOrEqual(1)
+    const last = updates[updates.length - 1]
+    expect(last[0]).toBe(last[1])
+    expect(last[1]).toBeGreaterThanOrEqual(5)
+  })
+})
