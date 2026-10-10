@@ -113,6 +113,9 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
 
   const lastSampleRef = useRef<{ processed: number; time: number } | null>(null)
 
+
+  const pausedOperationRef = useRef<'install' | 'repair' | null>(null)
+
   useEffect(() => {
     const unsubscribe = window.csore.onProgress((update) => {
       setProgress(update)
@@ -184,15 +187,19 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
     setErrorMessage(null)
 
     let paused = false
+
+    pausedOperationRef.current = 'install'
     try {
       const result = await window.csore.startInstallOrUpdate(installDir)
       if (result.status === 'paused') {
         paused = true
         setState('paused')
       } else {
+        pausedOperationRef.current = null
         await refreshState()
       }
     } catch (err) {
+      pausedOperationRef.current = null
       setErrorMessage(err instanceof Error ? err.message : 'Install/update failed.')
       setState('error')
     } finally {
@@ -217,7 +224,11 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
     }
     if (state === 'paused') {
 
-      await runInstallOrUpdate()
+      if (pausedOperationRef.current === 'repair') {
+        await handleConfirmRepair()
+      } else {
+        await runInstallOrUpdate()
+      }
       return
     }
     if (!installDir) {
@@ -269,19 +280,25 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
     setConfirmingRepair(false)
     setRepairing(true)
     setState('working')
+
+    let paused = false
+    pausedOperationRef.current = 'repair'
     try {
       const result = await window.csore.repairInstall(installDir)
       if (result.status === 'paused') {
+        paused = true
         setState('paused')
       } else {
+        pausedOperationRef.current = null
         await refreshState()
       }
     } catch (err) {
+      pausedOperationRef.current = null
       setErrorMessage(err instanceof Error ? err.message : 'Repair failed.')
       setState('error')
     } finally {
       setRepairing(false)
-      setProgress(null)
+      if (!paused) setProgress(null)
     }
   }
 
