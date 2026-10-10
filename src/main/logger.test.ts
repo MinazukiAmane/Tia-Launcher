@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
-import { mkdtemp, rm, readFile } from 'fs/promises'
+import { mkdtemp, rm, readFile, mkdir, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -67,6 +67,25 @@ describe('logInfo / logError', () => {
     expect(contents).toContain('first')
     expect(contents).toContain('second')
     expect(contents.split('\n').filter(Boolean)).toHaveLength(2)
+  })
+})
+
+describe('log rotation', () => {
+  it('rotates a pre-existing launcher.log to launcher.old.log instead of destroying it', async () => {
+    const dir = await makeTempDir()
+    mockUserDataDir.current = dir
+    const logsDir = join(dir, 'logs')
+    await mkdir(logsDir, { recursive: true })
+    await writeFile(join(logsDir, 'launcher.log'), 'previous session content\n', 'utf-8')
+
+    logInfo('fresh session started')
+
+    const current = await readFile(logFilePath(), 'utf-8')
+    expect(current).not.toContain('previous session content')
+    expect(current).toContain('fresh session started')
+
+    const old = await readFile(join(logsDir, 'launcher.old.log'), 'utf-8')
+    expect(old).toBe('previous session content\n')
   })
 })
 

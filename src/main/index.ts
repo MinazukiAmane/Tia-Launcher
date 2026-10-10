@@ -4,7 +4,7 @@ import { is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, registerGameIpcHandlers, handleOpenExternal } from './ipc'
 import { initAutoUpdater } from './updater'
 import { startNewsPolling } from './news'
-import { readSettings } from './settings'
+import { readSettings, getCachedWindowCloseBehavior, setCachedWindowCloseBehavior } from './settings'
 import { setTroubleshootingMode } from './logger'
 
 export function createMainWindow(): BrowserWindow {
@@ -36,20 +36,9 @@ export function createMainWindow(): BrowserWindow {
 
   win.on('close', (event) => {
     if (isQuitting) return // real Quit (tray menu or OS shutdown) -- let it close.
+    if (getCachedWindowCloseBehavior() !== 'minimize_to_tray') return // default case: unchanged, untouched close.
     event.preventDefault()
-    readSettings(app.getPath('userData'))
-      .then((settings) => {
-        if (settings.windowCloseBehavior === 'minimize_to_tray') {
-          win.hide()
-        } else {
-          isQuitting = true
-          win.close()
-        }
-      })
-      .catch(() => {
-        isQuitting = true
-        win.close()
-      })
+    win.hide()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -64,8 +53,15 @@ export function createMainWindow(): BrowserWindow {
 let isQuitting = false
 let tray: Tray | null = null
 
+let mainWindow: BrowserWindow | null = null
+
+function trayIconPath(): string {
+  if (app.isPackaged) return join(process.resourcesPath, 'icon.png')
+  return join(__dirname, '../../build/icon.png')
+}
+
 function createTray(win: BrowserWindow): Tray {
-  const icon = nativeImage.createFromPath(join(__dirname, '../../build/icon.png'))
+  const icon = nativeImage.createFromPath(trayIconPath())
   const trayIcon = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }))
   trayIcon.setToolTip('CSORE Launcher')
 
@@ -94,26 +90,42 @@ function createTray(win: BrowserWindow): Tray {
   return trayIcon
 }
 
-app.whenReady().then(async () => {
-  registerIpcHandlers()
-  const win = createMainWindow()
-  registerGameIpcHandlers(win)
-  initAutoUpdater(win)
-  startNewsPolling(win)
-  tray = createTray(win)
-
-  try {
-    const settings = await readSettings(app.getPath('userData'))
-    setTroubleshootingMode(settings.troubleshootingMode)
-  } catch {
-    // Default (false) is already what the logger module starts with.
-  }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
-    else win.show()
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
   })
-})
+
+  app.whenReady().then(async () => {
+    registerIpcHandlers()
+    mainWindow = createMainWindow()
+    registerGameIpcHandlers(mainWindow)
+    initAutoUpdater(mainWindow)
+    startNewsPolling(mainWindow)
+    tray = createTray(mainWindow)
+
+    try {
+      const settings = await readSettings(app.getPath('userData'))
+      setTroubleshootingMode(settings.troubleshootingMode)
+      setCachedWindowCloseBehavior(settings.windowCloseBehavior)
+    } catch {
+      // Defaults (false / 'exit') are already what each module starts with.
+    }
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        mainWindow = createMainWindow()
+      } else {
+        mainWindow?.show()
+      }
+    })
+  })
+}
 
 app.on('before-quit', () => {
   isQuitting = true

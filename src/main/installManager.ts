@@ -39,7 +39,7 @@ export async function reassembleParts(
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i]
-    const partPath = join(partsDir, `part-${i}`)
+    const partPath = join(partsDir, `part-${part.md5}`)
     await downloadPart(
       { url: part.url, md5: part.md5, size: Number(part.size) },
       partPath,
@@ -53,7 +53,7 @@ export async function reassembleParts(
 
   const destStream = createWriteStream(destZipPath, { flags: 'w' })
   for (let i = 0; i < parts.length; i++) {
-    const partPath = join(partsDir, `part-${i}`)
+    const partPath = join(partsDir, `part-${parts[i].md5}`)
     // Keep the destination stream open between parts.
     await pipeline(createReadStream(partPath), destStream, { end: false })
   }

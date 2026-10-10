@@ -39,7 +39,13 @@ import {
   registerGameIpcHandlers
 } from './ipc'
 import { ipcMain } from 'electron'
-import { readSettings, writeSettings, DEFAULT_SETTINGS } from './settings'
+import {
+  readSettings,
+  writeSettings,
+  DEFAULT_SETTINGS,
+  getCachedWindowCloseBehavior,
+  setCachedWindowCloseBehavior
+} from './settings'
 
 describe('handlePing', () => {
   it('returns pong', async () => {
@@ -113,6 +119,15 @@ describe('handleGetSettings / handleSetSettings', () => {
     await handleSetSettings(undefined, { ...DEFAULT_SETTINGS, classicUi: true })
     const onDisk = await readSettings(userDataDir)
     expect(onDisk.classicUi).toBe(true)
+  })
+
+  it('keeps the cached windowCloseBehavior in sync with every settings write', async () => {
+    setCachedWindowCloseBehavior('exit')
+    await handleSetSettings(undefined, { ...DEFAULT_SETTINGS, windowCloseBehavior: 'minimize_to_tray' })
+    expect(getCachedWindowCloseBehavior()).toBe('minimize_to_tray')
+
+    await handleSetSettings(undefined, { ...DEFAULT_SETTINGS, windowCloseBehavior: 'exit' })
+    expect(getCachedWindowCloseBehavior()).toBe('exit')
   })
 })
 

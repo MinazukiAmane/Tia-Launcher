@@ -2,6 +2,7 @@
 import { promises as fs } from 'fs'
 import { join } from 'path'
 import type { ManifestEntry } from './patcher'
+import type { PkgEntry } from './launcherApi'
 
 export interface InstalledFileEntry {
   path: string
@@ -32,6 +33,35 @@ export async function readInstallState(installDir: string): Promise<InstallState
 
 export async function writeInstallState(installDir: string, state: InstallState): Promise<void> {
   await fs.writeFile(installStatePath(installDir), JSON.stringify(state, null, 2), 'utf-8')
+}
+
+export interface PendingAudioPatch {
+  toVersion: string
+  audioPkgs: PkgEntry[]
+}
+
+const PENDING_AUDIO_PATCH_FILENAME = '.csore_pending_audio_patch.json'
+
+export function pendingAudioPatchPath(installDir: string): string {
+  return join(installDir, PENDING_AUDIO_PATCH_FILENAME)
+}
+
+export async function readPendingAudioPatch(installDir: string): Promise<PendingAudioPatch | null> {
+  try {
+    const raw = await fs.readFile(pendingAudioPatchPath(installDir), 'utf-8')
+    return JSON.parse(raw) as PendingAudioPatch
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw err
+  }
+}
+
+export async function writePendingAudioPatch(installDir: string, data: PendingAudioPatch): Promise<void> {
+  await fs.writeFile(pendingAudioPatchPath(installDir), JSON.stringify(data, null, 2), 'utf-8')
+}
+
+export async function clearPendingAudioPatch(installDir: string): Promise<void> {
+  await fs.rm(pendingAudioPatchPath(installDir), { force: true })
 }
 
 export function mergeManifestEntries(

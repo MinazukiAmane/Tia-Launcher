@@ -32,7 +32,9 @@ export function launchWindows(exePath: string, args: string[], launchCommand?: s
             detached: true,
             stdio: 'ignore',
 
-            shell: true
+            shell: true,
+
+            windowsHide: true
           })
 
     // Handle spawn errors so failed launches cannot crash the main process.

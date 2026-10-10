@@ -7,6 +7,10 @@ files:
   - out/**/*
   - package.json
 
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+
 artifactName: "CSORE-Launcher-${version}-${os}-${arch}.${ext}"
 
 win:

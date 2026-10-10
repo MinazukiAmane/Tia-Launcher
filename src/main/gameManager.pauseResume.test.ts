@@ -6,7 +6,6 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { createHash, randomBytes } from 'crypto'
 import AdmZip from 'adm-zip'
-import { DownloadPausedError } from './downloader'
 
 function md5(buf: Buffer): string {
   return createHash('md5').update(buf).digest('hex')
@@ -132,7 +131,7 @@ describe('pause/resume (real local-server download)', () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
-  it('pausing mid-download leaves the partial part file intact, rejects with DownloadPausedError, and frees operationInProgress', async () => {
+  it('pausing mid-download leaves the partial part file intact, resolves { status: "paused" }, and frees operationInProgress', async () => {
     originalFetch = global.fetch
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-pause-'))
     mockUserDataDir.current = userDataDir
@@ -165,11 +164,11 @@ describe('pause/resume (real local-server download)', () => {
     const paused = pauseCurrentOperation()
     expect(paused).toBe(true)
 
-    await expect(installPromise).rejects.toBeInstanceOf(DownloadPausedError)
+    await expect(installPromise).resolves.toEqual({ status: 'paused' })
 
     expect(isOperationInProgress()).toBe(false)
 
-    const partPath = join(tempDir, 'csore-launcher-parts', 'part-0')
+    const partPath = join(tempDir, 'csore-launcher-parts', `part-${CLIENT_ZIP_MD5}`)
     const partStat = await stat(partPath)
     expect(partStat.size).toBeGreaterThan(0)
     expect(partStat.size).toBeLessThan(CLIENT_ZIP.length)
@@ -180,7 +179,8 @@ describe('pause/resume (real local-server download)', () => {
 
     // ---- Resume: simply call performInstallOrUpdate again ----
     const progress: unknown[] = []
-    await performInstallOrUpdate(installDir, (u) => progress.push(u))
+    const resumeResult = await performInstallOrUpdate(installDir, (u) => progress.push(u))
+    expect(resumeResult).toEqual({ status: 'completed' })
 
     expect(progress.length).toBeGreaterThan(0)
     const exeAfterResume = await readFile(join(installDir, 'Bin', 'cstrike-online.exe'))
@@ -189,5 +189,35 @@ describe('pause/resume (real local-server download)', () => {
     expect(dataAfterResume.equals(DATA_CONTENT)).toBe(true)
     const state = JSON.parse(await readFile(join(installDir, '.csore_install.json'), 'utf-8'))
     expect(state.version).toBe('1.0.0')
+  }, 15_000)
+
+  it('refuses a second performInstallOrUpdate call while one is already in progress', async () => {
+    originalFetch = global.fetch
+    userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-reentrant-'))
+    mockUserDataDir.current = userDataDir
+    installDir = await mkdtemp(join(tmpdir(), 'csore-install-reentrant-'))
+    tempDir = await mkdtemp(join(tmpdir(), 'csore-temp-reentrant-'))
+    mockTempDir.current = tempDir
+
+    global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const url = new URL(urlString)
+      if (url.hostname === 'sg-csore-api.serenetia.com') {
+        const rewritten = new URL(baseUrl)
+        url.protocol = rewritten.protocol
+        url.hostname = rewritten.hostname
+        url.port = rewritten.port
+        return originalFetch(url.toString(), init)
+      }
+      return originalFetch(urlString, init)
+    }) as unknown as typeof fetch
+
+    const { performInstallOrUpdate, pauseCurrentOperation } = await import('./gameManager')
+
+    const firstCall = performInstallOrUpdate(installDir, () => {})
+    await expect(performInstallOrUpdate(installDir, () => {})).rejects.toThrow(/already in progress/i)
+
+    pauseCurrentOperation()
+    await expect(firstCall).resolves.toEqual({ status: 'paused' })
   }, 15_000)
 })

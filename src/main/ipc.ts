@@ -3,9 +3,8 @@ import { rm } from 'fs/promises'
 import { join } from 'path'
 import { fetchLauncherInfo } from './launcherApi'
 import { readInstallState } from './installState'
-import { readSettings, writeSettings, type Settings } from './settings'
+import { readSettings, writeSettings, setCachedWindowCloseBehavior, type Settings } from './settings'
 import { getCachedNews, type NewsItem } from './news'
-import { DownloadPausedError } from './downloader'
 import { logFilePath, setTroubleshootingMode } from './logger'
 import {
   performInstallOrUpdate,
@@ -23,7 +22,8 @@ import {
   type ProgressUpdate,
   type VerifyResult,
   type DWProtonStatus,
-  type WhiskyStatus
+  type WhiskyStatus,
+  type InstallOperationResult
 } from './gameManager'
 
 export async function handlePing(): Promise<string> {
@@ -61,6 +61,8 @@ export async function handleSetSettings(_event: unknown, settings: Settings): Pr
   await writeSettings(app.getPath('userData'), settings)
 
   setTroubleshootingMode(settings.troubleshootingMode)
+
+  setCachedWindowCloseBehavior(settings.windowCloseBehavior)
 }
 
 async function assertApprovedInstallDir(installDir: string): Promise<void> {
@@ -76,25 +78,14 @@ export async function handleLaunchGame(_event: unknown, installDir: string): Pro
   return launchGame(installDir)
 }
 
-async function swallowPause(promise: Promise<void>): Promise<void> {
-  try {
-    await promise
-  } catch (err) {
-    if (err instanceof DownloadPausedError) return
-    throw err
-  }
-}
-
 export function makeHandleStartInstallOrUpdate(
   win: Electron.BrowserWindow
-): (_event: unknown, installDir: string) => Promise<void> {
-  return async (_event: unknown, installDir: string): Promise<void> => {
+): (_event: unknown, installDir: string) => Promise<InstallOperationResult> {
+  return async (_event: unknown, installDir: string): Promise<InstallOperationResult> => {
     await assertApprovedInstallDir(installDir)
-    return swallowPause(
-      performInstallOrUpdate(installDir, (update: ProgressUpdate) => {
-        if (!win.isDestroyed()) win.webContents.send('game:progress', update)
-      })
-    )
+    return performInstallOrUpdate(installDir, (update: ProgressUpdate) => {
+      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+    })
   }
 }
 
@@ -109,14 +100,12 @@ export async function handleVerifyInstall(_event: unknown, installDir: string): 
 
 export function makeHandleRepairInstall(
   win: Electron.BrowserWindow
-): (_event: unknown, installDir: string) => Promise<void> {
-  return async (_event: unknown, installDir: string): Promise<void> => {
+): (_event: unknown, installDir: string) => Promise<InstallOperationResult> {
+  return async (_event: unknown, installDir: string): Promise<InstallOperationResult> => {
     await assertApprovedInstallDir(installDir)
-    return swallowPause(
-      repairInstall(installDir, (update: ProgressUpdate) => {
-        if (!win.isDestroyed()) win.webContents.send('game:progress', update)
-      })
-    )
+    return repairInstall(installDir, (update: ProgressUpdate) => {
+      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+    })
   }
 }
 

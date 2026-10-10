@@ -1,10 +1,11 @@
 
 import { app } from 'electron'
-import { appendFileSync, mkdirSync, writeFileSync } from 'fs'
+import { appendFileSync, mkdirSync, writeFileSync, renameSync, existsSync } from 'fs'
 import { dirname, join } from 'path'
 
 const LOG_DIR_NAME = 'logs'
 const LOG_FILE_NAME = 'launcher.log'
+const OLD_LOG_FILE_NAME = 'launcher.old.log'
 
 let troubleshootingModeEnabled = false
 
@@ -28,6 +29,10 @@ function ensureFreshLogFile(path: string): void {
   try {
     mkdirSync(dirname(path), { recursive: true })
 
+    const oldPath = join(dirname(path), OLD_LOG_FILE_NAME)
+    if (existsSync(path)) {
+      renameSync(path, oldPath)
+    }
     writeFileSync(path, '', 'utf-8')
   } catch {
   }

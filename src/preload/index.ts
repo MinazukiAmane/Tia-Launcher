@@ -13,13 +13,16 @@ const gameApi = {
   setSettings: (settings: import('../main/settings').Settings): Promise<void> =>
     ipcRenderer.invoke('game:setSettings', settings),
   launchGame: (installDir: string): Promise<void> => ipcRenderer.invoke('game:launch', installDir),
-  startInstallOrUpdate: (installDir: string): Promise<void> =>
+
+  startInstallOrUpdate: (installDir: string): Promise<import('../main/gameManager').InstallOperationResult> =>
     ipcRenderer.invoke('game:startInstallOrUpdate', installDir),
 
   pauseInstallOrUpdate: (): Promise<void> => ipcRenderer.invoke('game:pauseInstallOrUpdate'),
   verifyInstall: (installDir: string): Promise<import('../main/gameManager').VerifyResult> =>
     ipcRenderer.invoke('game:verifyInstall', installDir),
-  repairInstall: (installDir: string): Promise<void> => ipcRenderer.invoke('game:repairInstall', installDir),
+  // See startInstallOrUpdate's comment above -- same typed result shape.
+  repairInstall: (installDir: string): Promise<import('../main/gameManager').InstallOperationResult> =>
+    ipcRenderer.invoke('game:repairInstall', installDir),
   uninstall: (installDir: string): Promise<void> => ipcRenderer.invoke('game:uninstall', installDir),
   getDWProtonStatus: (): Promise<import('../main/gameManager').DWProtonStatus> =>
     ipcRenderer.invoke('game:getDWProtonStatus'),

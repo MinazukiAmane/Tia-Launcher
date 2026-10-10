@@ -319,7 +319,8 @@ export function SettingsPanel({
                 <label className="flex items-center justify-between text-sm gap-3">
                   <span>
                     Download speed limit
-                    <span className="block text-xs text-white/40">0 or empty = unlimited</span>
+                    {}
+                    <span className="block text-xs text-white/40">0 or empty = unlimited, else 100~20480 KB/S</span>
                   </span>
                   <span className="flex items-center gap-1.5 flex-shrink-0">
                     <input
@@ -333,7 +334,7 @@ export function SettingsPanel({
                       onBlur={(e) => commitSpeedLimit(e.target.value)}
                       className="w-24 rounded bg-white/10 px-2 py-1 text-right"
                     />
-                    <span className="text-white/50">MB/s</span>
+                    <span className="text-white/50">KB/S</span>
                   </span>
                 </label>
               </SectionCard>

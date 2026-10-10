@@ -94,7 +94,7 @@ describe('performInstallOrUpdate patch-verification recovery', () => {
       )
     )
 
-    await expect(performInstallOrUpdate(installDir, () => {})).resolves.toBeUndefined()
+    await expect(performInstallOrUpdate(installDir, () => {})).resolves.toEqual({ status: 'completed' })
 
     const state = await readInstallState(installDir)
     expect(state?.version).toBe('1.1.0')

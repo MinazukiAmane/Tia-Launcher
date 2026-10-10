@@ -10,6 +10,8 @@ import {
   MIN_DOWNLOAD_SPEED_LIMIT_KBPS,
   MAX_DOWNLOAD_SPEED_LIMIT_KBPS,
   MAX_LAUNCH_COMMAND_LENGTH,
+  getCachedWindowCloseBehavior,
+  setCachedWindowCloseBehavior,
   type Settings
 } from './settings'
 
@@ -126,6 +128,56 @@ describe('writeSettings: launchCommand validation', () => {
     const dir = await makeTempDir()
     await writeSettings(dir, { ...BASE_SETTINGS, launchCommand: '' })
     expect((await readSettings(dir)).launchCommand).toBe(null)
+  })
+})
+
+describe('writeSettings/readSettings: windowCloseBehavior + troubleshootingMode validation', () => {
+  it('falls back to the default windowCloseBehavior for an invalid enum value on write', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, {
+      ...BASE_SETTINGS,
+      windowCloseBehavior: 'not_a_real_value' as unknown as Settings['windowCloseBehavior']
+    })
+    expect((await readSettings(dir)).windowCloseBehavior).toBe(DEFAULT_SETTINGS.windowCloseBehavior)
+  })
+
+  it('leaves a valid windowCloseBehavior value untouched', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, { ...BASE_SETTINGS, windowCloseBehavior: 'minimize_to_tray' })
+    expect((await readSettings(dir)).windowCloseBehavior).toBe('minimize_to_tray')
+  })
+
+  it('falls back to the default windowCloseBehavior for a bad value found on disk', async () => {
+    const dir = await makeTempDir()
+    const { writeFile } = await import('fs/promises')
+    await writeFile(join(dir, 'settings.json'), JSON.stringify({ windowCloseBehavior: 123 }), 'utf-8')
+    expect((await readSettings(dir)).windowCloseBehavior).toBe(DEFAULT_SETTINGS.windowCloseBehavior)
+  })
+
+  it('falls back to the default troubleshootingMode for a non-boolean value on write', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, {
+      ...BASE_SETTINGS,
+      troubleshootingMode: 'yes' as unknown as boolean
+    })
+    expect((await readSettings(dir)).troubleshootingMode).toBe(DEFAULT_SETTINGS.troubleshootingMode)
+  })
+})
+
+describe('cached windowCloseBehavior', () => {
+  afterEach(() => {
+    setCachedWindowCloseBehavior(DEFAULT_SETTINGS.windowCloseBehavior)
+  })
+
+  it('defaults to the DEFAULT_SETTINGS value before anything sets it', () => {
+    expect(getCachedWindowCloseBehavior()).toBe(DEFAULT_SETTINGS.windowCloseBehavior)
+  })
+
+  it('reflects whatever was last set, synchronously', () => {
+    setCachedWindowCloseBehavior('minimize_to_tray')
+    expect(getCachedWindowCloseBehavior()).toBe('minimize_to_tray')
+    setCachedWindowCloseBehavior('exit')
+    expect(getCachedWindowCloseBehavior()).toBe('exit')
   })
 })
 

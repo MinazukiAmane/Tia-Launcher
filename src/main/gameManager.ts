@@ -7,8 +7,12 @@ import {
   readInstallState,
   writeInstallState,
   mergeManifestEntries,
+  readPendingAudioPatch,
+  writePendingAudioPatch,
+  clearPendingAudioPatch,
   type InstallState,
-  type InstalledFileEntry
+  type InstalledFileEntry,
+  type PendingAudioPatch
 } from './installState'
 import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
@@ -313,12 +317,53 @@ async function doFreshInstall(
   const files = mergeFileLists(gameFiles, audioFiles)
   const newState: InstallState = { version: target.version, installDir, files }
   await writeInstallState(installDir, newState)
+
+  await clearPendingAudioPatch(installDir)
+}
+
+async function applyAudioPatchContinuation(
+  installDir: string,
+  pending: PendingAudioPatch,
+  baseFiles: InstalledFileEntry[],
+  partsDir: string,
+  zipPath: string,
+  onProgress: (update: ProgressUpdate) => void,
+  maxBytesPerSecond: number | undefined,
+  externalSignal: AbortSignal
+): Promise<void> {
+  const audioZipPath = `${zipPath}.audio.zip`
+  try {
+    await reassembleParts(
+      pending.audioPkgs,
+      audioZipPath,
+      partsDir,
+      (processed, total) => onProgress({ phase: 'downloading_audio', processed, total }),
+      maxBytesPerSecond,
+      externalSignal
+    )
+    const audioManifest = await readManifest(audioZipPath)
+    await applyPatch(installDir, audioZipPath, audioManifest, bspatch)
+    const files = mergeManifestEntries(baseFiles, audioManifest.entries)
+    const newState: InstallState = { version: pending.toVersion, installDir, files }
+    await writeInstallState(installDir, newState)
+    await clearPendingAudioPatch(installDir)
+    onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
+  } finally {
+    await rm(audioZipPath, { force: true })
+  }
+}
+
+export interface InstallOperationResult {
+  status: 'completed' | 'paused'
 }
 
 export async function performInstallOrUpdate(
   installDir: string,
   onProgress: (update: ProgressUpdate) => void
-): Promise<void> {
+): Promise<InstallOperationResult> {
+  if (operationInProgress) {
+    throw new Error('another operation (install/update/repair/uninstall) is already in progress')
+  }
   operationInProgress = true
   const abortController = new AbortController()
   currentOperationAbortController = abortController
@@ -327,22 +372,48 @@ export async function performInstallOrUpdate(
   try {
     const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
     const state = await readInstallState(installDir)
-    const action = decideAction(info, state)
-
-    if (action.kind === 'up_to_date') {
-      logInfo('performInstallOrUpdate: already up to date', { installDir })
-      return
-    }
 
     const maxBytesPerSecond = await resolveMaxBytesPerSecond()
     const partsDir = join(app.getPath('temp'), 'csore-launcher-parts')
     const zipPath = join(app.getPath('temp'), 'csore-launcher-download.zip')
 
+    const pendingAudio = await readPendingAudioPatch(installDir)
+    if (pendingAudio && state && state.version === pendingAudio.toVersion) {
+      try {
+        await applyAudioPatchContinuation(
+          installDir,
+          pendingAudio,
+          state.files,
+          partsDir,
+          zipPath,
+          onProgress,
+          maxBytesPerSecond,
+          signal
+        )
+        logInfo('performInstallOrUpdate: resumed audio-only patch succeeded', {
+          installDir,
+          version: pendingAudio.toVersion
+        })
+        return { status: 'completed' }
+      } finally {
+        await rm(zipPath, { force: true })
+      }
+    } else if (pendingAudio) {
+      await clearPendingAudioPatch(installDir)
+    }
+
+    const action = decideAction(info, state)
+
+    if (action.kind === 'up_to_date') {
+      logInfo('performInstallOrUpdate: already up to date', { installDir })
+      return { status: 'completed' }
+    }
+
     try {
       if (action.kind === 'fresh_install') {
         await doFreshInstall(action.target, installDir, partsDir, zipPath, onProgress, maxBytesPerSecond, signal)
         logInfo('performInstallOrUpdate: fresh install succeeded', { installDir, version: action.target.version })
-        return
+        return { status: 'completed' }
       }
 
       // apply_patch
@@ -369,45 +440,44 @@ export async function performInstallOrUpdate(
             signal
           )
           logInfo('performInstallOrUpdate: recovered via fresh install after old_md5_mismatch', { installDir })
-          return
+          return { status: 'completed' }
         }
         throw err
       }
 
-      let files = mergeManifestEntries(state?.files ?? [], manifest.entries)
+      const files = mergeManifestEntries(state?.files ?? [], manifest.entries)
+
+      const gameSideState: InstallState = { version: action.toVersion, installDir, files }
+      await writeInstallState(installDir, gameSideState)
 
       if (action.patch.audio_pkgs && action.patch.audio_pkgs.length > 0) {
-        const audioZipPath = `${zipPath}.audio.zip`
-        try {
-          await reassembleParts(
-            action.patch.audio_pkgs,
-            audioZipPath,
-            partsDir,
-            (processed, total) => onProgress({ phase: 'downloading_audio', processed, total }),
-            maxBytesPerSecond,
-            signal
-          )
-          const audioManifest = await readManifest(audioZipPath)
-          await applyPatch(installDir, audioZipPath, audioManifest, bspatch)
-          files = mergeManifestEntries(files, audioManifest.entries)
-          onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
-        } finally {
-          await rm(audioZipPath, { force: true })
-        }
+        const pending: PendingAudioPatch = { toVersion: action.toVersion, audioPkgs: action.patch.audio_pkgs }
+        await writePendingAudioPatch(installDir, pending)
+        await applyAudioPatchContinuation(
+          installDir,
+          pending,
+          gameSideState.files,
+          partsDir,
+          zipPath,
+          onProgress,
+          maxBytesPerSecond,
+          signal
+        )
+      } else {
+        await clearPendingAudioPatch(installDir)
       }
 
-      const newState: InstallState = { version: action.toVersion, installDir, files }
-      await writeInstallState(installDir, newState)
       logInfo('performInstallOrUpdate: patch applied successfully', { installDir, version: action.toVersion })
+      return { status: 'completed' }
     } finally {
       await rm(zipPath, { force: true })
     }
   } catch (err) {
     if (err instanceof DownloadPausedError) {
       logInfo('performInstallOrUpdate: paused by player', { installDir })
-    } else {
-      logError('performInstallOrUpdate: failed', { installDir, error: (err as Error).message })
+      return { status: 'paused' }
     }
+    logError('performInstallOrUpdate: failed', { installDir, error: (err as Error).message })
     throw err
   } finally {
     operationInProgress = false
@@ -457,7 +527,7 @@ export async function verifyInstall(installDir: string): Promise<VerifyResult> {
 export async function repairInstall(
   installDir: string,
   onProgress: (update: ProgressUpdate) => void
-): Promise<void> {
+): Promise<InstallOperationResult> {
   if (operationInProgress) {
     throw new Error('another operation (install/update/repair/uninstall) is already in progress')
   }
@@ -483,15 +553,16 @@ export async function repairInstall(
         abortController.signal
       )
       logInfo('repairInstall: succeeded', { installDir, version: info.main.major.version })
+      return { status: 'completed' }
     } finally {
       await rm(zipPath, { force: true })
     }
   } catch (err) {
     if (err instanceof DownloadPausedError) {
       logInfo('repairInstall: paused by player', { installDir })
-    } else {
-      logError('repairInstall: failed', { installDir, error: (err as Error).message })
+      return { status: 'paused' }
     }
+    logError('repairInstall: failed', { installDir, error: (err as Error).message })
     throw err
   } finally {
     operationInProgress = false

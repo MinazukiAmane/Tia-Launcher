@@ -49,6 +49,14 @@ function clampLaunchCommand(value: string | null): string | null {
   return value.slice(0, MAX_LAUNCH_COMMAND_LENGTH)
 }
 
+function sanitizeWindowCloseBehavior(value: unknown): Settings['windowCloseBehavior'] {
+  return value === 'minimize_to_tray' || value === 'exit' ? value : DEFAULT_SETTINGS.windowCloseBehavior
+}
+
+function sanitizeTroubleshootingMode(value: unknown): boolean {
+  return typeof value === 'boolean' ? value : DEFAULT_SETTINGS.troubleshootingMode
+}
+
 export async function readSettings(userDataDir: string): Promise<Settings> {
   try {
     const raw = await fs.readFile(settingsPath(userDataDir), 'utf-8')
@@ -57,7 +65,9 @@ export async function readSettings(userDataDir: string): Promise<Settings> {
     return {
       ...merged,
       downloadSpeedLimitKbps: clampDownloadSpeedLimitKbps(merged.downloadSpeedLimitKbps),
-      launchCommand: clampLaunchCommand(merged.launchCommand)
+      launchCommand: clampLaunchCommand(merged.launchCommand),
+      windowCloseBehavior: sanitizeWindowCloseBehavior(merged.windowCloseBehavior),
+      troubleshootingMode: sanitizeTroubleshootingMode(merged.troubleshootingMode)
     }
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return DEFAULT_SETTINGS
@@ -69,9 +79,21 @@ export async function writeSettings(userDataDir: string, settings: Settings): Pr
   const sanitized: Settings = {
     ...settings,
     downloadSpeedLimitKbps: clampDownloadSpeedLimitKbps(settings.downloadSpeedLimitKbps),
-    launchCommand: clampLaunchCommand(settings.launchCommand)
+    launchCommand: clampLaunchCommand(settings.launchCommand),
+    windowCloseBehavior: sanitizeWindowCloseBehavior(settings.windowCloseBehavior),
+    troubleshootingMode: sanitizeTroubleshootingMode(settings.troubleshootingMode)
   }
   await fs.writeFile(settingsPath(userDataDir), JSON.stringify(sanitized, null, 2), 'utf-8')
+}
+
+let cachedWindowCloseBehavior: Settings['windowCloseBehavior'] = DEFAULT_SETTINGS.windowCloseBehavior
+
+export function setCachedWindowCloseBehavior(value: Settings['windowCloseBehavior']): void {
+  cachedWindowCloseBehavior = value
+}
+
+export function getCachedWindowCloseBehavior(): Settings['windowCloseBehavior'] {
+  return cachedWindowCloseBehavior
 }
 
 export function buildGameLaunchArgs(settings: Settings): string[] {
