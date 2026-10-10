@@ -15,6 +15,8 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 550,
     frame: false,
     backgroundColor: '#0a0a0a',
+
+    icon: trayIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
