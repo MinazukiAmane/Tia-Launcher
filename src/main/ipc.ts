@@ -119,7 +119,7 @@ export async function handleGetWhiskyStatus(): Promise<WhiskyStatus> {
   return getWhiskyStatus()
 }
 
-const ALLOWED_EXTERNAL_HOSTS = new Set(['cso-rse.my.id'])
+const ALLOWED_EXTERNAL_HOSTS = new Set(['cso-rse.my.id', 'discord.gg'])
 
 export function isAllowedExternalUrl(url: string): boolean {
   let parsed: URL
@@ -160,6 +160,8 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('app:getUserDataDir', () => app.getPath('userData'))
 
   ipcMain.handle('app:getPlatform', () => process.platform)
+
+  ipcMain.handle('app:getVersion', () => app.getVersion())
   ipcMain.handle('window:minimize', () => win.minimize())
   ipcMain.handle('window:close', () => win.close())
 }

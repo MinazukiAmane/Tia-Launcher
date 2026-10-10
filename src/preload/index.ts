@@ -38,6 +38,7 @@ const gameApi = {
   openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url),
   getUserDataDir: (): Promise<string> => ipcRenderer.invoke('app:getUserDataDir'),
   getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke('app:getPlatform'),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close')
 }
