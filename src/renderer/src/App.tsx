@@ -6,10 +6,25 @@ import { UpdateWindow } from './components/UpdateWindow'
 
 const INSTALL_DIR_STORAGE_KEY = 'csore-install-dir'
 
+
+const DONATE_URL = 'https://tako.id/csorseid'
+
+type SettingsTab = 'launcher' | 'manage' | 'advanced' | 'logs' | 'about'
+
 function GearIcon(): React.JSX.Element {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current">
       <path d="M19.14 12.94a7.07 7.07 0 0 0 .05-.94 7.07 7.07 0 0 0-.05-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.2 7.2 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.6.22L2.67 8.84a.5.5 0 0 0 .12.64l2.03 1.58a7.07 7.07 0 0 0-.05.94c0 .32.02.63.05.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.32.6.22l2.39-.96c.49.38 1.03.7 1.62.94l.36 2.54c.04.24.26.42.5.42h3.84c.24 0 .46-.18.5-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.24.1.46 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64zM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7" />
+    </svg>
+  )
+}
+
+function WalletIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current" fill="none" strokeWidth={2}>
+      <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" strokeLinejoin="round" />
+      <path d="M16 12h2" strokeLinecap="round" />
+      <path d="M3 9h18" />
     </svg>
   )
 }
@@ -35,6 +50,7 @@ export default function App(): React.JSX.Element {
     localStorage.getItem(INSTALL_DIR_STORAGE_KEY)
   )
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('launcher')
   const [userDataDir, setUserDataDir] = useState<string>('')
   const [pickError, setPickError] = useState<string | null>(null)
 
@@ -46,6 +62,11 @@ export default function App(): React.JSX.Element {
   function handleUninstalled(): void {
     localStorage.removeItem(INSTALL_DIR_STORAGE_KEY)
     setInstallDir(null)
+  }
+
+  function openSettings(tab: SettingsTab = 'launcher'): void {
+    setSettingsInitialTab(tab)
+    setSettingsOpen(true)
   }
 
   async function pickInstallDir(): Promise<void> {
@@ -79,7 +100,15 @@ export default function App(): React.JSX.Element {
       >
         <button
           type="button"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => window.csore.openExternal(DONATE_URL)}
+          title="Donate"
+          className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
+        >
+          <WalletIcon />
+        </button>
+        <button
+          type="button"
+          onClick={() => openSettings('launcher')}
           title="Settings"
           className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
         >
@@ -104,7 +133,7 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <HomeScreen installDir={installDir} onNeedInstallDir={pickInstallDir} />
+      <HomeScreen installDir={installDir} onNeedInstallDir={pickInstallDir} onOpenSettings={openSettings} />
       {pickError && (
         <p className="absolute top-14 right-3 z-30 max-w-xs rounded bg-red-950/80 px-3 py-2 text-xs text-red-300">
           {pickError}
@@ -115,6 +144,7 @@ export default function App(): React.JSX.Element {
         <SettingsPanel
           installDir={installDir}
           userDataDir={userDataDir}
+          initialTab={settingsInitialTab}
           onChangeInstallDir={pickInstallDir}
           onClose={() => setSettingsOpen(false)}
           onUninstalled={handleUninstalled}
