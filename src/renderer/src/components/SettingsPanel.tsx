@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { ProgressBar } from './ProgressBar'
 
+function CloseIcon(): React.JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current" fill="none" strokeWidth={2}>
+      <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 interface Settings {
   lang: 'na_id' | 'na_en'
   classicUi: boolean
@@ -155,7 +163,7 @@ export function SettingsPanel({
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Settings</h2>
           <button type="button" onClick={onClose} className="text-white/60 hover:text-white">
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
