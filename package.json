@@ -4,7 +4,11 @@
   "private": true,
   "description": "CSORE Launcher - cross-platform game launcher",
   "main": "./out/main/index.js",
-  "author": "Serenetia",
+  "author": {
+    "name": "Serenetia",
+    "email": "amane@serenetia.com"
+  },
+  "homepage": "https://cso-rse.my.id",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && electron-vite build",
