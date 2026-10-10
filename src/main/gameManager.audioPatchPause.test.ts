@@ -178,7 +178,7 @@ vi.mock('./bsdiffAdapter', () => ({
   bspatch: async (oldFile: Buffer, delta: Buffer): Promise<Buffer> => Buffer.concat([oldFile, delta])
 }))
 
-describe('pausing mid-audio-patch-download (I1 + I5)', () => {
+describe('pausing mid-audio-patch-download', () => {
   let userDataDir: string
   let installDir: string
   let tempDir: string
