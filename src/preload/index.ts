@@ -13,6 +13,8 @@ const gameApi = {
   getSettings: (): Promise<import('../main/settings').Settings> => ipcRenderer.invoke('game:getSettings'),
   chooseBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:chooseBackground'),
   clearBackground: (): Promise<void> => ipcRenderer.invoke('launcher:clearBackground'),
+  uninstallLauncher: (removeData: boolean): Promise<{ started: boolean; message: string }> =>
+    ipcRenderer.invoke('launcher:uninstall', removeData),
   getBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:getBackground'),
   setSettings: (settings: import('../main/settings').Settings): Promise<void> =>
     ipcRenderer.invoke('game:setSettings', settings),

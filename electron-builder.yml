@@ -1,4 +1,4 @@
-appId: com.serenetia.csore-launcher
+appId: com.serenetia.tia-launcher
 productName: Tia Launcher
 directories:
   output: release
@@ -7,7 +7,10 @@ files:
   - out/**/*
   - package.json
 
-publish: null
+publish:
+  provider: generic
+  url: https://updates.csore.example/api/updates
+  channel: latest
 
 extraResources:
   - from: build/icon.png

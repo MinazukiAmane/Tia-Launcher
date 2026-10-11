@@ -1,5 +1,9 @@
 import { app, dialog, ipcMain, shell } from 'electron'
 import { importBackground, clearBackgrounds, readBackgroundDataUrl } from './background'
+import { planLauncherUninstall } from './launcherUninstall'
+import { existsSync, promises as fsPromises } from 'fs'
+import { spawn } from 'child_process'
+import { join as pathJoin, dirname as pathDirname } from 'path'
 import { rm } from 'fs/promises'
 import { join } from 'path'
 import { fetchLauncherInfo } from './launcherApi'
@@ -79,6 +83,47 @@ export async function handleClearBackground(): Promise<void> {
   const current = await readSettings(userData)
   await writeSettings(userData, { ...current, customBackground: null })
   await clearBackgrounds(userData)
+}
+
+export interface LauncherUninstallResult {
+  started: boolean
+  message: string
+}
+
+export async function handleUninstallLauncher(_event: unknown, removeData: boolean): Promise<LauncherUninstallResult> {
+  const uninstallerPath = pathJoin(pathDirname(process.execPath), 'Uninstall Tia Launcher.exe')
+  const plan = planLauncherUninstall({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    execPath: process.execPath,
+    appImagePath: process.env.APPIMAGE,
+    uninstallerExists: existsSync(uninstallerPath)
+  })
+  const userData = app.getPath('userData')
+  const wipeData = async (): Promise<void> => {
+    if (removeData) await fsPromises.rm(userData, { recursive: true, force: true })
+  }
+
+  switch (plan.kind) {
+    case 'unavailable':
+    case 'manual':
+      return { started: false, message: plan.message }
+    case 'reveal_app':
+      shell.showItemInFolder(plan.appPath)
+      return { started: false, message: plan.message }
+    case 'delete_appimage': {
+      await fsPromises.rm(plan.appImagePath, { force: true })
+      await wipeData()
+      app.quit()
+      return { started: true, message: 'Launcher removed.' }
+    }
+    case 'run_uninstaller': {
+      await wipeData()
+      spawn(plan.uninstallerPath, [], { detached: true, stdio: 'ignore' }).unref()
+      app.quit()
+      return { started: true, message: 'Uninstaller started.' }
+    }
+  }
 }
 
 export async function handleGetBackground(): Promise<string | null> {
@@ -233,6 +278,7 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('launcher:chooseBackground', handleChooseBackground)
   ipcMain.handle('launcher:clearBackground', handleClearBackground)
   ipcMain.handle('launcher:getBackground', handleGetBackground)
+  ipcMain.handle('launcher:uninstall', handleUninstallLauncher)
   ipcMain.handle('game:launch', handleLaunchGame)
   ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
   ipcMain.handle('game:pauseInstallOrUpdate', handlePauseInstallOrUpdate)

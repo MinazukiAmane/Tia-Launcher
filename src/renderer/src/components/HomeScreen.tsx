@@ -45,7 +45,7 @@ function BurgerIcon(): React.JSX.Element {
 }
 
 
-export const INSTALL_CONFIRMED_STORAGE_KEY = 'csore-install-path-confirmed'
+export const INSTALL_CONFIRMED_STORAGE_KEY = 'tia-install-path-confirmed'
 
 function isInstallPathConfirmed(dir: string): boolean {
   try {

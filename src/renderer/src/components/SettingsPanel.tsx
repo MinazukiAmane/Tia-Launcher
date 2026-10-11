@@ -169,6 +169,9 @@ export function SettingsPanel({
 
   // Confirm uninstall before deleting files.
   const [confirmingUninstall, setConfirmingUninstall] = useState(false)
+  const [confirmingLauncherUninstall, setConfirmingLauncherUninstall] = useState(false)
+  const [removeLauncherData, setRemoveLauncherData] = useState(false)
+  const [launcherUninstallMessage, setLauncherUninstallMessage] = useState<string | null>(null)
   const [uninstalling, setUninstalling] = useState(false)
   const [uninstallError, setUninstallError] = useState<string | null>(null)
 
@@ -657,7 +660,7 @@ export function SettingsPanel({
                       ? 'Checking…'
                       : whiskyStatus.found
                         ? `Whisky bottle found at ${whiskyStatus.bottlePath}.`
-                        : 'No Whisky bottle found -- install Whisky manually and create a bottle named "csore-launcher" before playing.'}
+                        : 'No Whisky bottle found -- install Whisky manually and create a bottle named "tia-launcher" before playing.'}
                   </p>
                 </SectionCard>
               )}
@@ -726,6 +729,17 @@ export function SettingsPanel({
                 {updateState?.error && <p className="text-xs text-red-400">{updateState.error}</p>}
               </SectionCard>
 
+              <SectionCard title="Uninstall Launcher">
+                <Row label="Uninstall Tia Launcher" onClick={() => setConfirmingLauncherUninstall(true)} />
+                <p className="text-xs text-white/40">
+                  Removes the launcher only. Game files stay where they are -- use &quot;Uninstall game&quot; in
+                  Manage Games first if you want those gone too.
+                </p>
+                {launcherUninstallMessage && (
+                  <p className="whitespace-pre-line text-xs text-white/60">{launcherUninstallMessage}</p>
+                )}
+              </SectionCard>
+
               <SectionCard title="Client Log">
                 <Row label="View" onClick={handleViewLogs} />
                 {}
@@ -764,6 +778,35 @@ export function SettingsPanel({
           )}
         </div>
       </div>
+
+      {confirmingLauncherUninstall && (
+        <SystemNotificationModal
+          title="System Notification"
+          confirmLabel="Uninstall"
+          onCancel={() => setConfirmingLauncherUninstall(false)}
+          onConfirm={async () => {
+            setConfirmingLauncherUninstall(false)
+            try {
+              const result = await window.csore.uninstallLauncher(removeLauncherData)
+              setLauncherUninstallMessage(result.message)
+            } catch (err) {
+              setLauncherUninstallMessage(err instanceof Error ? err.message : 'Could not uninstall the launcher.')
+            }
+          }}
+        >
+          <div className="space-y-3">
+            <p>Are you sure you want to uninstall Tia Launcher? The game files are not removed.</p>
+            <label className="flex items-center gap-2 text-white/70">
+              <input
+                type="checkbox"
+                checked={removeLauncherData}
+                onChange={(e) => setRemoveLauncherData(e.target.checked)}
+              />
+              Also delete launcher settings and logs
+            </label>
+          </div>
+        </SystemNotificationModal>
+      )}
 
       {confirmingUninstall && (
         <SystemNotificationModal

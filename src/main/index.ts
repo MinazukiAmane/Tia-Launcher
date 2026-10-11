@@ -7,8 +7,6 @@ import { startNewsPolling } from './news'
 import { readSettings, getCachedWindowCloseBehavior, setCachedWindowCloseBehavior } from './settings'
 import { setTroubleshootingMode } from './logger'
 
-app.setPath('userData', join(app.getPath('appData'), 'csore-launcher'))
-
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,

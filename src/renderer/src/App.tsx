@@ -4,7 +4,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { UpdateWindow } from './components/UpdateWindow'
 
 
-const INSTALL_DIR_STORAGE_KEY = 'csore-install-dir'
+const INSTALL_DIR_STORAGE_KEY = 'tia-install-dir'
 
 
 const DONATE_URL = 'https://tako.id/csorseid'

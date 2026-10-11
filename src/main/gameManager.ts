@@ -164,7 +164,7 @@ async function runLinuxLaunch(installDir: string, args: string[], launchCommand?
 
 async function runMacLaunch(installDir: string, args: string[], launchCommand?: string | null): Promise<void> {
   const exePath = await findGameExecutable(installDir)
-  const bottle = await findWhiskyBottle('csore-launcher')
+  const bottle = await findWhiskyBottle('tia-launcher')
   if (!bottle) throw new WhiskyNotFoundError()
   await launchMacOS(bottle, exePath, args, launchCommand)
 }
@@ -175,7 +175,7 @@ export interface WhiskyStatus {
 }
 
 export async function getWhiskyStatus(): Promise<WhiskyStatus> {
-  const bottle = await findWhiskyBottle('csore-launcher')
+  const bottle = await findWhiskyBottle('tia-launcher')
   return { found: bottle !== null, bottlePath: bottle }
 }
 

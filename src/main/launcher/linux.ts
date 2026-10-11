@@ -31,7 +31,7 @@ interface GiteaRelease {
 export async function fetchLatestDWProtonRelease(
   apiUrl: string = DWPROTON_RELEASES_API
 ): Promise<DWProtonRelease> {
-  const res = await fetch(apiUrl, { headers: { 'User-Agent': 'csore-launcher' } })
+  const res = await fetch(apiUrl, { headers: { 'User-Agent': 'tia-launcher' } })
   if (!res.ok) throw new Error(`dawn.wine releases request failed: HTTP ${res.status}`)
   const releases = (await res.json()) as GiteaRelease[]
   if (releases.length === 0) throw new Error('no dwproton releases found')
@@ -116,7 +116,7 @@ export function launchLinux(
   const env = {
     ...process.env,
     PROTONPATH: protonDir,
-    GAMEID: 'csore-launcher',
+    GAMEID: 'tia-launcher',
     WINEPREFIX: compatDataDir
   }
   const realCommand = ['umu-run', exePath, ...args].map(quoteShellArgUnix).join(' ')
