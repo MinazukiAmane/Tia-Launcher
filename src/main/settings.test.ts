@@ -35,7 +35,8 @@ const BASE_SETTINGS: Settings = {
   downloadSpeedLimitKbps: null,
   launchCommand: null,
   troubleshootingMode: false,
-  windowCloseBehavior: 'exit'
+  windowCloseBehavior: 'exit',
+  customBackground: null
 }
 
 describe('readSettings', () => {
@@ -53,7 +54,8 @@ describe('readSettings', () => {
       downloadSpeedLimitKbps: 4096,
       launchCommand: 'prime-run %command%',
       troubleshootingMode: true,
-      windowCloseBehavior: 'minimize_to_tray'
+      windowCloseBehavior: 'minimize_to_tray',
+      customBackground: 'custom-123.gif'
     }
     await writeSettings(dir, settings)
     expect(await readSettings(dir)).toEqual(settings)

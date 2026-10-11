@@ -1,4 +1,5 @@
 import { app, dialog, ipcMain, shell } from 'electron'
+import { importBackground, clearBackgrounds, readBackgroundDataUrl } from './background'
 import { rm } from 'fs/promises'
 import { join } from 'path'
 import { fetchLauncherInfo } from './launcherApi'
@@ -60,6 +61,32 @@ export async function handleChooseInstallFolder(): Promise<string | null> {
   return chosen
 }
 
+export async function handleChooseBackground(): Promise<string | null> {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  const userData = app.getPath('userData')
+  const name = await importBackground(userData, result.filePaths[0])
+  const current = await readSettings(userData)
+  await writeSettings(userData, { ...current, customBackground: name })
+  return readBackgroundDataUrl(userData, name)
+}
+
+export async function handleClearBackground(): Promise<void> {
+  const userData = app.getPath('userData')
+  const current = await readSettings(userData)
+  await writeSettings(userData, { ...current, customBackground: null })
+  await clearBackgrounds(userData)
+}
+
+export async function handleGetBackground(): Promise<string | null> {
+  const userData = app.getPath('userData')
+  const current = await readSettings(userData)
+  return readBackgroundDataUrl(userData, current.customBackground)
+}
+
 export async function handleGetNews(): Promise<NewsItem[]> {
   return getCachedNews()
 }
@@ -68,8 +95,12 @@ export async function handleGetSettings(): Promise<Settings> {
   return readSettings(app.getPath('userData'))
 }
 
-export async function handleSetSettings(_event: unknown, settings: Settings): Promise<void> {
-  await writeSettings(app.getPath('userData'), settings)
+export async function handleSetSettings(_event: unknown, incoming: Settings): Promise<void> {
+  const userData = app.getPath('userData')
+  // Only background handlers may change customBackground.
+  const current = await readSettings(userData)
+  const settings: Settings = { ...incoming, customBackground: current.customBackground }
+  await writeSettings(userData, settings)
 
   setTroubleshootingMode(settings.troubleshootingMode)
 
@@ -199,6 +230,9 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('game:chooseInstallFolder', handleChooseInstallFolder)
   ipcMain.handle('game:getSettings', handleGetSettings)
   ipcMain.handle('game:setSettings', handleSetSettings)
+  ipcMain.handle('launcher:chooseBackground', handleChooseBackground)
+  ipcMain.handle('launcher:clearBackground', handleClearBackground)
+  ipcMain.handle('launcher:getBackground', handleGetBackground)
   ipcMain.handle('game:launch', handleLaunchGame)
   ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
   ipcMain.handle('game:pauseInstallOrUpdate', handlePauseInstallOrUpdate)

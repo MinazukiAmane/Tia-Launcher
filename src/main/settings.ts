@@ -1,6 +1,7 @@
 
 import { promises as fs } from 'fs'
 import { join } from 'path'
+import { isValidBackgroundName } from './background'
 
 export const MIN_DOWNLOAD_SPEED_LIMIT_KBPS = 100
 export const MAX_DOWNLOAD_SPEED_LIMIT_KBPS = 20480
@@ -19,6 +20,8 @@ export interface Settings {
   troubleshootingMode: boolean
   // Preferred close-button behavior.
   windowCloseBehavior: 'minimize_to_tray' | 'exit'
+  // Custom background filename; null selects the built-in image.
+  customBackground: string | null
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -28,7 +31,8 @@ export const DEFAULT_SETTINGS: Settings = {
   downloadSpeedLimitKbps: null,
   launchCommand: null,
   troubleshootingMode: false,
-  windowCloseBehavior: 'exit'
+  windowCloseBehavior: 'exit',
+  customBackground: null
 }
 
 export function settingsPath(userDataDir: string): string {
@@ -67,7 +71,8 @@ export async function readSettings(userDataDir: string): Promise<Settings> {
       downloadSpeedLimitKbps: clampDownloadSpeedLimitKbps(merged.downloadSpeedLimitKbps),
       launchCommand: clampLaunchCommand(merged.launchCommand),
       windowCloseBehavior: sanitizeWindowCloseBehavior(merged.windowCloseBehavior),
-      troubleshootingMode: sanitizeTroubleshootingMode(merged.troubleshootingMode)
+      troubleshootingMode: sanitizeTroubleshootingMode(merged.troubleshootingMode),
+      customBackground: isValidBackgroundName(merged.customBackground) ? merged.customBackground : null
     }
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return DEFAULT_SETTINGS
@@ -81,7 +86,8 @@ export async function writeSettings(userDataDir: string, settings: Settings): Pr
     downloadSpeedLimitKbps: clampDownloadSpeedLimitKbps(settings.downloadSpeedLimitKbps),
     launchCommand: clampLaunchCommand(settings.launchCommand),
     windowCloseBehavior: sanitizeWindowCloseBehavior(settings.windowCloseBehavior),
-    troubleshootingMode: sanitizeTroubleshootingMode(settings.troubleshootingMode)
+    troubleshootingMode: sanitizeTroubleshootingMode(settings.troubleshootingMode),
+    customBackground: isValidBackgroundName(settings.customBackground) ? settings.customBackground : null
   }
   await fs.writeFile(settingsPath(userDataDir), JSON.stringify(sanitized, null, 2), 'utf-8')
 }

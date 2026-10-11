@@ -7,6 +7,8 @@ import { startNewsPolling } from './news'
 import { readSettings, getCachedWindowCloseBehavior, setCachedWindowCloseBehavior } from './settings'
 import { setTroubleshootingMode } from './logger'
 
+app.setPath('userData', join(app.getPath('appData'), 'csore-launcher'))
+
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,
@@ -65,7 +67,7 @@ function trayIconPath(): string {
 function createTray(): Tray {
   const icon = nativeImage.createFromPath(trayIconPath())
   const trayIcon = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }))
-  trayIcon.setToolTip('CSORE Launcher')
+  trayIcon.setToolTip('Tia Launcher')
 
   const showWindow = (): void => {
     if (!mainWindow || mainWindow.isDestroyed()) return
@@ -75,7 +77,7 @@ function createTray(): Tray {
 
   trayIcon.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Show CSORE Launcher', click: showWindow },
+      { label: 'Show Tia Launcher', click: showWindow },
       { type: 'separator' },
       {
         label: 'Quit',

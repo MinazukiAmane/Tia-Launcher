@@ -98,11 +98,13 @@ const PHASE_LABEL: Record<string, string> = {
 
 interface HomeScreenProps {
   installDir: string | null
+  // Player's custom launcher background (data: URL), or null for the default.
+  backgroundUrl: string | null
   onNeedInstallDir: () => void
   onOpenSettings: (tab?: 'launcher' | 'manage' | 'advanced' | 'logs' | 'about') => void
 }
 
-export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: HomeScreenProps): React.JSX.Element {
+export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpenSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -406,13 +408,13 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
     <div className="relative h-screen w-screen overflow-hidden bg-black text-white">
       <div
         className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${heroBackground})` }}
+        style={{ backgroundImage: `url(${backgroundUrl ?? heroBackground})` }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/30" />
 
       <div className="absolute bottom-8 left-8 flex flex-col gap-4">
-        <h1 className="text-3xl font-bold tracking-tight drop-shadow-lg">CSORE</h1>
+        <h1 className="text-3xl font-bold tracking-tight drop-shadow-lg">CSO: Re-Server Edition</h1>
         <NoticesPanel />
       </div>
 
@@ -539,7 +541,7 @@ export function HomeScreen({ installDir, onNeedInstallDir, onOpenSettings }: Hom
               checked={settings.alternateRenderer}
               onChange={(e) => toggleAlternateRenderer(e.target.checked)}
             />
-            Use alternate renderer (try if the game encounters issues)
+            Try new graphics renderer in-game (Beta)
           </label>
         )}
       </div>

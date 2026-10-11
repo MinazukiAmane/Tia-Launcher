@@ -53,9 +53,11 @@ export default function App(): React.JSX.Element {
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('launcher')
   const [userDataDir, setUserDataDir] = useState<string>('')
   const [pickError, setPickError] = useState<string | null>(null)
+  const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
   useEffect(() => {
     window.csore.getUserDataDir().then(setUserDataDir)
+    window.csore.getBackground().then(setBackgroundUrl).catch(() => setBackgroundUrl(null))
   }, [])
 
 
@@ -134,7 +136,7 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <HomeScreen installDir={installDir} onNeedInstallDir={pickInstallDir} onOpenSettings={openSettings} />
+      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} onOpenSettings={openSettings} />
       {pickError && (
         <p className="absolute top-14 right-3 z-30 max-w-xs rounded bg-red-950/80 px-3 py-2 text-xs text-red-300">
           {pickError}
@@ -149,6 +151,7 @@ export default function App(): React.JSX.Element {
           onChangeInstallDir={pickInstallDir}
           onClose={() => setSettingsOpen(false)}
           onUninstalled={handleUninstalled}
+          onBackgroundChanged={setBackgroundUrl}
         />
       )}
 

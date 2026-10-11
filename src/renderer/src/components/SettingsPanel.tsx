@@ -49,6 +49,8 @@ interface SettingsPanelProps {
   onClose: () => void
 
   onUninstalled: () => void
+
+  onBackgroundChanged: (url: string | null) => void
 }
 
 type VerifyResult = Awaited<ReturnType<typeof window.csore.verifyInstall>>
@@ -144,9 +146,12 @@ export function SettingsPanel({
   initialTab,
   onChangeInstallDir,
   onClose,
-  onUninstalled
+  onUninstalled,
+  onBackgroundChanged
 }: SettingsPanelProps): React.JSX.Element {
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [backgroundError, setBackgroundError] = useState<string | null>(null)
+  const [backgroundBusy, setBackgroundBusy] = useState(false)
   const [activeTab, setActiveTab] = useState<NavTab>(initialTab ?? 'launcher')
 
 
@@ -377,6 +382,46 @@ export function SettingsPanel({
           {settings && activeTab === 'launcher' && (
             <div className="space-y-4 pr-8">
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
+              <SectionCard title="Launcher Background">
+                <p className="text-xs text-white/40">
+                  Use your own image as the launcher background. PNG, JPG, WEBP and animated GIF (max 25 MB).
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={backgroundBusy}
+                    onClick={async () => {
+                      setBackgroundError(null)
+                      setBackgroundBusy(true)
+                      try {
+                        const url = await window.csore.chooseBackground()
+                        if (url) onBackgroundChanged(url)
+                      } catch (err) {
+                        setBackgroundError(err instanceof Error ? err.message : 'Could not use that image.')
+                      } finally {
+                        setBackgroundBusy(false)
+                      }
+                    }}
+                    className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
+                  >
+                    Choose image…
+                  </button>
+                  <button
+                    type="button"
+                    disabled={backgroundBusy}
+                    onClick={async () => {
+                      setBackgroundError(null)
+                      await window.csore.clearBackground()
+                      onBackgroundChanged(null)
+                    }}
+                    className="rounded bg-white/5 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 disabled:opacity-60"
+                  >
+                    Reset to default
+                  </button>
+                </div>
+                {backgroundError && <p className="text-xs text-red-400">{backgroundError}</p>}
+              </SectionCard>
+
               <SectionCard title="Update Settings">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-white/70">
@@ -469,7 +514,7 @@ export function SettingsPanel({
           {settings && activeTab === 'manage' && (
             <div className="space-y-4 pr-8">
               <SectionCard
-                title="CSORE"
+                title="CSO: Re-Server Edition"
                 right={
                   installDir && (
                     <button
@@ -486,7 +531,7 @@ export function SettingsPanel({
                 <div className="flex items-center gap-3">
                   <img src={gameIcon} alt="" className="h-12 w-12 rounded-lg object-cover" />
                   <div>
-                    <p className="text-sm text-white">CSORE</p>
+                    <p className="text-sm text-white">CSO: Re-Server Edition</p>
                     <p className="text-xs text-white/40">
                       {installedVersion ? `Game Version: ${installedVersion}` : 'Not installed'}
                     </p>
@@ -516,8 +561,8 @@ export function SettingsPanel({
 
                 <label className="flex items-center justify-between text-sm">
                   <span>
-                    Classic UI
-                    <span className="block text-xs text-white/40">Use the previous launcher interface.</span>
+                    Use classic UI inside the game
+                    <span className="block text-xs text-white/40">Switches the in-game interface to the classic layout.</span>
                   </span>
                   <input
                     type="checkbox"
@@ -528,9 +573,14 @@ export function SettingsPanel({
 
                 <label className="flex items-center justify-between text-sm">
                   <span>
-                    Use alternate renderer
+                    <span className="flex items-center gap-2">
+                      Try new graphics renderer in-game
+                      <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-300">
+                        Beta
+                      </span>
+                    </span>
                     <span className="block text-xs text-white/40">
-                      Try switching this if the game encounters issues launching.
+                      Experimental in-game renderer. Switch back if the game has issues launching.
                     </span>
                   </span>
                   <input

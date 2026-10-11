@@ -1,5 +1,5 @@
 appId: com.serenetia.csore-launcher
-productName: CSORE Launcher
+productName: Tia Launcher
 directories:
   output: release
   buildResources: build
@@ -13,7 +13,7 @@ extraResources:
   - from: build/icon.png
     to: icon.png
 
-artifactName: "CSORE-Launcher-${version}-${os}-${arch}.${ext}"
+artifactName: "Tia-Launcher-${version}-${os}-${arch}.${ext}"
 
 win:
   target: nsis

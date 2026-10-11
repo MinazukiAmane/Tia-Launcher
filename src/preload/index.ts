@@ -11,6 +11,9 @@ const gameApi = {
   chooseInstallFolder: (): Promise<string | null> => ipcRenderer.invoke('game:chooseInstallFolder'),
 
   getSettings: (): Promise<import('../main/settings').Settings> => ipcRenderer.invoke('game:getSettings'),
+  chooseBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:chooseBackground'),
+  clearBackground: (): Promise<void> => ipcRenderer.invoke('launcher:clearBackground'),
+  getBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:getBackground'),
   setSettings: (settings: import('../main/settings').Settings): Promise<void> =>
     ipcRenderer.invoke('game:setSettings', settings),
   launchGame: (installDir: string): Promise<void> => ipcRenderer.invoke('game:launch', installDir),
