@@ -132,10 +132,88 @@ describe('handleGetSettings / handleSetSettings', () => {
   })
 })
 
+describe('handleChooseInstallFolder', () => {
+  it('gives a Windows-specific explanation for a Program Files / Windows-dir path', async () => {
+    const { handleChooseInstallFolder } = await import('./ipc')
+    const { dialog } = await import('electron')
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+      canceled: false,
+      filePaths: ['C:\\Program Files\\rse']
+    } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
+
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    try {
+      await expect(handleChooseInstallFolder()).rejects.toThrow(/Windows blocks regular apps/i)
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform })
+    }
+  })
+
+  it('uses the generic message for an unwritable folder that is not a protected Windows path', async () => {
+    const { handleChooseInstallFolder } = await import('./ipc')
+    const { dialog } = await import('electron')
+    const missingDir = join(tmpdir(), `csore-does-not-exist-${Date.now()}`)
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+      canceled: false,
+      filePaths: [missingDir]
+    } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
+
+    await expect(handleChooseInstallFolder()).rejects.toThrow(/is not writable\. Choose a different folder\./i)
+  })
+})
+
 describe('handleLaunchGame', () => {
   it('rejects an installDir that was never approved via chooseInstallFolder', async () => {
     const neverApprovedDir = join(tmpdir(), `csore-unapproved-${Date.now()}`)
     await expect(handleLaunchGame(undefined, neverApprovedDir)).rejects.toThrow(/not an approved install directory/i)
+  })
+
+  describe('pre-launch verification', () => {
+    let dir: string
+    let originalFetch: typeof fetch
+
+    beforeEach(async () => {
+      const { dialog } = await import('electron')
+      const { handleChooseInstallFolder } = await import('./ipc')
+      dir = await mkdtemp(join(tmpdir(), 'csore-launch-verify-'))
+      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+        canceled: false,
+        filePaths: [dir]
+      } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
+      await handleChooseInstallFolder()
+
+      originalFetch = global.fetch
+      global.fetch = (async () => {
+        throw new Error('network disabled in test')
+      }) as unknown as typeof fetch
+    })
+
+    afterEach(async () => {
+      global.fetch = originalFetch
+      await rm(dir, { recursive: true, force: true })
+    })
+
+    it('proceeds to launch (does not block) when every recorded file matches', async () => {
+      const { writeInstallState } = await import('./installState')
+      await writeInstallState(dir, { version: '1.0.0', installDir: dir, files: [] })
+
+      await expect(handleLaunchGame(undefined, dir)).rejects.toThrow()
+    })
+
+    it("returns launched: false and does not launch when a recorded file is missing", async () => {
+      const { writeInstallState } = await import('./installState')
+      await writeInstallState(dir, {
+        version: '1.0.0',
+        installDir: dir,
+        files: [{ path: 'Bin/cstrike-online.exe', md5: 'deadbeef' }]
+      })
+
+      const result = await handleLaunchGame(undefined, dir)
+      expect(result.launched).toBe(false)
+      expect(result.verifyResult?.ok).toBe(false)
+      expect(result.verifyResult?.missingFiles).toEqual(['Bin/cstrike-online.exe'])
+    })
   })
 })
 

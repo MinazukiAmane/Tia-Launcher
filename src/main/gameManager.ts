@@ -16,6 +16,7 @@ import {
 } from './installState'
 import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
+import { fetchVersionManifest, findVersionBlock, verifyAgainstManifest } from './manifestVerify'
 import { decideAction, reassembleParts } from './installManager'
 import { DownloadPausedError } from './downloader'
 import { readManifest, applyPatch, PatchVerificationError } from './patcher'
@@ -538,12 +539,7 @@ function md5OfBuffer(buf: Buffer): string {
   return createHash('md5').update(buf).digest('hex')
 }
 
-export async function verifyInstall(installDir: string): Promise<VerifyResult> {
-  const state = await readInstallState(installDir)
-  if (!state) {
-    throw new Error(`no install found at "${installDir}" -- nothing to verify`)
-  }
-
+async function verifyInstallFromLocalState(installDir: string, state: InstallState): Promise<VerifyResult> {
   const corruptFiles: string[] = []
   const missingFiles: string[] = []
 
@@ -565,6 +561,29 @@ export async function verifyInstall(installDir: string): Promise<VerifyResult> {
   }
 
   return { ok: corruptFiles.length === 0 && missingFiles.length === 0, corruptFiles, missingFiles }
+}
+
+export async function verifyInstall(installDir: string): Promise<VerifyResult> {
+  const state = await readInstallState(installDir)
+  if (!state) {
+    throw new Error(`no install found at "${installDir}" -- nothing to verify`)
+  }
+
+  try {
+    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
+    const block = findVersionBlock(info, state.version)
+    const manifest = await fetchVersionManifest(block?.res_list_url)
+    if (manifest) {
+      return await verifyAgainstManifest(installDir, manifest)
+    }
+  } catch (err) {
+    logInfo('verifyInstall: could not fetch server manifest, falling back to local InstallState', {
+      installDir,
+      error: (err as Error).message
+    })
+  }
+
+  return verifyInstallFromLocalState(installDir, state)
 }
 
 export async function repairInstall(

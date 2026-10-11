@@ -10,7 +10,7 @@ import { fetchLauncherInfo } from './launcherApi'
 import { readInstallState, readPendingAudioPatch, type InstallState } from './installState'
 import { readSettings, writeSettings, setCachedWindowCloseBehavior, type Settings } from './settings'
 import { getCachedNews, type NewsItem } from './news'
-import { logFilePath, setTroubleshootingMode } from './logger'
+import { logFilePath, setTroubleshootingMode, logError } from './logger'
 import {
   performInstallOrUpdate,
   launchGame,
@@ -59,7 +59,13 @@ export async function handleChooseInstallFolder(): Promise<string | null> {
   if (result.canceled || result.filePaths.length === 0) return null
   const chosen = result.filePaths[0]
   if (!(await checkDirWritable(chosen))) {
-    throw new Error(`"${chosen}" is not writable. Choose a different folder.`)
+    const isWindowsProtected =
+      process.platform === 'win32' && /^[A-Za-z]:\\(Program Files( \(x86\))?|Windows)(\\|$)/i.test(chosen)
+    throw new Error(
+      isWindowsProtected
+        ? `"${chosen}" can't be used -- Windows blocks regular apps from writing inside "Program Files" or "Windows" without administrator rights. Choose a folder like "C:\\Games" instead, or a folder in your user directory.`
+        : `"${chosen}" is not writable. Choose a different folder.`
+    )
   }
   await setApprovedInstallDir(chosen)
   return chosen
@@ -160,9 +166,25 @@ async function assertApprovedInstallDir(installDir: string): Promise<void> {
   }
 }
 
-export async function handleLaunchGame(_event: unknown, installDir: string): Promise<void> {
+export interface LaunchGameResult {
+  launched: boolean
+
+  verifyResult?: VerifyResult
+}
+
+export async function handleLaunchGame(_event: unknown, installDir: string): Promise<LaunchGameResult> {
   await assertApprovedInstallDir(installDir)
-  return launchGame(installDir)
+  const verifyResult = await verifyInstall(installDir)
+  if (!verifyResult.ok) {
+    logError('handleLaunchGame: verification failed, refusing to launch', {
+      installDir,
+      corruptFiles: verifyResult.corruptFiles.length,
+      missingFiles: verifyResult.missingFiles.length
+    })
+    return { launched: false, verifyResult }
+  }
+  await launchGame(installDir)
+  return { launched: true }
 }
 
 export function makeHandleStartInstallOrUpdate(

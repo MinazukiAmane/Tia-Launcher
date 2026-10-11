@@ -225,10 +225,18 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
   async function onPrimaryAction(): Promise<void> {
     if (state === 'up_to_date') {
       setErrorMessage(null)
+
+      setVerifying(true)
       try {
-        await window.csore.launchGame(installDir!)
+        const result = await window.csore.launchGame(installDir!)
+        if (!result.launched) {
+          // Use the same repair prompt for manual and pre-launch verification.
+          setConfirmingRepair(true)
+        }
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : 'Could not launch the game.')
+      } finally {
+        setVerifying(false)
       }
       return
     }
