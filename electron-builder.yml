@@ -9,7 +9,7 @@ files:
 
 publish:
   provider: generic
-  url: https://updates.csore.example/api/updates
+  url: https://tia-launcher.serenetia.com/api/updates
   channel: latest
 
 extraResources:

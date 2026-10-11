@@ -4,7 +4,8 @@ import { isOperationInProgress } from './gameManager'
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 
-const UPDATE_FEED_URL = 'https://updates.csore.example/api/updates'
+// Public update proxy (tia-launcher-site's /api/updates, in front of the launcher's S3 bucket).
+const UPDATE_FEED_URL = 'https://tia-launcher.serenetia.com/api/updates'
 
 export const IPC_UPDATE = {
   AVAILABLE: 'update:available',
