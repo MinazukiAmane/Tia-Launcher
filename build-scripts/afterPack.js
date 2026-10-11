@@ -111,9 +111,11 @@ const decipher = crypto.createDecipheriv("aes-256-gcm", KEY, iv);
 decipher.setAuthTag(authTag);
 const asarBuf = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 
+// Use a private temporary directory and exclusive writes to prevent symlink races.
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tia-"));
 // Electron requires the .asar extension for archive resolution.
-const tmpAsar = path.join(os.tmpdir(), \`tia-\${process.pid}-\${Date.now()}.asar\`);
-fs.writeFileSync(tmpAsar, asarBuf, { mode: 0o600 });
+const tmpAsar = path.join(tmpDir, "app.asar");
+fs.writeFileSync(tmpAsar, asarBuf, { mode: 0o600, flag: "wx" });
 
 // Recreate the unpacked native-module directory beside the temporary archive.
 const originalUnpacked = path.join(__dirname, "..", ${JSON.stringify(RUNTIME_DIR_NAME)});
@@ -121,8 +123,7 @@ const tmpUnpacked = \`\${tmpAsar}.unpacked\`;
 if (fs.existsSync(originalUnpacked)) fs.cpSync(originalUnpacked, tmpUnpacked, { recursive: true });
 
 process.on("exit", () => {
-  try { fs.unlinkSync(tmpAsar); } catch {}
-  try { fs.rmSync(tmpUnpacked, { recursive: true, force: true }); } catch {}
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 });
 
 require(path.join(tmpAsar, "out", "main", "index.js"));
