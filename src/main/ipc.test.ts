@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mkdtemp, rm } from 'fs/promises'
+import { mkdtemp, realpath, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -446,7 +446,7 @@ describe('moving an installation through the native picker', () => {
   beforeEach(async () => {
     const { mkdir } = await import('fs/promises')
     const { writeInstallState } = await import('./installState')
-    root = await mkdtemp(join(tmpdir(), 'csore-move-ipc-'))
+    root = await realpath(await mkdtemp(join(tmpdir(), 'csore-move-ipc-')))
     source = join(root, 'source')
     destination = join(root, 'destination')
     await mkdir(source)

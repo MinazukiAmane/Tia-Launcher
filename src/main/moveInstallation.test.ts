@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cp, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, symlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { moveInstallDirectory } from './moveInstallation'
@@ -23,7 +23,8 @@ describe('moving an installed game', () => {
     vi.mocked(rename).mockReset().mockImplementation(actual.rename)
     vi.mocked(cp).mockReset().mockImplementation(actual.cp)
     vi.mocked(rm).mockReset().mockImplementation(actual.rm)
-    root = await mkdtemp(join(tmpdir(), 'csore-move-'))
+    // Canonicalize before building paths used by assertions and failure mocks.
+    root = await realpath(await mkdtemp(join(tmpdir(), 'csore-move-')))
     source = join(root, 'old-game')
     destination = join(root, 'new-game')
     await mkdir(join(source, 'Bin'), { recursive: true })
@@ -51,6 +52,16 @@ describe('moving an installed game', () => {
 
   it('moves all files on the same drive and updates metadata without copying', async () => {
     expect(await moveInstallDirectory(source, destination)).toEqual({ installDir: destination })
+    await expectMoved()
+    await expect(readdir(source)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(cp).not.toHaveBeenCalled()
+  })
+
+  it('canonicalizes a parent directory alias for the result and persisted metadata', async () => {
+    const alias = join(root, 'alias')
+    await symlink(root, alias, 'junction')
+    const result = await moveInstallDirectory(join(alias, 'old-game'), join(alias, 'new-game'))
+    expect(result).toEqual({ installDir: destination })
     await expectMoved()
     await expect(readdir(source)).rejects.toMatchObject({ code: 'ENOENT' })
     expect(cp).not.toHaveBeenCalled()
