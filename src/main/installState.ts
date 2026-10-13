@@ -13,6 +13,8 @@ export interface InstallState {
   version: string
   installDir: string
   files: InstalledFileEntry[]
+  // Imported files are a repair target until verified against server hashes.
+  needsRepair?: boolean
 }
 
 const STATE_FILENAME = '.csore_install.json'

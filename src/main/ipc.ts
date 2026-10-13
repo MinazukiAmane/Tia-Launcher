@@ -1,3 +1,4 @@
+import { importExistingInstall } from './existingInstall'
 import { saveSikarugirWrapper } from './launcher/macos'
 import { currentWindow, type WindowSource } from './windowSource'
 import { app, dialog, ipcMain, shell } from 'electron'
@@ -70,6 +71,8 @@ export async function handleChooseInstallFolder(): Promise<string | null> {
         : `"${chosen}" is not writable. Choose a different folder.`
     )
   }
+  if (isOperationInProgress()) throw new Error('Wait for the install or repair to finish before choosing a folder.')
+  await importExistingInstall(chosen)
   await setApprovedInstallDir(chosen)
   return chosen
 }

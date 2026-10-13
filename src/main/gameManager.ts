@@ -418,6 +418,7 @@ export async function performInstallOrUpdate(
   try {
     const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
     const state = await readInstallState(installDir)
+    if (state?.needsRepair) throw new Error('Verify or repair the imported game files before updating. A full installation is not needed.')
 
     const maxBytesPerSecond = await resolveMaxBytesPerSecond()
 
@@ -559,8 +560,13 @@ export async function verifyInstall(installDir: string, quick = false): Promise<
   } catch (err) {
     logInfo('verifyInstall: server unavailable, using local state', { error: (err as Error).message })
   }
-  if (manifest && manifest.version === state.version) return verifyAgainstManifest(installDir, manifest, quick)
-  return verifyAgainstManifest(installDir, { files: state.files }, quick)
+  const result = await verifyAgainstManifest(installDir,
+    manifest && manifest.version === state.version ? manifest : { files: state.files },
+    quick && !state.needsRepair)
+  if (result.ok && state.needsRepair) {
+    await writeInstallState(installDir, { ...state, installDir, needsRepair: false })
+  }
+  return result
 }
 
 // Repair only missing/corrupt assets from the published main manifest.
@@ -581,9 +587,9 @@ export async function repairInstall(
 
     const state = await readInstallState(installDir)
     if (!state) throw new Error('No installed game to repair. Install the game first.')
-    if (state.version !== info.main.major.version) throw new Error('Update the game before repairing files.')
+    if (!state.needsRepair && state.version !== info.main.major.version) throw new Error('Update the game before repairing files.')
     const manifest = await fetchVersionManifest(info.main.major.res_list_url)
-    if (!manifest?.repair_supported || manifest.version !== state.version || !manifest.files.length) {
+    if (!manifest?.repair_supported || manifest.version !== info.main.major.version || !manifest.files.length) {
       throw new Error('Per-file repair is not available on the server yet. Regenerate the version manifest first.')
     }
     const result = await verifyAgainstManifest(installDir, manifest)
@@ -616,7 +622,7 @@ export async function repairInstall(
       completed += file.size
       onProgress({ phase: 'downloading', processed: completed, total })
     }
-    await writeInstallState(installDir, { version: state.version, installDir, files: manifest.files.map(({ path, md5 }) => ({ path, md5 })) })
+    await writeInstallState(installDir, { version: manifest.version, installDir, files: manifest.files.map(({ path, md5 }) => ({ path, md5 })) })
     await clearPendingAudioPatch(installDir)
     await rm(staging, { recursive: true, force: true })
     logInfo('repairInstall: succeeded', { installDir, repairedFiles: files.length })

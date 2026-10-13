@@ -4,7 +4,7 @@ import { NoticesPanel } from './NoticesPanel'
 import { SystemNotificationModal } from './SystemNotificationModal'
 
 
-type ActionState = 'loading' | 'fresh_install' | 'up_to_date' | 'apply_patch' | 'working' | 'paused' | 'error'
+type ActionState = 'loading' | 'needs_repair' | 'fresh_install' | 'up_to_date' | 'apply_patch' | 'working' | 'paused' | 'error'
 
 
 type Settings = Awaited<ReturnType<typeof window.csore.getSettings>>
@@ -101,10 +101,11 @@ interface HomeScreenProps {
   // Player's custom launcher background (data: URL), or null for the default.
   backgroundUrl: string | null
   onNeedInstallDir: () => void
+  settingsOpen: boolean
   onOpenGameSettings: () => void
 }
 
-export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
+export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -168,6 +169,10 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
     window.csore.getSettings().then(setSettings)
   }, [])
 
+  useEffect(() => {
+    if (settingsOpen) setMenuOpen(false)
+  }, [settingsOpen])
+
   async function refreshState(): Promise<void> {
     if (!installDir) {
       setState('fresh_install')
@@ -178,6 +183,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
       const installState = await window.csore.getInstallState(installDir)
       if (!installState) {
         setState('fresh_install')
+      } else if (installState.needsRepair) {
+        setState('needs_repair')
       } else if (installState.pendingAudioPatch) {
         setState('apply_patch')
       } else if (installState.version === info.main.major?.version) {
@@ -224,6 +231,10 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
 
   async function onPrimaryAction(): Promise<void> {
     if (primaryDisabled) return
+    if (state === 'needs_repair') {
+      await handleCheckIntegrity()
+      return
+    }
     if (state === 'up_to_date') {
       setErrorMessage(null)
 
@@ -297,6 +308,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
       const result = await window.csore.verifyInstall(installDir)
       if (result.ok) {
         setVerifyMessage('All files verified OK.')
+        await refreshState()
         setTimeout(() => setVerifyMessage(null), 4000)
       } else {
         setConfirmingRepair(true)
@@ -363,6 +375,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
   const idleLabel: Record<ActionState, string> = {
     loading: 'Loading…',
     fresh_install: 'Download',
+    needs_repair: 'Verify / Repair',
     up_to_date: 'Play',
     apply_patch: 'Update',
     working: 'Downloading',
