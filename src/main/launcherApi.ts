@@ -35,7 +35,7 @@ interface LauncherInfoResponse {
 }
 
 export async function fetchLauncherInfo(apiBaseUrl: string, gameBiz: string): Promise<GamePackageEntry> {
-  const res = await fetch(`${apiBaseUrl}/api/launcher_info?game_biz=${encodeURIComponent(gameBiz)}`)
+  const res = await fetch(`${apiBaseUrl}/api/launcher_info?game_biz=${encodeURIComponent(gameBiz)}`, { signal: AbortSignal.timeout(10_000) })
   if (!res.ok) throw new Error(`launcher_info request failed: HTTP ${res.status}`)
   const body = (await res.json()) as LauncherInfoResponse
   if (body.retcode !== 0 || !body.data || body.data.game_packages.length === 0) {

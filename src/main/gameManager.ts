@@ -1,7 +1,7 @@
 
 import { app } from 'electron'
-import { join } from 'path'
-import { writeFile, unlink, mkdir, rm, readFile, readdir } from 'fs/promises'
+import { join, dirname, sep } from 'path'
+import { writeFile, unlink, mkdir, rm, readFile, readdir, rename, realpath } from 'fs/promises'
 import { createHash } from 'crypto'
 import {
   readInstallState,
@@ -17,10 +17,12 @@ import {
 import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
 import { fetchVersionManifest, findVersionBlock, verifyAgainstManifest } from './manifestVerify'
-import { decideAction, reassembleParts } from './installManager'
+import { decideAction, reassembleParts, downloadPartWithRetry } from './installManager'
+import { resolveWithinRoot } from './pathSafety'
 import { DownloadPausedError } from './downloader'
 import { readManifest, applyPatch, PatchVerificationError } from './patcher'
 import { extractZip } from './zipExtract'
+import { readFreshGameCheckpoint, writeFreshGameCheckpoint, clearFreshGameCheckpoint } from './freshInstallCheckpoint'
 import { bspatch } from './bsdiffAdapter'
 import { readSettings, buildGameLaunchArgs } from './settings'
 import { findGameExecutable, launchWindows } from './launcher/windows'
@@ -292,21 +294,30 @@ async function doFreshInstall(
   maxBytesPerSecond?: number,
   externalSignal?: AbortSignal
 ): Promise<void> {
-  await reassembleParts(
-    target.game_pkgs,
-    zipPath,
-    partsDir,
-    (processed, total) => onProgress({ phase: 'downloading', processed, total }),
-    maxBytesPerSecond,
-    externalSignal,
-    undefined,
-    undefined,
-    (processed, total) => onProgress({ phase: 'assembling', processed, total })
-  )
+  let gameFiles = await readFreshGameCheckpoint(installDir, target)
+  if (!gameFiles) {
+    await clearFreshGameCheckpoint(installDir)
+    await reassembleParts(
+      target.game_pkgs,
+      zipPath,
+      partsDir,
+      (processed, total) => onProgress({ phase: 'downloading', processed, total }),
+      maxBytesPerSecond,
+      externalSignal,
+      undefined,
+      undefined,
+      (processed, total) => onProgress({ phase: 'assembling', processed, total })
+    )
+    // The ZIP is fully written and all parts were verified.
+    await rm(partsDir, { recursive: true, force: true })
+    gameFiles = await extractZip(zipPath, installDir, (processed, total) =>
+      onProgress({ phase: 'extracting', processed, total })
+    )
 
-  const gameFiles = await extractZip(zipPath, installDir, (processed, total) =>
-    onProgress({ phase: 'extracting', processed, total })
-  )
+    await writeFreshGameCheckpoint(installDir, target, gameFiles)
+  }
+  // Do not retain the game ZIP during the independent audio download.
+  await rm(zipPath, { force: true })
 
   let audioFiles: InstalledFileEntry[] = []
   if (target.audio_pkgs && target.audio_pkgs.length > 0) {
@@ -323,6 +334,7 @@ async function doFreshInstall(
         undefined,
         (processed, total) => onProgress({ phase: 'assembling_audio', processed, total })
       )
+      await rm(partsDir, { recursive: true, force: true })
       audioFiles = await extractZip(audioZipPath, installDir, (processed, total) =>
         onProgress({ phase: 'extracting_audio', processed, total })
       )
@@ -336,7 +348,7 @@ async function doFreshInstall(
   await writeInstallState(installDir, newState)
 
   await clearPendingAudioPatch(installDir)
-
+  await clearFreshGameCheckpoint(installDir)
   await rm(partsDir, { recursive: true, force: true })
 }
 
@@ -535,57 +547,22 @@ export interface VerifyResult {
   missingFiles: string[]
 }
 
-function md5OfBuffer(buf: Buffer): string {
-  return createHash('md5').update(buf).digest('hex')
-}
-
-async function verifyInstallFromLocalState(installDir: string, state: InstallState): Promise<VerifyResult> {
-  const corruptFiles: string[] = []
-  const missingFiles: string[] = []
-
-  for (const entry of state.files) {
-    const filePath = join(installDir, entry.path)
-    let bytes: Buffer
-    try {
-      bytes = await readFile(filePath)
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        missingFiles.push(entry.path)
-        continue
-      }
-      throw err
-    }
-    if (md5OfBuffer(bytes) !== entry.md5) {
-      corruptFiles.push(entry.path)
-    }
-  }
-
-  return { ok: corruptFiles.length === 0 && missingFiles.length === 0, corruptFiles, missingFiles }
-}
-
-export async function verifyInstall(installDir: string): Promise<VerifyResult> {
+// A manual check hashes every asset; Play reuses hashes of unchanged files.
+export async function verifyInstall(installDir: string, quick = false): Promise<VerifyResult> {
   const state = await readInstallState(installDir)
-  if (!state) {
-    throw new Error(`no install found at "${installDir}" -- nothing to verify`)
-  }
-
+  if (!state) throw new Error(`no install found at "${installDir}" -- nothing to verify`)
+  let manifest: Awaited<ReturnType<typeof fetchVersionManifest>> = null
   try {
     const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
-    const block = findVersionBlock(info, state.version)
-    const manifest = await fetchVersionManifest(block?.res_list_url)
-    if (manifest) {
-      return await verifyAgainstManifest(installDir, manifest)
-    }
+    manifest = await fetchVersionManifest(findVersionBlock(info, state.version)?.res_list_url)
   } catch (err) {
-    logInfo('verifyInstall: could not fetch server manifest, falling back to local InstallState', {
-      installDir,
-      error: (err as Error).message
-    })
+    logInfo('verifyInstall: server unavailable, using local state', { error: (err as Error).message })
   }
-
-  return verifyInstallFromLocalState(installDir, state)
+  if (manifest && manifest.version === state.version) return verifyAgainstManifest(installDir, manifest, quick)
+  return verifyAgainstManifest(installDir, { files: state.files }, quick)
 }
 
+// Repair only missing/corrupt assets from the published main manifest.
 export async function repairInstall(
   installDir: string,
   onProgress: (update: ProgressUpdate) => void
@@ -601,26 +578,48 @@ export async function repairInstall(
     const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
     if (!info.main.major) throw new Error('no published main version available for this game')
 
-    const maxBytesPerSecond = await resolveMaxBytesPerSecond()
-
-    const downloadTmpDir = join(installDir, '.csore_download_tmp')
-    const partsDir = join(downloadTmpDir, 'parts')
-    const zipPath = join(downloadTmpDir, 'download.zip')
-    try {
-      await doFreshInstall(
-        info.main.major,
-        installDir,
-        partsDir,
-        zipPath,
-        onProgress,
-        maxBytesPerSecond,
-        abortController.signal
-      )
-      logInfo('repairInstall: succeeded', { installDir, version: info.main.major.version })
-      return { status: 'completed' }
-    } finally {
-      await rm(zipPath, { force: true })
+    const state = await readInstallState(installDir)
+    if (!state) throw new Error('No installed game to repair. Install the game first.')
+    if (state.version !== info.main.major.version) throw new Error('Update the game before repairing files.')
+    const manifest = await fetchVersionManifest(info.main.major.res_list_url)
+    if (!manifest?.repair_supported || manifest.version !== state.version || !manifest.files.length) {
+      throw new Error('Per-file repair is not available on the server yet. Regenerate the version manifest first.')
     }
+    const result = await verifyAgainstManifest(installDir, manifest)
+    const damaged = new Set([...result.corruptFiles, ...result.missingFiles])
+    const files = manifest.files.filter(file => damaged.has(file.path))
+    for (const file of files) {
+      if (!file.url || !/^https?:$/.test(new URL(file.url).protocol) || !/^[a-f0-9]{32}$/i.test(file.md5) || !Number.isSafeInteger(file.size) || file.size < 0) {
+        throw new Error('Server manifest has invalid repair metadata.')
+      }
+    }
+    const maxBytesPerSecond = await resolveMaxBytesPerSecond()
+    const staging = join(installDir, '.csore_download_tmp', 'repair')
+    await mkdir(staging, { recursive: true })
+    const total = files.reduce((sum, file) => sum + file.size, 0)
+    let completed = 0
+    for (const file of files) {
+      const target = resolveWithinRoot(installDir, file.path, 'repair file', reason => { throw new Error(reason) })
+      await mkdir(dirname(target), { recursive: true })
+      const root = await realpath(installDir)
+      const parent = await realpath(dirname(target))
+      if (parent !== root && !parent.startsWith(root + sep)) throw new Error('Repair directory escapes the installation folder.')
+      const staged = join(staging, createHash('sha256').update(file.path + file.md5).digest('hex'))
+      await downloadPartWithRetry(
+        { url: file.url!, md5: file.md5, size: file.size }, staged, maxBytesPerSecond,
+        abortController.signal, { maxAttempts: 4, baseDelayMs: 1000, maxDelayMs: 4000 }, 120_000,
+        bytes => onProgress({ phase: 'downloading', processed: completed + bytes, total })
+      )
+      // The downloader verifies the complete MD5 before replacing the live file.
+      await rename(staged, target)
+      completed += file.size
+      onProgress({ phase: 'downloading', processed: completed, total })
+    }
+    await writeInstallState(installDir, { version: state.version, installDir, files: manifest.files.map(({ path, md5 }) => ({ path, md5 })) })
+    await clearPendingAudioPatch(installDir)
+    await rm(staging, { recursive: true, force: true })
+    logInfo('repairInstall: succeeded', { installDir, repairedFiles: files.length })
+    return { status: 'completed' }
   } catch (err) {
     if (err instanceof DownloadPausedError) {
       logInfo('repairInstall: paused by player', { installDir })

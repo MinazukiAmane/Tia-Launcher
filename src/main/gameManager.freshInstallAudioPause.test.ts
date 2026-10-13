@@ -1,8 +1,9 @@
-
+// Remove parts before extraction and the game ZIP before audio download.
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { createServer, type Server } from 'http'
 import { mkdtemp, rm, readFile, stat } from 'fs/promises'
 import { tmpdir } from 'os'
+import { existsSync } from 'fs'
 import { join } from 'path'
 import { createHash } from 'crypto'
 import AdmZip from 'adm-zip'
@@ -38,6 +39,7 @@ let baseUrl: string
 let gameFreshRequestCount = 0
 
 let audioChunksSent = 0
+let audioResumeRequestCount = 0
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -106,6 +108,7 @@ beforeAll(async () => {
     if (req.url === '/slow-audio-part') {
       const range = req.headers.range
       if (range) {
+        audioResumeRequestCount++
         const match = /^bytes=(\d+)-$/.exec(range)
         const start = match ? parseInt(match[1], 10) : 0
         res.writeHead(206, {
@@ -156,7 +159,7 @@ vi.mock('electron', () => ({
   }
 }))
 
-describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercises the GAME part resume without colliding (Finding E / I1)', () => {
+describe('fresh install: audio resume after releasing game downloads', () => {
   let userDataDir: string
   let installDir: string
   let tempDir: string
@@ -170,9 +173,10 @@ describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercise
     await rm(tempDir, { recursive: true, force: true })
     gameFreshRequestCount = 0
     audioChunksSent = 0
+    audioResumeRequestCount = 0
   })
 
-  it('leaves a complete GAME part and a partial AUDIO part coexisting in partsDir without corruption, and completes correctly on resume', async () => {
+  it('removes game parts before extraction and the ZIP before audio, then resumes audio after restart without re-downloading game', async () => {
     originalFetch = global.fetch
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-freshaudiopause-'))
     mockUserDataDir.current = userDataDir
@@ -195,7 +199,15 @@ describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercise
 
     const { performInstallOrUpdate, pauseCurrentOperation, isOperationInProgress } = await import('./gameManager')
 
-    const installPromise = performInstallOrUpdate(installDir, () => {})
+    const installPromise = performInstallOrUpdate(installDir, (update) => {
+      if (update.phase === 'extracting_audio') {
+        expect(existsSync(join(installDir, '.csore_download_tmp', 'parts'))).toBe(false)
+      }
+      if (update.phase === 'extracting') {
+        expect(existsSync(join(installDir, '.csore_download_tmp', 'parts'))).toBe(false)
+        expect(existsSync(join(installDir, '.csore_download_tmp', 'download.zip'))).toBe(true)
+      }
+    })
 
     const deadline = Date.now() + 10_000
     while (audioChunksSent < 3 && Date.now() < deadline) {
@@ -215,16 +227,25 @@ describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercise
     await expect(readFile(join(installDir, 'Audio', 'voice_en.bin'))).rejects.toThrow()
 
     const partsDir = join(installDir, '.csore_download_tmp', 'parts')
-    const gamePartStat = await stat(join(partsDir, `part-${GAME_ZIP_MD5}`))
-    expect(gamePartStat.size).toBe(GAME_ZIP.length)
+    await expect(stat(join(partsDir, `part-${GAME_ZIP_MD5}`))).rejects.toThrow()
+    await expect(stat(join(installDir, '.csore_download_tmp', 'download.zip'))).rejects.toThrow()
+    expect(existsSync(join(installDir, '.csore_fresh_game.json'))).toBe(true)
     const audioPartStat = await stat(join(partsDir, `part-${AUDIO_ZIP_MD5}`))
     expect(audioPartStat.size).toBeGreaterThan(0)
     expect(audioPartStat.size).toBeLessThan(AUDIO_ZIP.length)
 
     expect(gameFreshRequestCount).toBe(1)
 
+    // A fresh module simulates closing/reopening during the audio download.
+    vi.resetModules()
+    const { performInstallOrUpdate: resumeAfterRestart } = await import('./gameManager')
     const progress: { phase: string }[] = []
-    const resumeResult = await performInstallOrUpdate(installDir, (u) => progress.push(u))
+    const resumeResult = await resumeAfterRestart(installDir, (u) => {
+      progress.push(u)
+      if (u.phase === 'extracting_audio') {
+        expect(existsSync(partsDir)).toBe(false)
+      }
+    })
     expect(resumeResult).toEqual({ status: 'completed' })
     expect(progress.some((u) => u.phase === 'downloading_audio')).toBe(true)
 
@@ -238,5 +259,8 @@ describe('fresh install: pausing mid-AUDIO-phase, resuming genuinely re-exercise
     const { readInstallState } = await import('./installState')
     const finalState = await readInstallState(installDir)
     expect(finalState?.version).toBe('1.0.0')
+    expect(audioResumeRequestCount).toBe(1)
+    expect(existsSync(join(installDir, '.csore_fresh_game.json'))).toBe(false)
+    expect(existsSync(partsDir)).toBe(false)
   }, 20_000)
 })

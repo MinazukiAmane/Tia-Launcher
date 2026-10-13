@@ -278,7 +278,11 @@ export function SettingsPanel({
 
     const unsubscribe = window.csore.onProgress((update) => setRepairProgress(update))
     try {
-      await window.csore.repairInstall(installDir)
+      const result = await window.csore.repairInstall(installDir)
+      if (result.status === 'paused') {
+        setConfirmingRepair(true)
+        return
+      }
       setRepairDone(true)
       setVerifyResult(null)
     } catch (err) {

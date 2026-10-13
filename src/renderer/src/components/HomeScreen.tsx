@@ -480,7 +480,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
         <div className="flex items-center gap-2">
           <button
             type="button"
-            disabled={state === 'loading' || verifying || repairing}
+            disabled={state === 'loading' || verifying}
             onClick={onPrimaryAction}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}

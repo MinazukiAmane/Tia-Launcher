@@ -451,6 +451,7 @@ describe('audio_pkgs[] download + install/patch (spec gap)', () => {
   })
 })
 
+// Real HTTP repair restores damaged assets without fetching package parts.
 describe('repairInstall (spec §6)', () => {
   let userDataDir: string
   let installDir: string
@@ -465,7 +466,7 @@ describe('repairInstall (spec §6)', () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
-  it('force-reinstalls even when the current state is already up to date, fixing a corrupted file', async () => {
+  it('downloads only a corrupted file when the current state is up to date', async () => {
     originalFetch = global.fetch
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-repair-'))
     mockUserDataDir.current = userDataDir
@@ -522,6 +523,21 @@ describe('repairInstall (spec §6)', () => {
     await performInstallOrUpdate(installDir, (u) => noopProgress.push(u))
     expect(noopProgress).toEqual([]) // confirms up_to_date was genuinely taken, not a repair
 
+    const manifest = {
+      version: '1.0.0', repair_supported: true,
+      files: [
+        { path: 'Bin/cstrike-online.exe', md5: md5(EXE_CONTENT_V1), size: EXE_CONTENT_V1.length, url: baseUrl + '/repair-exe' },
+        { path: 'Data/file.txt', md5: md5(DATA_FILE_V1), size: DATA_FILE_V1.length, url: baseUrl + '/repair-data' },
+        { path: 'Audio/voice.bin', md5: md5(Buffer.from('voice')), size: 5, url: baseUrl + '/repair-audio' }
+      ]
+    }
+    servedFiles = new Map([
+      ['/repair-manifest', Buffer.from(JSON.stringify(manifest))],
+      ['/repair-data', DATA_FILE_V1],
+      ['/repair-audio', Buffer.from('voice')]
+    ])
+    const major = (launcherInfoResponse as any).data.game_packages[0].main.major
+    major.res_list_url = baseUrl + '/repair-manifest'
     const { repairInstall } = await import('./gameManager')
     const repairProgress: unknown[] = []
     await repairInstall(installDir, (u) => repairProgress.push(u))
@@ -529,6 +545,10 @@ describe('repairInstall (spec §6)', () => {
     expect(repairProgress.length).toBeGreaterThan(0)
     const fixedFile = await readFile(join(installDir, 'Data', 'file.txt'))
     expect(fixedFile.equals(DATA_FILE_V1)).toBe(true)
+    expect(await readFile(join(installDir, 'Audio', 'voice.bin'), 'utf8')).toBe('voice')
+    expect((await readFile(join(installDir, 'Bin', 'cstrike-online.exe'))).equals(EXE_CONTENT_V1)).toBe(true)
+    servedFiles.set('/repair-manifest', Buffer.from(JSON.stringify({ ...manifest, repair_supported: false })))
+    await expect(repairInstall(installDir, () => {})).rejects.toThrow(/not available/i)
   })
 
   it('refuses to run while another operation is already in progress', async () => {

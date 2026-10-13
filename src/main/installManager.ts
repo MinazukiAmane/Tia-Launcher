@@ -70,7 +70,7 @@ function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 // Retry transient part-download failures with exponential backoff.
-async function downloadPartWithRetry(
+export async function downloadPartWithRetry(
   part: { url: string; md5: string; size: number },
   partPath: string,
   maxBytesPerSecond: number | undefined,
@@ -185,4 +185,5 @@ export async function reassembleParts(
     destStream.end()
   })
 
+  // Cleanup belongs to the caller.
 }

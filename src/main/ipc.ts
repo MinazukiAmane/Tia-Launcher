@@ -19,6 +19,7 @@ import {
   isApprovedInstallDir,
   verifyInstall,
   repairInstall,
+  isOperationInProgress,
   uninstallGame,
   getDWProtonStatus,
   redownloadDWProton,
@@ -172,9 +173,11 @@ export interface LaunchGameResult {
   verifyResult?: VerifyResult
 }
 
+// Play checks changed assets; the manual integrity action always hashes all files.
 export async function handleLaunchGame(_event: unknown, installDir: string): Promise<LaunchGameResult> {
   await assertApprovedInstallDir(installDir)
-  const verifyResult = await verifyInstall(installDir)
+  if (isOperationInProgress()) throw new Error('Wait for the install or repair to finish before playing.')
+  const verifyResult = await verifyInstall(installDir, true)
   if (!verifyResult.ok) {
     logError('handleLaunchGame: verification failed, refusing to launch', {
       installDir,
