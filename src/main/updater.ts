@@ -1,3 +1,4 @@
+import { setLauncherVersionStatus, type VersionStatus } from './launcherVersionGate'
 import { currentWindow, type WindowSource } from './windowSource'
 import { app, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
@@ -10,6 +11,7 @@ const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 const UPDATE_FEED_URL = 'https://tia-launcher.serenetia.com/api/updates'
 
 export const IPC_UPDATE = {
+  STATE: 'update:state',
   AVAILABLE: 'update:available',
   DOWNLOAD_PROGRESS: 'update:download-progress',
   DOWNLOADED: 'update:downloaded',
@@ -35,6 +37,7 @@ export interface UpdateDownloadProgress {
 }
 
 export interface UpdateState {
+  versionStatus: VersionStatus
   available: UpdateAvailableInfo | null
   progress: number | null
   downloaded: boolean
@@ -44,7 +47,7 @@ export interface UpdateState {
 }
 
 export function initialUpdateState(): UpdateState {
-  return { available: null, progress: null, downloaded: false, downloading: false, downloadProgress: null, error: null }
+  return { versionStatus: app.isPackaged ? 'checking' : 'current', available: null, progress: null, downloaded: false, downloading: false, downloadProgress: null, error: null }
 }
 
 export function initAutoUpdater(win: WindowSource): void {
@@ -60,11 +63,19 @@ export function initAutoUpdater(win: WindowSource): void {
   }
 
   const state = initialUpdateState()
+  setLauncherVersionStatus(state.versionStatus)
+  let checkRequest: Promise<void> | null = null
   let downloadRequest: Promise<void> | null = null
   let pendingIsInitialCheck = true
 
   function broadcast(channel: string, ...args: unknown[]): void {
     currentWindow(win)?.webContents.send(channel, ...args)
+  }
+
+  function setVersionStatus(value: VersionStatus): void {
+    state.versionStatus = value
+    setLauncherVersionStatus(value)
+    broadcast(IPC_UPDATE.STATE, state)
   }
 
   function reportError(error: unknown): void {
@@ -75,6 +86,7 @@ export function initAutoUpdater(win: WindowSource): void {
     state.progress = null
     state.downloadProgress = null
     logError('updater: update failed', { error: message })
+    setVersionStatus(state.available ? 'required' : 'failed')
     broadcast(IPC_UPDATE.ERROR, message)
   }
 
@@ -90,6 +102,7 @@ export function initAutoUpdater(win: WindowSource): void {
     }
     state.available = payload
     state.error = null
+    setVersionStatus('required')
     broadcast(IPC_UPDATE.AVAILABLE, payload)
   })
 
@@ -116,17 +129,26 @@ export function initAutoUpdater(win: WindowSource): void {
   })
 
   autoUpdater.on('update-not-available', () => {
+    state.available = null
+    state.error = null
+    setVersionStatus('current')
     broadcast(IPC_UPDATE.NOT_AVAILABLE)
   })
 
-  function checkForUpdates(): void {
-    if (downloadRequest) return
-    autoUpdater
-      .checkForUpdates()
-      .catch(() => {})
-      .finally(() => {
-        pendingIsInitialCheck = false
+  function checkForUpdates(): Promise<void> {
+    if (downloadRequest) return Promise.resolve()
+    if (checkRequest) return checkRequest
+    state.error = null
+    setVersionStatus(state.available ? 'required' : 'checking')
+    checkRequest = Promise.resolve().then(() => autoUpdater.checkForUpdates())
+      .then(result => {
+        if (app.isPackaged && !result && state.versionStatus === 'checking') {
+          reportError(new Error('Could not verify the latest launcher version. Please retry.'))
+        }
       })
+      .catch(reportError)
+      .finally(() => { pendingIsInitialCheck = false; checkRequest = null })
+    return checkRequest
   }
 
   ipcMain.handle(IPC_UPDATE.START_DOWNLOAD, (_event, fullDownload?: boolean) => {

@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 describe('initialUpdateState', () => {
   it('starts with no available update, no progress, not downloaded, no error', async () => {
     const { initialUpdateState } = await import('./updater')
     expect(initialUpdateState()).toEqual({
+      versionStatus: 'current',
       available: null,
       progress: null,
       downloaded: false,
@@ -17,6 +18,7 @@ describe('initialUpdateState', () => {
 const mocks = vi.hoisted(() => ({
   handlers: {} as Record<string, (...args: unknown[]) => unknown>,
   events: {} as Record<string, (...args: any[]) => void>,
+  packaged: false,
   operationInProgress: false
 }))
 
@@ -25,7 +27,7 @@ vi.mock('./gameManager', () => ({
 }))
 
 vi.mock('electron', () => ({
-  app: { isPackaged: false, getPath: () => '/mock' },
+  app: { get isPackaged() { return mocks.packaged }, getPath: () => '/mock' },
   ipcMain: {
     handle: (channel: string, fn: (...args: unknown[]) => unknown) => {
       mocks.handlers[channel] = fn
@@ -145,5 +147,43 @@ describe('updater download failures and retries', () => {
     const { autoUpdater } = await import('electron-updater')
     expect(autoUpdater.autoDownload).toBe(false)
     expect(autoUpdater.autoInstallOnAppQuit).toBe(false)
+  })
+})
+
+describe('mandatory launcher version checks', () => {
+  const win = { isDestroyed: () => false, webContents: { send: vi.fn() } } as unknown as Electron.BrowserWindow
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    mocks.packaged = true
+    const { autoUpdater } = await import('electron-updater')
+    vi.mocked(autoUpdater.checkForUpdates).mockReset().mockResolvedValue(null)
+    const { initAutoUpdater } = await import('./updater')
+    initAutoUpdater(win)
+  })
+  afterEach(() => { mocks.packaged = false; vi.clearAllTimers(); vi.useRealTimers() })
+
+  it('blocks startup and errors, then unlocks only after a successful current-version event', async () => {
+    const { assertLauncherCurrent } = await import('./launcherVersionGate')
+    const { IPC_UPDATE } = await import('./updater')
+    expect(() => assertLauncherCurrent()).toThrow(/verify/)
+    await mocks.handlers[IPC_UPDATE.CHECK]()
+    expect(mocks.handlers[IPC_UPDATE.GET_STATE]()).toMatchObject({ versionStatus: 'failed' })
+    expect(() => assertLauncherCurrent()).toThrow(/verify/)
+    mocks.events['update-not-available']({ version: '1.4.3' })
+    expect(() => assertLauncherCurrent()).not.toThrow()
+    expect(mocks.handlers[IPC_UPDATE.GET_STATE]()).toMatchObject({ versionStatus: 'current', error: null })
+  })
+
+  it('keeps the old launcher locked after downloading, including after an update error', async () => {
+    const { assertLauncherCurrent } = await import('./launcherVersionGate')
+    const { IPC_UPDATE } = await import('./updater')
+    await mocks.handlers[IPC_UPDATE.CHECK]()
+    mocks.events['update-available']({ version: '1.5.0' })
+    expect(() => assertLauncherCurrent()).toThrow(/latest/)
+    mocks.events['update-downloaded']()
+    expect(mocks.handlers[IPC_UPDATE.GET_STATE]()).toMatchObject({ versionStatus: 'required', downloaded: true })
+    expect(() => assertLauncherCurrent()).toThrow(/latest/)
+    mocks.events.error(new Error('install failed'))
+    expect(() => assertLauncherCurrent()).toThrow(/latest/)
   })
 })

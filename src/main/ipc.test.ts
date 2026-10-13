@@ -499,3 +499,22 @@ describe('moving an installation through the native picker', () => {
     expect(await readInstallState(source)).toBeNull()
   })
 })
+
+it('enforces the latest-version requirement on registered game actions in the main process', async () => {
+  const { app, ipcMain } = await import('electron')
+  const { registerGameIpcHandlers } = await import('./ipc')
+  const { setLauncherVersionStatus } = await import('./launcherVersionGate')
+  Object.defineProperty(app, 'isPackaged', { value: true, configurable: true })
+  try {
+    setLauncherVersionStatus('required')
+    registerGameIpcHandlers(() => null)
+    for (const channel of ['game:launch', 'game:startInstallOrUpdate', 'game:repairInstall', 'game:moveInstallation', 'game:setSettings']) {
+      const registration = vi.mocked(ipcMain.handle).mock.calls.filter(([name]) => name === channel).at(-1)
+      expect(registration).toBeDefined()
+      expect(() => registration![1]({} as Electron.IpcMainInvokeEvent, '/unapproved')).toThrow(/latest version/)
+    }
+  } finally {
+    Object.defineProperty(app, 'isPackaged', { value: false, configurable: true })
+    setLauncherVersionStatus('checking')
+  }
+})

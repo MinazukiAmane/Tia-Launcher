@@ -1,3 +1,4 @@
+import { assertLauncherCurrent } from './launcherVersionGate'
 import { importExistingInstall } from './existingInstall'
 import { saveSikarugirWrapper } from './launcher/macos'
 import { currentWindow, type WindowSource } from './windowSource'
@@ -331,19 +332,32 @@ export function makeHandleMoveInstallation(win: WindowSource, isGameBusy: () => 
 
 export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (installDir: string) => Promise<void> | void, isGameRunning?: () => boolean): void {
   let launching = false
-  ipcMain.handle('news:get', handleGetNews)
-  ipcMain.handle('game:getLauncherInfo', handleGetLauncherInfo)
-  ipcMain.handle('game:getInstallState', handleGetInstallState)
-  ipcMain.handle('game:getSelectedInstallDir', () => getSelectedInstallDir())
-  ipcMain.handle('game:chooseInstallFolder', handleChooseInstallFolder)
-  ipcMain.handle('game:moveInstallation', makeHandleMoveInstallation(win, () => launching || !!isGameRunning?.()))
-  ipcMain.handle('game:getSettings', handleGetSettings)
-  ipcMain.handle('game:setSettings', handleSetSettings)
-  ipcMain.handle('launcher:chooseBackground', handleChooseBackground)
-  ipcMain.handle('launcher:clearBackground', handleClearBackground)
-  ipcMain.handle('launcher:getBackground', handleGetBackground)
-  ipcMain.handle('launcher:uninstall', handleUninstallLauncher)
-  ipcMain.handle('game:launch', async (event, installDir: string) => {
+  const lockedChannels = new Set([
+    'game:chooseInstallFolder', 'game:moveInstallation', 'game:setSettings',
+    'launcher:chooseBackground', 'launcher:clearBackground', 'game:launch',
+    'game:startInstallOrUpdate', 'game:verifyInstall', 'game:repairInstall',
+    'game:uninstall', 'game:redownloadDWProton', 'game:chooseSikarugirWrapper',
+    'game:clearDownloadCache'
+  ])
+  const handle = (channel: string, listener: Parameters<typeof ipcMain.handle>[1]): void => {
+    ipcMain.handle(channel, (event, ...args) => {
+      if (lockedChannels.has(channel)) assertLauncherCurrent()
+      return listener(event, ...args)
+    })
+  }
+  handle('news:get', handleGetNews)
+  handle('game:getLauncherInfo', handleGetLauncherInfo)
+  handle('game:getInstallState', handleGetInstallState)
+  handle('game:getSelectedInstallDir', () => getSelectedInstallDir())
+  handle('game:chooseInstallFolder', handleChooseInstallFolder)
+  handle('game:moveInstallation', makeHandleMoveInstallation(win, () => launching || !!isGameRunning?.()))
+  handle('game:getSettings', handleGetSettings)
+  handle('game:setSettings', handleSetSettings)
+  handle('launcher:chooseBackground', handleChooseBackground)
+  handle('launcher:clearBackground', handleClearBackground)
+  handle('launcher:getBackground', handleGetBackground)
+  handle('launcher:uninstall', handleUninstallLauncher)
+  handle('game:launch', async (event, installDir: string) => {
     if (launching || isGameRunning?.()) throw new Error('The game is already running or starting.')
     launching = true
     try {
@@ -352,24 +366,24 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
       return result
     } finally { launching = false }
   })
-  ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
-  ipcMain.handle('game:pauseInstallOrUpdate', handlePauseInstallOrUpdate)
-  ipcMain.handle('game:verifyInstall', handleVerifyInstall)
-  ipcMain.handle('game:repairInstall', makeHandleRepairInstall(win))
-  ipcMain.handle('game:uninstall', handleUninstallGame)
-  ipcMain.handle('game:getDWProtonStatus', handleGetDWProtonStatus)
-  ipcMain.handle('game:redownloadDWProton', makeHandleRedownloadDWProton(win))
-  ipcMain.handle('game:getSikarugirStatus', handleGetSikarugirStatus)
-  ipcMain.handle('game:chooseSikarugirWrapper', handleChooseSikarugirWrapper)
-  ipcMain.handle('game:getLogFilePath', handleGetLogFilePath)
-  ipcMain.handle('game:showLogFileInFolder', () => handleShowLogFileInFolder())
-  ipcMain.handle('game:showInstallDirInFolder', handleShowInstallDirInFolder)
-  ipcMain.handle('game:clearDownloadCache', handleClearDownloadCache)
-  ipcMain.handle('app:getUserDataDir', () => app.getPath('userData'))
+  handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
+  handle('game:pauseInstallOrUpdate', handlePauseInstallOrUpdate)
+  handle('game:verifyInstall', handleVerifyInstall)
+  handle('game:repairInstall', makeHandleRepairInstall(win))
+  handle('game:uninstall', handleUninstallGame)
+  handle('game:getDWProtonStatus', handleGetDWProtonStatus)
+  handle('game:redownloadDWProton', makeHandleRedownloadDWProton(win))
+  handle('game:getSikarugirStatus', handleGetSikarugirStatus)
+  handle('game:chooseSikarugirWrapper', handleChooseSikarugirWrapper)
+  handle('game:getLogFilePath', handleGetLogFilePath)
+  handle('game:showLogFileInFolder', () => handleShowLogFileInFolder())
+  handle('game:showInstallDirInFolder', handleShowInstallDirInFolder)
+  handle('game:clearDownloadCache', handleClearDownloadCache)
+  handle('app:getUserDataDir', () => app.getPath('userData'))
 
-  ipcMain.handle('app:getPlatform', () => process.platform)
+  handle('app:getPlatform', () => process.platform)
 
-  ipcMain.handle('app:getVersion', () => app.getVersion())
-  ipcMain.handle('window:minimize', () => currentWindow(win)?.minimize())
-  ipcMain.handle('window:close', () => currentWindow(win)?.close())
+  handle('app:getVersion', () => app.getVersion())
+  handle('window:minimize', () => currentWindow(win)?.minimize())
+  handle('window:close', () => currentWindow(win)?.close())
 }

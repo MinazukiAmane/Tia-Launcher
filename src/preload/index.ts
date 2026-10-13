@@ -105,6 +105,11 @@ const updateApi = {
   checkForUpdate: (): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.CHECK),
   startUpdateDownload: (fullDownload = false): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.START_DOWNLOAD, fullDownload),
   quitAndInstallUpdate: (): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.QUIT_AND_INSTALL),
+  onUpdateState: (callback: (state: import('../main/updater').UpdateState) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: import('../main/updater').UpdateState): void => callback(state)
+    ipcRenderer.on(IPC_UPDATE.STATE, listener)
+    return () => { ipcRenderer.removeListener(IPC_UPDATE.STATE, listener) }
+  },
   getUpdateState: (): Promise<import('../main/updater').UpdateState> => ipcRenderer.invoke(IPC_UPDATE.GET_STATE)
 }
 

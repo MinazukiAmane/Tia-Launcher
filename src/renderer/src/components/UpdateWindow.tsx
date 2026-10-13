@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 export function UpdateWindow(): React.JSX.Element | null {
+  const [versionStatus, setVersionStatus] = useState<'checking' | 'current' | 'required' | 'failed'>('checking')
   const [available, setAvailable] = useState<{ version: string } | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [downloading, setDownloading] = useState(false)
@@ -44,6 +45,7 @@ export function UpdateWindow(): React.JSX.Element | null {
   useEffect(() => {
 
     function applyState(state: Awaited<ReturnType<typeof window.csore.getUpdateState>>): void {
+      setVersionStatus(state.versionStatus)
       setAvailable(state.available)
       setProgress(state.progress)
       setDownloaded(state.downloaded)
@@ -53,6 +55,7 @@ export function UpdateWindow(): React.JSX.Element | null {
     }
     window.csore.getUpdateState().then(applyState).catch(() => {})
 
+    const unsubState = window.csore.onUpdateState(applyState)
     const unsubAvailable = window.csore.onUpdateAvailable((info) => {
       setAvailable(info)
       window.csore.getUpdateState().then(applyState).catch(() => {})
@@ -75,6 +78,7 @@ export function UpdateWindow(): React.JSX.Element | null {
       setDetail(null)
     })
     return () => {
+      unsubState()
       unsubAvailable()
       unsubProgress()
       unsubDownloaded()
@@ -82,10 +86,23 @@ export function UpdateWindow(): React.JSX.Element | null {
     }
   }, [])
 
-  if (!available) return null
+  if (versionStatus === 'current' && !available) return null
+
+  if (!available) return (
+    <div role="dialog" aria-modal="true" aria-label="Launcher version check" className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950 text-white">
+      <div className="w-96 rounded-lg border border-white/10 bg-zinc-900 p-6">
+        <p className="text-lg font-semibold">{versionStatus === 'failed' ? 'Version check failed' : 'Checking launcher version…'}</p>
+        <p className="mt-2 text-sm text-white/60">The latest launcher version is required to continue.</p>
+        {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
+        {versionStatus === 'failed' && <button type="button" className="mt-4 rounded bg-yellow-400 px-3 py-2 text-black" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>Retry check</button>}
+        <button type="button" className="ml-3 mt-4 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>Close launcher</button>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-20 w-80 -translate-x-1/2 rounded-lg bg-zinc-900 border border-white/10 p-4 text-white shadow-xl">
+    <div role="dialog" aria-modal="true" aria-label="Launcher update required" className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/95 text-white"><div className="w-96 rounded-lg border border-white/10 bg-zinc-900 p-6 shadow-xl">
+      <p className="mb-3 text-lg font-semibold">Launcher update required</p>
       {!downloaded ? (
         <>
           <p className="text-sm">A new launcher version ({available.version}) is available.</p>
@@ -125,6 +142,8 @@ export function UpdateWindow(): React.JSX.Element | null {
         </>
       )}
       {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
+      <button type="button" className="mt-3 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>Close launcher</button>
+      </div>
     </div>
   )
 }
