@@ -6,6 +6,8 @@ import { initAutoUpdater } from './updater'
 import { startNewsPolling } from './news'
 import { readSettings, getCachedWindowCloseBehavior, setCachedWindowCloseBehavior } from './settings'
 import { setTroubleshootingMode } from './logger'
+import { GameSession } from './gameSession'
+import { findGameExecutable } from './launcher/windows'
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -25,7 +27,7 @@ export function createMainWindow(): BrowserWindow {
     }
   })
 
-  win.on('ready-to-show', () => win.show())
+  win.on('ready-to-show', () => { if (!isQuitting) win.show() })
 
   win.webContents.setWindowOpenHandler((details) => {
     handleOpenExternal(details.url)
@@ -56,6 +58,23 @@ let isQuitting = false
 let tray: Tray | null = null
 
 let mainWindow: BrowserWindow | null = null
+const gameSession = new GameSession({
+  suspend: () => {
+    const win = mainWindow
+    mainWindow = null
+    // Destroying the window releases its renderer process and UI assets.
+    if (win && !win.isDestroyed()) win.destroy()
+  },
+  restore: () => { if (!isQuitting) showMainWindow() }
+})
+
+function showMainWindow(): void {
+  if (isQuitting) return
+  if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createMainWindow()
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
 
 function trayIconPath(): string {
   if (app.isPackaged) return join(process.resourcesPath, 'icon.png')
@@ -68,9 +87,7 @@ function createTray(): Tray {
   trayIcon.setToolTip('Tia Launcher')
 
   const showWindow = (): void => {
-    if (!mainWindow || mainWindow.isDestroyed()) return
-    mainWindow.show()
-    mainWindow.focus()
+    showMainWindow()
   }
 
   trayIcon.setContextMenu(
@@ -88,6 +105,7 @@ function createTray(): Tray {
   )
 
   trayIcon.on('double-click', showWindow)
+  trayIcon.on('click', showWindow)
 
   return trayIcon
 }
@@ -96,19 +114,20 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.show()
-    mainWindow.focus()
-  })
+  app.on('second-instance', showMainWindow)
 
   app.whenReady().then(async () => {
     registerIpcHandlers()
     mainWindow = createMainWindow()
-    registerGameIpcHandlers(mainWindow)
-    initAutoUpdater(mainWindow)
-    startNewsPolling(mainWindow)
+    const getWindow = (): BrowserWindow | null => mainWindow
+    registerGameIpcHandlers(getWindow, async installDir => {
+      try {
+        const exePath = await findGameExecutable(installDir)
+        if (!isQuitting) gameSession.start(exePath)
+      } catch { /* Keep the launcher visible if the executable disappeared. */ }
+    }, () => gameSession.active)
+    initAutoUpdater(getWindow)
+    startNewsPolling(getWindow)
     tray = createTray()
 
     try {
@@ -119,21 +138,18 @@ if (!gotSingleInstanceLock) {
       // Defaults (false / 'exit') are already what each module starts with.
     }
 
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) {
-        mainWindow = createMainWindow()
-      } else {
-        mainWindow?.show()
-      }
-    })
+    app.on('activate', showMainWindow)
   })
 }
 
 app.on('before-quit', () => {
   isQuitting = true
+  gameSession.stop()
   tray?.destroy()
 })
 
 app.on('window-all-closed', () => {
+  // Suspension clears mainWindow before destroying it.
+  if (gameSession.active && mainWindow === null && !isQuitting) return
   if (process.platform !== 'darwin') app.quit()
 })

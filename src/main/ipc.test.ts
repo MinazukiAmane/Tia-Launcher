@@ -31,7 +31,7 @@ import {
   handleUninstallGame,
   handleGetDWProtonStatus,
   makeHandleRedownloadDWProton,
-  handleGetWhiskyStatus,
+  handleGetSikarugirStatus,
   handlePauseInstallOrUpdate,
   handleGetLogFilePath,
   handleShowLogFileInFolder,
@@ -305,22 +305,22 @@ describe('handleUninstallGame', () => {
   })
 })
 
-describe('handleGetDWProtonStatus / handleGetWhiskyStatus (no installDir gate)', () => {
+describe('handleGetDWProtonStatus / handleGetSikarugirStatus (no installDir gate)', () => {
   it('handleGetDWProtonStatus returns a DWProtonStatus shape', async () => {
     const result = await handleGetDWProtonStatus()
     expect(result).toHaveProperty('installed')
     expect(result).toHaveProperty('version')
   })
 
-  it('handleGetWhiskyStatus returns a WhiskyStatus shape', async () => {
-    const result = await handleGetWhiskyStatus()
+  it('handleGetSikarugirStatus returns a SikarugirStatus shape', async () => {
+    const result = await handleGetSikarugirStatus()
     expect(result).toHaveProperty('found')
-    expect(result).toHaveProperty('bottlePath')
+    expect(result).toHaveProperty('wrapperPath')
   })
 })
 
 describe('new IPC channels are all registered', () => {
-  it('registers game:verifyInstall, game:repairInstall, game:uninstall, game:getDWProtonStatus, game:redownloadDWProton, game:getWhiskyStatus', () => {
+  it('registers game:verifyInstall, game:repairInstall, game:uninstall, game:getDWProtonStatus, game:redownloadDWProton, game:getSikarugirStatus', () => {
     const fakeWin = { isDestroyed: () => false, webContents: { send: vi.fn() } } as unknown as Electron.BrowserWindow
     registerGameIpcHandlers(fakeWin)
 
@@ -332,7 +332,7 @@ describe('new IPC channels are all registered', () => {
         'game:uninstall',
         'game:getDWProtonStatus',
         'game:redownloadDWProton',
-        'game:getWhiskyStatus'
+        'game:getSikarugirStatus'
       ])
     )
   })
@@ -427,5 +427,13 @@ describe('makeHandleRedownloadDWProton', () => {
     const fakeWin = { isDestroyed: () => false, webContents: { send: vi.fn() } } as unknown as Electron.BrowserWindow
     const handler = makeHandleRedownloadDWProton(fakeWin)
     expect(typeof handler).toBe('function')
+  })
+})
+
+describe('Sikarugir setup link', () => {
+  it('allows the official guide without opening arbitrary GitHub repositories', () => {
+    expect(isAllowedExternalUrl('https://github.com/Sikarugir-App/Sikarugir')).toBe(true)
+    expect(isAllowedExternalUrl('https://github.com/other/repository')).toBe(false)
+    expect(isAllowedExternalUrl('https://github.com/Sikarugir-App/Sikarugir/evil')).toBe(false)
   })
 })

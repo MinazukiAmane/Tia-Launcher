@@ -1,3 +1,5 @@
+import { saveSikarugirWrapper } from './launcher/macos'
+import { currentWindow, type WindowSource } from './windowSource'
 import { app, dialog, ipcMain, shell } from 'electron'
 import { importBackground, clearBackgrounds, readBackgroundDataUrl } from './background'
 import { planLauncherUninstall } from './launcherUninstall'
@@ -23,12 +25,12 @@ import {
   uninstallGame,
   getDWProtonStatus,
   redownloadDWProton,
-  getWhiskyStatus,
+  getSikarugirStatus,
   pauseCurrentOperation,
   type ProgressUpdate,
   type VerifyResult,
   type DWProtonStatus,
-  type WhiskyStatus,
+  type SikarugirStatus,
   type InstallOperationResult
 } from './gameManager'
 
@@ -191,12 +193,12 @@ export async function handleLaunchGame(_event: unknown, installDir: string): Pro
 }
 
 export function makeHandleStartInstallOrUpdate(
-  win: Electron.BrowserWindow
+  win: WindowSource
 ): (_event: unknown, installDir: string) => Promise<InstallOperationResult> {
   return async (_event: unknown, installDir: string): Promise<InstallOperationResult> => {
     await assertApprovedInstallDir(installDir)
     return performInstallOrUpdate(installDir, (update: ProgressUpdate) => {
-      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+      currentWindow(win)?.webContents.send('game:progress', update)
     })
   }
 }
@@ -211,12 +213,12 @@ export async function handleVerifyInstall(_event: unknown, installDir: string): 
 }
 
 export function makeHandleRepairInstall(
-  win: Electron.BrowserWindow
+  win: WindowSource
 ): (_event: unknown, installDir: string) => Promise<InstallOperationResult> {
   return async (_event: unknown, installDir: string): Promise<InstallOperationResult> => {
     await assertApprovedInstallDir(installDir)
     return repairInstall(installDir, (update: ProgressUpdate) => {
-      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+      currentWindow(win)?.webContents.send('game:progress', update)
     })
   }
 }
@@ -231,17 +233,28 @@ export async function handleGetDWProtonStatus(): Promise<DWProtonStatus> {
 }
 
 export function makeHandleRedownloadDWProton(
-  win: Electron.BrowserWindow
+  win: WindowSource
 ): () => Promise<void> {
   return async (): Promise<void> => {
     return redownloadDWProton((update: ProgressUpdate) => {
-      if (!win.isDestroyed()) win.webContents.send('game:progress', update)
+      currentWindow(win)?.webContents.send('game:progress', update)
     })
   }
 }
 
-export async function handleGetWhiskyStatus(): Promise<WhiskyStatus> {
-  return getWhiskyStatus()
+export async function handleChooseSikarugirWrapper(): Promise<SikarugirStatus | null> {
+  if (process.platform !== 'darwin') throw new Error('Sikarugir wrappers are only used on macOS.')
+  const result = await dialog.showOpenDialog({
+    title: 'Select the game wrapper created with Sikarugir',
+    properties: ['openFile'], filters: [{ name: 'Sikarugir wrapper', extensions: ['app'] }]
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+  await saveSikarugirWrapper(app.getPath('userData'), result.filePaths[0])
+  return getSikarugirStatus()
+}
+
+export async function handleGetSikarugirStatus(): Promise<SikarugirStatus> {
+  return getSikarugirStatus()
 }
 
 const ALLOWED_EXTERNAL_HOSTS = new Set(['cso-rse.my.id', 'discord.gg', 'tako.id'])
@@ -254,7 +267,8 @@ export function isAllowedExternalUrl(url: string): boolean {
     return false
   }
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false
-  return ALLOWED_EXTERNAL_HOSTS.has(parsed.hostname)
+  return ALLOWED_EXTERNAL_HOSTS.has(parsed.hostname) ||
+    (parsed.protocol === 'https:' && parsed.hostname === 'github.com' && /^\/Sikarugir-App\/Sikarugir\/?$/.test(parsed.pathname))
 }
 
 export function handleOpenExternal(url: string, openFn: (url: string) => void = shell.openExternal): void {
@@ -293,7 +307,8 @@ export function registerIpcHandlers(): void {
   ipcMain.on('shell:open-external', (_event, url: string) => handleOpenExternal(url))
 }
 
-export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
+export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (installDir: string) => Promise<void> | void, isGameRunning?: () => boolean): void {
+  let launching = false
   ipcMain.handle('news:get', handleGetNews)
   ipcMain.handle('game:getLauncherInfo', handleGetLauncherInfo)
   ipcMain.handle('game:getInstallState', handleGetInstallState)
@@ -304,7 +319,15 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('launcher:clearBackground', handleClearBackground)
   ipcMain.handle('launcher:getBackground', handleGetBackground)
   ipcMain.handle('launcher:uninstall', handleUninstallLauncher)
-  ipcMain.handle('game:launch', handleLaunchGame)
+  ipcMain.handle('game:launch', async (event, installDir: string) => {
+    if (launching || isGameRunning?.()) throw new Error('The game is already running or starting.')
+    launching = true
+    try {
+      const result = await handleLaunchGame(event, installDir)
+      if (result.launched) await onGameLaunched?.(installDir)
+      return result
+    } finally { launching = false }
+  })
   ipcMain.handle('game:startInstallOrUpdate', makeHandleStartInstallOrUpdate(win))
   ipcMain.handle('game:pauseInstallOrUpdate', handlePauseInstallOrUpdate)
   ipcMain.handle('game:verifyInstall', handleVerifyInstall)
@@ -312,7 +335,8 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('game:uninstall', handleUninstallGame)
   ipcMain.handle('game:getDWProtonStatus', handleGetDWProtonStatus)
   ipcMain.handle('game:redownloadDWProton', makeHandleRedownloadDWProton(win))
-  ipcMain.handle('game:getWhiskyStatus', handleGetWhiskyStatus)
+  ipcMain.handle('game:getSikarugirStatus', handleGetSikarugirStatus)
+  ipcMain.handle('game:chooseSikarugirWrapper', handleChooseSikarugirWrapper)
   ipcMain.handle('game:getLogFilePath', handleGetLogFilePath)
   ipcMain.handle('game:showLogFileInFolder', () => handleShowLogFileInFolder())
   ipcMain.handle('game:showInstallDirInFolder', handleShowInstallDirInFolder)
@@ -322,6 +346,6 @@ export function registerGameIpcHandlers(win: Electron.BrowserWindow): void {
   ipcMain.handle('app:getPlatform', () => process.platform)
 
   ipcMain.handle('app:getVersion', () => app.getVersion())
-  ipcMain.handle('window:minimize', () => win.minimize())
-  ipcMain.handle('window:close', () => win.close())
+  ipcMain.handle('window:minimize', () => currentWindow(win)?.minimize())
+  ipcMain.handle('window:close', () => currentWindow(win)?.close())
 }

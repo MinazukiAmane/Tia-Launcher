@@ -34,8 +34,10 @@ const gameApi = {
   getDWProtonStatus: (): Promise<import('../main/gameManager').DWProtonStatus> =>
     ipcRenderer.invoke('game:getDWProtonStatus'),
   redownloadDWProton: (): Promise<void> => ipcRenderer.invoke('game:redownloadDWProton'),
-  getWhiskyStatus: (): Promise<import('../main/gameManager').WhiskyStatus> =>
-    ipcRenderer.invoke('game:getWhiskyStatus'),
+  getSikarugirStatus: (): Promise<import('../main/gameManager').SikarugirStatus> =>
+    ipcRenderer.invoke('game:getSikarugirStatus'),
+  chooseSikarugirWrapper: (): Promise<import('../main/gameManager').SikarugirStatus | null> =>
+    ipcRenderer.invoke('game:chooseSikarugirWrapper'),
   // Client log actions.
   getLogFilePath: (): Promise<string> => ipcRenderer.invoke('game:getLogFilePath'),
   showLogFileInFolder: (): Promise<void> => ipcRenderer.invoke('game:showLogFileInFolder'),

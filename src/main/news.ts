@@ -1,5 +1,4 @@
-
-import type { BrowserWindow } from 'electron'
+import { currentWindow, type WindowSource } from './windowSource'
 
 export interface NewsItem {
   id: number
@@ -35,12 +34,12 @@ export function getCachedNews(): NewsItem[] {
   return cachedNews
 }
 
-export function startNewsPolling(win: BrowserWindow): void {
+export function startNewsPolling(win: WindowSource): void {
   async function poll(): Promise<void> {
     try {
       const news = await fetchNews()
       cachedNews = news
-      if (!win.isDestroyed()) win.webContents.send(NEWS_CHANNEL, news)
+      currentWindow(win)?.webContents.send(NEWS_CHANNEL, news)
     } catch {
 
     }

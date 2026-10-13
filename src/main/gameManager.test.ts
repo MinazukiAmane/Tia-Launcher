@@ -1,5 +1,5 @@
 
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtemp, rm, chmod, mkdir, writeFile, access } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -15,7 +15,7 @@ import {
   verifyInstall,
   uninstallGame,
   getDWProtonStatus,
-  getWhiskyStatus,
+  getSikarugirStatus,
   redownloadDWProton
 } from './gameManager'
 import { writeInstallState } from './installState'
@@ -224,8 +224,12 @@ describe('runLinuxLaunch (via selectLaunchFn) starting from a clean machine', ()
 
 describe('verifyInstall', () => {
   let installDir: string
+  beforeEach(() => {
+    vi.spyOn(global, 'fetch').mockRejectedValue(new Error('offline test fixture'))
+  })
 
   afterEach(async () => {
+    vi.restoreAllMocks()
     await rm(installDir, { recursive: true, force: true })
   })
 
@@ -344,11 +348,11 @@ describe('getDWProtonStatus', () => {
   })
 })
 
-describe('getWhiskyStatus', () => {
-  it('reports not found on a machine with no Whisky bottle (the normal case outside real macOS hardware)', async () => {
-    const status = await getWhiskyStatus()
+describe('getSikarugirStatus', () => {
+  it('reports not found on a machine with no Sikarugir wrapper (the normal case outside real macOS hardware)', async () => {
+    const status = await getSikarugirStatus()
     expect(status.found).toBe(false)
-    expect(status.bottlePath).toBeNull()
+    expect(status.wrapperPath).toBeNull()
   })
 })
 

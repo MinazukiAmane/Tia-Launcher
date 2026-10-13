@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { currentWindow, type WindowSource } from './windowSource'
+import { app, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { isOperationInProgress } from './gameManager'
 
@@ -35,7 +36,7 @@ export function initialUpdateState(): UpdateState {
   return { available: null, progress: null, downloaded: false, error: null }
 }
 
-export function initAutoUpdater(win: BrowserWindow): void {
+export function initAutoUpdater(win: WindowSource): void {
   autoUpdater.setFeedURL({ provider: 'generic', url: UPDATE_FEED_URL })
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
@@ -44,7 +45,7 @@ export function initAutoUpdater(win: BrowserWindow): void {
   let pendingIsInitialCheck = true
 
   function broadcast(channel: string, ...args: unknown[]): void {
-    if (!win.isDestroyed()) win.webContents.send(channel, ...args)
+    currentWindow(win)?.webContents.send(channel, ...args)
   }
 
   autoUpdater.on('error', (err) => {

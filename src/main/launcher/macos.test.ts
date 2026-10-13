@@ -1,94 +1,99 @@
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { dirname } from 'path'
+import { mkdtemp, mkdir, writeFile, readFile, rm, access } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join, dirname } from 'path'
+import { EventEmitter } from 'events'
+import * as childProcess from 'child_process'
+vi.mock('child_process', () => ({ spawn: vi.fn() }))
+import {
+  launchMacOS, SikarugirNotFoundError, inspectSikarugirWrapper,
+  saveSikarugirWrapper, findSikarugirWrapper, buildSikarugirBatch
+} from './macos'
+vi.mock('../logger', () => ({ logInfo: vi.fn(), logDebug: vi.fn(), logError: vi.fn() }))
 
-vi.mock('electron', () => ({
-  app: { getPath: (name: string) => `/mock/${name}` }
-}))
+let dir: string, wrapper: string
+const children: EventEmitter[] = []
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), 'csore-sikarugir-test-'))
+  wrapper = join(dir, 'Tia Launcher.app')
+  for (const rel of ['Contents/MacOS', 'Contents/SharedSupport/prefix/drive_c', 'Contents/SharedSupport/wine']) {
+    await mkdir(join(wrapper, rel), { recursive: true })
+  }
+  await writeFile(join(wrapper, 'Contents/MacOS/wineskinlauncher'), 'fixture', { mode: 0o755 })
+})
+afterEach(async () => {
+  for (const child of children.splice(0)) child.emit('exit', 0)
+  await new Promise(resolve => setTimeout(resolve, 0))
+  vi.clearAllMocks()
+  await rm(dir, { recursive: true, force: true })
+})
 
-import { launchMacOS, WhiskyNotFoundError } from './macos'
+function mockSpawn(): typeof childProcess.spawn {
+  return vi.mocked(childProcess.spawn).mockImplementation(() => {
+    const child = new EventEmitter() as unknown as childProcess.ChildProcess
+    child.unref = vi.fn().mockReturnValue(child)
+    children.push(child)
+    queueMicrotask(() => child.emit('spawn'))
+    return child
+  })
+}
 
-describe('launchMacOS', () => {
-  it('wraps a wine invocation failure in a clear, actionable error message', async () => {
-
-    await expect(launchMacOS('/nonexistent/prefix', '/nonexistent/game.exe', [])).rejects.toThrow(
-      /Whisky/i
-    )
+describe('Sikarugir wrapper selection', () => {
+  it('validates a wrapper, persists the selection, and rejects an uninitialized wrapper', async () => {
+    const selected = await inspectSikarugirWrapper(wrapper)
+    expect(selected.prefixPath).toBe(join(wrapper, 'Contents/SharedSupport/prefix'))
+    await saveSikarugirWrapper(join(dir,'userdata'), wrapper)
+    expect(await findSikarugirWrapper(join(dir,'userdata'))).toEqual(selected)
+    await rm(join(wrapper,'Contents/SharedSupport/prefix/drive_c'), { recursive: true })
+    expect(await findSikarugirWrapper(join(dir,'userdata'))).toBeNull()
+    await expect(inspectSikarugirWrapper(wrapper)).rejects.toThrow(SikarugirNotFoundError)
+  })
+  it('does not replace a stale selection with a different wrapper', async () => {
+    await writeFile(join(dir,'sikarugir-wrapper.json'), JSON.stringify({ wrapperPath: join(dir,'missing.app') }))
+    expect(await findSikarugirWrapper(dir)).toBeNull()
+  })
+  it('gives actionable setup instructions for invalid selections', async () => {
+    await expect(launchMacOS('/nonexistent.app','/game/client.exe',[])).rejects.toThrow(/Sikarugir/)
+    expect(new SikarugirNotFoundError().message).toMatch(/select its .app/i)
   })
 })
 
-describe('launchMacOS argument/cwd construction', () => {
-  beforeEach(() => {
-    vi.resetModules()
+describe('Sikarugir launch', () => {
+  it('passes a batch to the bundled launcher, resolves on spawn, and cleans up on exit', async () => {
+    const spawn = vi.mocked(mockSpawn())
+    const exe = join(dir,'Game Folder','client.exe')
+    await launchMacOS(wrapper, exe, ['-lang','na_en'])
+    const [command, args, options] = spawn.mock.calls[0]
+    expect(command).toBe(join(wrapper,'Contents/MacOS/wineskinlauncher'))
+    expect((args as string[])[0]).toBe('WSS-installer')
+    expect((options as { cwd: string }).cwd).toBe(dirname(exe))
+    const batch = (args as string[])[1]
+    expect(await readFile(batch,'utf8')).toContain('"-lang" "na_en"')
+    children[0].emit('exit',0)
+    await new Promise(resolve => setTimeout(resolve, 10))
+    await expect(access(batch)).rejects.toThrow()
   })
-
-  it('passes /unix before the path and sets cwd to the executable\'s directory', async () => {
-    const execFileMock = vi.fn((_cmd, _args, _opts, cb) => {
-      cb(null, '', '')
-      return {} as never
+  it('preserves Launch Command around the wrapper invocation', async () => {
+    const spawn = vi.mocked(mockSpawn())
+    await launchMacOS(wrapper, join(dir,'client.exe'), [], 'MTL_HUD_ENABLED=1 %command%')
+    expect(String(spawn.mock.calls[0][0])).toContain('MTL_HUD_ENABLED=1')
+    expect(String(spawn.mock.calls[0][0])).toContain("'WSS-installer'")
+    expect((spawn.mock.calls[0][1] as unknown as { shell: boolean }).shell).toBe(true)
+  })
+  it('rejects an OS spawn failure without reporting a successful launch', async () => {
+    vi.mocked(childProcess.spawn).mockImplementation(() => {
+      const child = new EventEmitter() as childProcess.ChildProcess
+      queueMicrotask(() => child.emit('error',new Error('spawn failed')))
+      return child
     })
-    vi.doMock('child_process', () => ({ execFile: execFileMock, exec: vi.fn() }))
-
-    const { launchMacOS: launchMacOSMocked } = await import('./macos')
-    const exePath = '/fake/InstallDir/Bin/cstrike-online.exe'
-    await launchMacOSMocked('/fake/prefix', exePath, ['-foo'])
-
-    expect(execFileMock).toHaveBeenCalledTimes(1)
-    const [cmd, args, opts] = execFileMock.mock.calls[0]
-    expect(cmd).toBe('wine')
-    expect(args).toEqual(['start', '/unix', exePath, '-foo'])
-    expect((opts as { cwd?: string }).cwd).toBe(dirname(exePath))
-
-    vi.doUnmock('child_process')
+    await expect(launchMacOS(wrapper,join(dir,'client.exe'),[])).rejects.toThrow(/Sikarugir.*spawn failed/)
   })
-})
-
-describe('WhiskyNotFoundError', () => {
-  it('has a message pointing the player at manual installation', () => {
-    const err = new WhiskyNotFoundError()
-    expect(err.message).toMatch(/install whisky manually/i)
-  })
-})
-
-describe('launchMacOS: Launch Command wrapper', () => {
-  afterEach(() => {
-    vi.doUnmock('child_process')
-    vi.resetModules()
-  })
-
-  it('with no launchCommand, calls execFile in the exact same array-form shape as before (no regression)', async () => {
-    vi.resetModules()
-    const execFileMock = vi.fn((_cmd, _args, _opts, cb) => {
-      cb(null, '', '')
-      return {} as never
-    })
-    vi.doMock('child_process', () => ({ execFile: execFileMock, exec: vi.fn() }))
-
-    const { launchMacOS: launchMacOSMocked } = await import('./macos')
-    const exePath = '/fake/InstallDir/Bin/cstrike-online.exe'
-    await launchMacOSMocked('/fake/prefix', exePath, ['-lang', 'na_en'], null)
-
-    expect(execFileMock).toHaveBeenCalledTimes(1)
-    const [cmd, args] = execFileMock.mock.calls[0]
-    expect(cmd).toBe('wine')
-    expect(args).toEqual(['start', '/unix', exePath, '-lang', 'na_en'])
-  })
-
-  it('with a launchCommand containing %command%, wraps the FULL `wine start /unix ...` invocation via exec (shell)', async () => {
-    vi.resetModules()
-    const execMock = vi.fn((_cmd, _opts, cb) => {
-      cb(null, '', '')
-      return {} as never
-    })
-    vi.doMock('child_process', () => ({ execFile: vi.fn(), exec: execMock }))
-
-    const { launchMacOS: launchMacOSMocked } = await import('./macos')
-    const exePath = '/fake/InstallDir/Bin/cstrike-online.exe'
-    await launchMacOSMocked('/fake/prefix', exePath, [], 'MTL_HUD_ENABLED=1 %command%')
-
-    expect(execMock).toHaveBeenCalledTimes(1)
-    const [cmd, opts] = execMock.mock.calls[0]
-    expect(cmd).toBe(`MTL_HUD_ENABLED=1 'wine' 'start' '/unix' '${exePath}'`)
-    expect((opts as { env: Record<string, string> }).env.WINEPREFIX).toBe('/fake/prefix')
+  it('quotes game arguments, preserves literal percent signs and rejects command injection', () => {
+    const batch = buildSikarugirBatch('/Games/100% Fun/client.exe',['-lang','na_en','a&b'])
+    expect(batch).toContain('100%% Fun')
+    expect(batch).toContain('"a&b"')
+    expect(batch).toContain('DisableDelayedExpansion')
+    expect(() => buildSikarugirBatch('/Games/client.exe',['bad\r\ncommand'])).toThrow()
+    expect(() => buildSikarugirBatch('/Games/client.exe',['bad"command'])).toThrow()
   })
 })

@@ -55,7 +55,7 @@ interface SettingsPanelProps {
 
 type VerifyResult = Awaited<ReturnType<typeof window.csore.verifyInstall>>
 type DWProtonStatus = Awaited<ReturnType<typeof window.csore.getDWProtonStatus>>
-type WhiskyStatus = Awaited<ReturnType<typeof window.csore.getWhiskyStatus>>
+type SikarugirStatus = Awaited<ReturnType<typeof window.csore.getSikarugirStatus>>
 type UpdateState = Awaited<ReturnType<typeof window.csore.getUpdateState>>
 type Progress = { processed: number; total: number; phase: string }
 export type NavTab = 'launcher' | 'manage' | 'advanced' | 'logs' | 'about'
@@ -181,7 +181,19 @@ export function SettingsPanel({
   const [redownloading, setRedownloading] = useState(false)
   const [redownloadProgress, setRedownloadProgress] = useState<Progress | null>(null)
   const [redownloadError, setRedownloadError] = useState<string | null>(null)
-  const [whiskyStatus, setWhiskyStatus] = useState<WhiskyStatus | null>(null)
+  const [sikarugirStatus, setSikarugirStatus] = useState<SikarugirStatus | null>(null)
+  const [sikarugirError, setSikarugirError] = useState<string | null>(null)
+  const [choosingSikarugir, setChoosingSikarugir] = useState(false)
+  async function chooseSikarugirWrapper(): Promise<void> {
+    setChoosingSikarugir(true)
+    setSikarugirError(null)
+    try {
+      const selected = await window.csore.chooseSikarugirWrapper()
+      if (selected) setSikarugirStatus(selected)
+    } catch (err) {
+      setSikarugirError(err instanceof Error ? err.message : 'Could not select the Sikarugir wrapper.')
+    } finally { setChoosingSikarugir(false) }
+  }
 
   // About tab update status and manual check.
   const [updateState, setUpdateState] = useState<UpdateState | null>(null)
@@ -214,7 +226,7 @@ export function SettingsPanel({
     if (platform === 'linux') {
       window.csore.getDWProtonStatus().then(setDwprotonStatus)
     } else if (platform === 'darwin') {
-      window.csore.getWhiskyStatus().then(setWhiskyStatus)
+      window.csore.getSikarugirStatus().then(setSikarugirStatus)
     }
   }, [platform])
 
@@ -658,14 +670,23 @@ export function SettingsPanel({
               )}
 
               {platform === 'darwin' && (
-                <SectionCard title="Whisky (macOS)">
+                <SectionCard title="Sikarugir (macOS)">
                   <p className="text-xs text-white/50">
-                    {whiskyStatus === null
+                    {sikarugirStatus === null
                       ? 'Checking…'
-                      : whiskyStatus.found
-                        ? `Whisky bottle found at ${whiskyStatus.bottlePath}.`
-                        : 'No Whisky bottle found -- install Whisky manually and create a bottle named "tia-launcher" before playing.'}
+                      : sikarugirStatus.found
+                        ? `Sikarugir wrapper selected: ${sikarugirStatus.wrapperPath}.`
+                        : 'Create a game wrapper in Sikarugir Creator, initialize its Wine engine, then select the wrapper .app below.'}
                   </p>
+                  <button type="button" disabled={choosingSikarugir} onClick={chooseSikarugirWrapper}
+                    className="rounded-lg bg-white/10 px-3 py-2 text-xs hover:bg-white/20 disabled:opacity-50">
+                    {choosingSikarugir ? 'Selecting…' : 'Select Sikarugir wrapper'}
+                  </button>
+                  <p className="text-xs text-white/50">macOS 14.6 or later. Apple Silicon requires Rosetta 2.</p>
+                  <button type="button" className="text-xs text-white/70 underline" onClick={() => window.csore.openExternal('https://github.com/Sikarugir-App/Sikarugir')}>
+                    Sikarugir installation guide
+                  </button>
+                  {sikarugirError && <p className="text-xs text-red-400">{sikarugirError}</p>}
                 </SectionCard>
               )}
 

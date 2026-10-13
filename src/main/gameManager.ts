@@ -36,7 +36,7 @@ import {
   verifyTarballSha512,
   type DWProtonRelease
 } from './launcher/linux'
-import { launchMacOS, findWhiskyBottle, WhiskyNotFoundError } from './launcher/macos'
+import { launchMacOS, findSikarugirWrapper, SikarugirNotFoundError } from './launcher/macos'
 
 // Adjust to the real deployed adminapi base URL and this game's biz slug.
 const API_BASE_URL = 'https://sg-csore-api.serenetia.com'
@@ -167,19 +167,20 @@ async function runLinuxLaunch(installDir: string, args: string[], launchCommand?
 
 async function runMacLaunch(installDir: string, args: string[], launchCommand?: string | null): Promise<void> {
   const exePath = await findGameExecutable(installDir)
-  const bottle = await findWhiskyBottle('tia-launcher')
-  if (!bottle) throw new WhiskyNotFoundError()
-  await launchMacOS(bottle, exePath, args, launchCommand)
+  const wrapper = await findSikarugirWrapper(app.getPath('userData'))
+  if (!wrapper) throw new SikarugirNotFoundError()
+  await launchMacOS(wrapper.wrapperPath, exePath, args, launchCommand)
 }
 
-export interface WhiskyStatus {
+export interface SikarugirStatus {
   found: boolean
-  bottlePath: string | null
+  wrapperPath: string | null
 }
 
-export async function getWhiskyStatus(): Promise<WhiskyStatus> {
-  const bottle = await findWhiskyBottle('tia-launcher')
-  return { found: bottle !== null, bottlePath: bottle }
+// Settings and Play resolve the same saved or explicitly named wrapper.
+export async function getSikarugirStatus(): Promise<SikarugirStatus> {
+  const wrapper = await findSikarugirWrapper(app.getPath('userData'))
+  return { found: wrapper !== null, wrapperPath: wrapper?.wrapperPath ?? null }
 }
 
 let approvedInstallDir: string | null = null
