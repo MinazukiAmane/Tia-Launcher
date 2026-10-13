@@ -101,11 +101,12 @@ interface HomeScreenProps {
   // Player's custom launcher background (data: URL), or null for the default.
   backgroundUrl: string | null
   onNeedInstallDir: () => void
+  operationBusy: boolean
   settingsOpen: boolean
   onOpenGameSettings: () => void
 }
 
-export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
+export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -389,7 +390,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, settin
     paused: 'Resume'
   }
 
-  const primaryDisabled = state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
+  const primaryDisabled = operationBusy || state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
   const label = verifying
     ? 'Checking Integrity'
     : primaryDisabled && state === 'working'

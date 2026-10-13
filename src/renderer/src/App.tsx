@@ -50,11 +50,18 @@ export default function App(): React.JSX.Element {
     localStorage.getItem(INSTALL_DIR_STORAGE_KEY)
   )
   const [settingsScope, setSettingsScope] = useState<SettingsScope | null>(null)
+  const [movingInstallation, setMovingInstallation] = useState(false)
   const [userDataDir, setUserDataDir] = useState<string>('')
   const [pickError, setPickError] = useState<string | null>(null)
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
   useEffect(() => {
+    window.csore.getSelectedInstallDir().then(path => {
+      if (path) {
+        localStorage.setItem(INSTALL_DIR_STORAGE_KEY, path)
+        setInstallDir(path)
+      }
+    }).catch(() => {})
     window.csore.getUserDataDir().then(setUserDataDir)
     window.csore.getBackground().then(setBackgroundUrl).catch(() => setBackgroundUrl(null))
   }, [])
@@ -83,6 +90,11 @@ export default function App(): React.JSX.Element {
     }
   }
 
+  function handleInstallationMoved(path: string): void {
+    localStorage.setItem(INSTALL_DIR_STORAGE_KEY, path)
+    setInstallDir(path)
+  }
+
   return (
     <div className="relative">
       {/* Frameless window (see src/main/index.ts's frame: false): this
@@ -109,6 +121,7 @@ export default function App(): React.JSX.Element {
         </button>
         <button
           type="button"
+          disabled={movingInstallation}
           onClick={() => openSettings('launcher')}
           title="Launcher Settings"
           className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
@@ -126,6 +139,7 @@ export default function App(): React.JSX.Element {
         </button>
         <button
           type="button"
+          disabled={movingInstallation}
           onClick={() => window.csore.closeWindow()}
           title="Close"
           className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-red-500/80 hover:text-white"
@@ -134,7 +148,7 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
+      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
       {pickError && (
         <p className="absolute top-14 right-3 z-30 max-w-xs rounded bg-red-950/80 px-3 py-2 text-xs text-red-300">
           {pickError}
@@ -148,6 +162,8 @@ export default function App(): React.JSX.Element {
           key={settingsScope}
           scope={settingsScope}
           onChangeInstallDir={pickInstallDir}
+          onInstallationMoved={handleInstallationMoved}
+          onMoveBusyChanged={setMovingInstallation}
           onClose={() => setSettingsScope(null)}
           onUninstalled={handleUninstalled}
           onBackgroundChanged={setBackgroundUrl}

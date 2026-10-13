@@ -437,3 +437,65 @@ describe('Sikarugir setup link', () => {
     expect(isAllowedExternalUrl('https://github.com/Sikarugir-App/Sikarugir/evil')).toBe(false)
   })
 })
+
+describe('moving an installation through the native picker', () => {
+  let root: string
+  let source: string
+  let destination: string
+
+  beforeEach(async () => {
+    const { mkdir } = await import('fs/promises')
+    const { writeInstallState } = await import('./installState')
+    root = await mkdtemp(join(tmpdir(), 'csore-move-ipc-'))
+    source = join(root, 'source')
+    destination = join(root, 'destination')
+    await mkdir(source)
+    await mkdir(destination)
+    await writeInstallState(source, { version: 'fixture', installDir: source, files: [] })
+    getPathMock.mockImplementation(() => root)
+    const { dialog } = await import('electron')
+    vi.mocked(dialog.showOpenDialog).mockReset()
+  })
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('refuses to open the move picker while a game is running', async () => {
+    const { makeHandleMoveInstallation } = await import('./ipc')
+    const { dialog } = await import('electron')
+    await expect(makeHandleMoveInstallation(() => null, () => true)(null, source)).rejects.toThrow(/Close the game/)
+    expect(dialog.showOpenDialog).not.toHaveBeenCalled()
+  })
+
+  it('rechecks game state after the picker closes', async () => {
+    const { makeHandleMoveInstallation } = await import('./ipc')
+    const { dialog } = await import('electron')
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({ canceled: false, filePaths: [destination] })
+    const gameBusy = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true)
+    await expect(makeHandleMoveInstallation(() => null, gameBusy)(null, source)).rejects.toThrow(/Close the game/)
+    const { readInstallState } = await import('./installState')
+    expect((await readInstallState(source))?.installDir).toBe(source)
+  })
+
+  it('leaves the installation unchanged when the picker is canceled', async () => {
+    const { makeHandleMoveInstallation } = await import('./ipc')
+    const { dialog } = await import('electron')
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({ canceled: true, filePaths: [] })
+    expect(await makeHandleMoveInstallation(() => null, () => false)(null, source)).toBeNull()
+    const { readInstallState } = await import('./installState')
+    expect((await readInstallState(source))?.installDir).toBe(source)
+  })
+
+  it('uses the native destination and persists the moved installation location', async () => {
+    const { makeHandleMoveInstallation } = await import('./ipc')
+    const { dialog } = await import('electron')
+    vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({ canceled: false, filePaths: [destination] })
+    expect(await makeHandleMoveInstallation(() => null, () => false)(null, source)).toEqual({ installDir: destination })
+    const { getSelectedInstallDir } = await import('./gameManager')
+    expect(await getSelectedInstallDir()).toBe(destination)
+    const { readInstallState } = await import('./installState')
+    expect((await readInstallState(destination))?.installDir).toBe(destination)
+    expect(await readInstallState(source)).toBeNull()
+  })
+})

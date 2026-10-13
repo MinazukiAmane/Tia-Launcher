@@ -1,3 +1,4 @@
+import { moveInstallDirectory, type MoveProgress, type MoveResult } from './moveInstallation'
 
 import { app } from 'electron'
 import { join, dirname, sep } from 'path'
@@ -210,6 +211,10 @@ export async function setApprovedInstallDir(dir: string): Promise<void> {
   } catch {
     // Keep session approval if persisting the selected folder fails.
   }
+}
+
+export async function getSelectedInstallDir(): Promise<string | null> {
+  return approvedInstallDir ?? await readPersistedApprovedInstallDir()
 }
 
 export function getApprovedInstallDir(): string | null {
@@ -551,6 +556,13 @@ export interface VerifyResult {
 
 // A manual check hashes every asset; Play reuses hashes of unchanged files.
 export async function verifyInstall(installDir: string, quick = false): Promise<VerifyResult> {
+  if (operationInProgress) throw new Error('Wait for the current operation to finish before verifying files.')
+  operationInProgress = true
+  try { return await verifyInstallContents(installDir, quick) }
+  finally { operationInProgress = false }
+}
+
+async function verifyInstallContents(installDir: string, quick: boolean): Promise<VerifyResult> {
   const state = await readInstallState(installDir)
   if (!state) throw new Error(`no install found at "${installDir}" -- nothing to verify`)
   let manifest: Awaited<ReturnType<typeof fetchVersionManifest>> = null
@@ -637,6 +649,20 @@ export async function repairInstall(
   } finally {
     operationInProgress = false
     if (currentOperationAbortController === abortController) currentOperationAbortController = null
+  }
+}
+
+export async function moveInstallation(
+  installDir: string, destination: string, onProgress: (progress: MoveProgress) => void
+): Promise<MoveResult> {
+  if (operationInProgress) throw new Error('Wait for the current operation to finish before moving the installation.')
+  operationInProgress = true
+  try {
+    const result = await moveInstallDirectory(installDir, destination, onProgress)
+    await setApprovedInstallDir(result.installDir)
+    return result
+  } finally {
+    operationInProgress = false
   }
 }
 

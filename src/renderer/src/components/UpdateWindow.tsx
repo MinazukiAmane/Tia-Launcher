@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 export function UpdateWindow(): React.JSX.Element | null {
   const [available, setAvailable] = useState<{ version: string } | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [detail, setDetail] = useState<Awaited<ReturnType<typeof window.csore.getUpdateState>>['downloadProgress']>(null)
+  const [now, setNow] = useState(Date.now())
   const [downloaded, setDownloaded] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -16,21 +19,66 @@ export function UpdateWindow(): React.JSX.Element | null {
     }
   }
 
+  async function onStartDownload(): Promise<void> {
+    const retry = errorMessage !== null
+    setErrorMessage(null)
+    setDownloading(true)
+    setProgress(0)
+    setDetail(null)
+    try {
+      await window.csore.startUpdateDownload(retry)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not download the update.')
+      setDownloading(false)
+      setProgress(null)
+      setDetail(null)
+    }
+  }
+
+  useEffect(() => {
+    if (!downloading) return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [downloading])
+
   useEffect(() => {
 
-    window.csore.getUpdateState().then((state) => {
-      if (state.available) setAvailable(state.available)
-      if (state.progress !== null) setProgress(state.progress)
-      if (state.downloaded) setDownloaded(true)
-    })
+    function applyState(state: Awaited<ReturnType<typeof window.csore.getUpdateState>>): void {
+      setAvailable(state.available)
+      setProgress(state.progress)
+      setDownloaded(state.downloaded)
+      setDownloading(state.downloading)
+      setDetail(state.downloadProgress)
+      setErrorMessage(state.error)
+    }
+    window.csore.getUpdateState().then(applyState).catch(() => {})
 
-    const unsubAvailable = window.csore.onUpdateAvailable((info) => setAvailable(info))
-    const unsubProgress = window.csore.onDownloadProgress((p) => setProgress(p.percent))
-    const unsubDownloaded = window.csore.onUpdateDownloaded(() => setDownloaded(true))
+    const unsubAvailable = window.csore.onUpdateAvailable((info) => {
+      setAvailable(info)
+      window.csore.getUpdateState().then(applyState).catch(() => {})
+    })
+    const unsubProgress = window.csore.onDownloadProgress((p) => {
+      setProgress(p.percent)
+      setDetail(p)
+      setDownloading(true)
+      setNow(Date.now())
+    })
+    const unsubDownloaded = window.csore.onUpdateDownloaded(() => {
+      setDownloaded(true)
+      setDownloading(false)
+      setErrorMessage(null)
+    })
+    const unsubError = window.csore.onUpdateError((message) => {
+      setErrorMessage(message)
+      setDownloading(false)
+      setProgress(null)
+      setDetail(null)
+    })
     return () => {
       unsubAvailable()
       unsubProgress()
       unsubDownloaded()
+      unsubError()
     }
   }, [])
 
@@ -41,15 +89,24 @@ export function UpdateWindow(): React.JSX.Element | null {
       {!downloaded ? (
         <>
           <p className="text-sm">A new launcher version ({available.version}) is available.</p>
-          {progress !== null ? (
-            <p className="mt-2 text-xs text-white/60">Downloading… {Math.round(progress)}%</p>
+          {downloading ? (
+            <div role="status" className="mt-2 text-xs text-white/60">
+              <p>{progress !== null && progress >= 100 ? 'Preparing update…' : `Downloading… ${Math.round(progress ?? 0)}%`}</p>
+              {detail && detail.total > 0 && <p className="mt-1">
+                {(detail.transferred / 1048576).toFixed(1)} / {(detail.total / 1048576).toFixed(1)} MB
+                {' · '}{now - detail.updatedAt > 5000 ? '—' : (detail.bytesPerSecond / 1048576).toFixed(1)} MB/s
+              </p>}
+              {detail && now - detail.updatedAt >= 30000 && <p className="mt-1">
+                Waiting for the network or processing local update files…
+              </p>}
+            </div>
           ) : (
             <button
               type="button"
-              onClick={() => window.csore.startUpdateDownload()}
+              onClick={() => { void onStartDownload() }}
               className="mt-2 rounded bg-yellow-400 px-3 py-1 text-sm font-medium text-black hover:bg-yellow-300"
             >
-              Update now
+              {errorMessage ? 'Retry download' : 'Update now'}
             </button>
           )}
         </>
@@ -65,9 +122,9 @@ export function UpdateWindow(): React.JSX.Element | null {
           >
             Restart &amp; install
           </button>
-          {errorMessage && <p className="mt-2 text-xs text-red-400">{errorMessage}</p>}
         </>
       )}
+      {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
     </div>
   )
 }

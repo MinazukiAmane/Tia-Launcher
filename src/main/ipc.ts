@@ -19,11 +19,13 @@ import {
   launchGame,
   checkDirWritable,
   setApprovedInstallDir,
+  getSelectedInstallDir,
   isApprovedInstallDir,
   verifyInstall,
   repairInstall,
   isOperationInProgress,
   uninstallGame,
+  moveInstallation,
   getDWProtonStatus,
   redownloadDWProton,
   getSikarugirStatus,
@@ -310,12 +312,31 @@ export function registerIpcHandlers(): void {
   ipcMain.on('shell:open-external', (_event, url: string) => handleOpenExternal(url))
 }
 
+export function makeHandleMoveInstallation(win: WindowSource, isGameBusy: () => boolean) {
+  return async (_event: unknown, installDir: string) => {
+    await assertApprovedInstallDir(installDir)
+    if (isGameBusy()) throw new Error('Close the game before moving its installation.')
+    if (isOperationInProgress()) throw new Error('Wait for the current operation to finish before moving the installation.')
+    const result = await dialog.showOpenDialog({
+      title: 'Move game installation — choose an empty destination folder',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (result.canceled || !result.filePaths.length) return null
+    if (isGameBusy()) throw new Error('Close the game before moving its installation.')
+    return moveInstallation(installDir, result.filePaths[0], progress => {
+      currentWindow(win)?.webContents.send('game:moveProgress', progress)
+    })
+  }
+}
+
 export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (installDir: string) => Promise<void> | void, isGameRunning?: () => boolean): void {
   let launching = false
   ipcMain.handle('news:get', handleGetNews)
   ipcMain.handle('game:getLauncherInfo', handleGetLauncherInfo)
   ipcMain.handle('game:getInstallState', handleGetInstallState)
+  ipcMain.handle('game:getSelectedInstallDir', () => getSelectedInstallDir())
   ipcMain.handle('game:chooseInstallFolder', handleChooseInstallFolder)
+  ipcMain.handle('game:moveInstallation', makeHandleMoveInstallation(win, () => launching || !!isGameRunning?.()))
   ipcMain.handle('game:getSettings', handleGetSettings)
   ipcMain.handle('game:setSettings', handleSetSettings)
   ipcMain.handle('launcher:chooseBackground', handleChooseBackground)

@@ -2,6 +2,7 @@ import { currentWindow, type WindowSource } from './windowSource'
 import { app, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { isOperationInProgress } from './gameManager'
+import { logInfo, logError, logDebug } from './logger'
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 
@@ -25,15 +26,25 @@ export interface UpdateAvailableInfo {
   isInitialCheck: boolean
 }
 
+export interface UpdateDownloadProgress {
+  percent: number
+  transferred: number
+  total: number
+  bytesPerSecond: number
+  updatedAt: number
+}
+
 export interface UpdateState {
   available: UpdateAvailableInfo | null
   progress: number | null
   downloaded: boolean
+  downloading: boolean
+  downloadProgress: UpdateDownloadProgress | null
   error: string | null
 }
 
 export function initialUpdateState(): UpdateState {
-  return { available: null, progress: null, downloaded: false, error: null }
+  return { available: null, progress: null, downloaded: false, downloading: false, downloadProgress: null, error: null }
 }
 
 export function initAutoUpdater(win: WindowSource): void {
@@ -41,32 +52,66 @@ export function initAutoUpdater(win: WindowSource): void {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false
 
+  autoUpdater.logger = {
+    info: (...args) => logInfo(`updater: ${args.map(String).join(' ')}`),
+    warn: (...args) => logInfo(`updater warning: ${args.map(String).join(' ')}`),
+    error: (...args) => logError(`updater: ${args.map(String).join(' ')}`),
+    debug: (...args) => logDebug(`updater: ${args.map(String).join(' ')}`)
+  }
+
   const state = initialUpdateState()
+  let downloadRequest: Promise<void> | null = null
   let pendingIsInitialCheck = true
 
   function broadcast(channel: string, ...args: unknown[]): void {
     currentWindow(win)?.webContents.send(channel, ...args)
   }
 
-  autoUpdater.on('error', (err) => {
-    state.error = err.message
-    broadcast(IPC_UPDATE.ERROR, err.message)
-  })
+  function reportError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error)
+    if (state.error === message && !state.downloading) return
+    state.error = message
+    state.downloading = false
+    state.progress = null
+    state.downloadProgress = null
+    logError('updater: update failed', { error: message })
+    broadcast(IPC_UPDATE.ERROR, message)
+  }
+
+  autoUpdater.on('error', reportError)
 
   autoUpdater.on('update-available', (info) => {
     const payload: UpdateAvailableInfo = { version: info.version, isInitialCheck: pendingIsInitialCheck }
+    if (state.available?.version !== payload.version) {
+      state.progress = null
+      state.downloadProgress = null
+      state.downloaded = false
+      state.downloading = false
+    }
     state.available = payload
     state.error = null
     broadcast(IPC_UPDATE.AVAILABLE, payload)
   })
 
   autoUpdater.on('download-progress', (progress) => {
+    const detail: UpdateDownloadProgress = {
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond,
+      updatedAt: Date.now()
+    }
     state.progress = progress.percent
-    broadcast(IPC_UPDATE.DOWNLOAD_PROGRESS, { percent: progress.percent })
+    state.downloadProgress = detail
+    state.downloading = true
+    broadcast(IPC_UPDATE.DOWNLOAD_PROGRESS, detail)
   })
 
   autoUpdater.on('update-downloaded', () => {
     state.downloaded = true
+    state.downloading = false
+    state.progress = 100
+    state.error = null
     broadcast(IPC_UPDATE.DOWNLOADED)
   })
 
@@ -75,6 +120,7 @@ export function initAutoUpdater(win: WindowSource): void {
   })
 
   function checkForUpdates(): void {
+    if (downloadRequest) return
     autoUpdater
       .checkForUpdates()
       .catch(() => {})
@@ -83,7 +129,23 @@ export function initAutoUpdater(win: WindowSource): void {
       })
   }
 
-  ipcMain.handle(IPC_UPDATE.START_DOWNLOAD, () => autoUpdater.downloadUpdate())
+  ipcMain.handle(IPC_UPDATE.START_DOWNLOAD, (_event, fullDownload?: boolean) => {
+    if (downloadRequest) return downloadRequest
+    if (state.downloaded) return Promise.resolve()
+    state.error = null
+    state.downloading = true
+    state.progress = 0
+    state.downloadProgress = { percent: 0, transferred: 0, total: 0, bytesPerSecond: 0, updatedAt: Date.now() }
+    broadcast(IPC_UPDATE.DOWNLOAD_PROGRESS, state.downloadProgress)
+    const previousMode = autoUpdater.disableDifferentialDownload
+    autoUpdater.disableDifferentialDownload = fullDownload === true || previousMode
+    logInfo('updater: download requested', { version: state.available?.version, fullDownload: fullDownload === true })
+    downloadRequest = Promise.resolve().then(() => autoUpdater.downloadUpdate())
+      .then(() => undefined)
+      .catch(error => { reportError(error); throw error })
+      .finally(() => { autoUpdater.disableDifferentialDownload = previousMode; downloadRequest = null })
+    return downloadRequest
+  })
 
   ipcMain.handle(IPC_UPDATE.QUIT_AND_INSTALL, async () => {
     if (isOperationInProgress()) {

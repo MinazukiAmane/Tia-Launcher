@@ -8,7 +8,15 @@ const gameApi = {
 
   getInstallState: (installDir: string): Promise<import('../main/ipc').InstallStateResponse | null> =>
     ipcRenderer.invoke('game:getInstallState', installDir),
+  getSelectedInstallDir: (): Promise<string | null> => ipcRenderer.invoke('game:getSelectedInstallDir'),
   chooseInstallFolder: (): Promise<string | null> => ipcRenderer.invoke('game:chooseInstallFolder'),
+  moveInstallation: (installDir: string): Promise<import('../main/moveInstallation').MoveResult | null> =>
+    ipcRenderer.invoke('game:moveInstallation', installDir),
+  onMoveProgress: (callback: (progress: import('../main/moveInstallation').MoveProgress) => void): (() => void) => {
+    const listener = (_event: unknown, progress: import('../main/moveInstallation').MoveProgress): void => callback(progress)
+    ipcRenderer.on('game:moveProgress', listener)
+    return () => ipcRenderer.removeListener('game:moveProgress', listener)
+  },
 
   getSettings: (): Promise<import('../main/settings').Settings> => ipcRenderer.invoke('game:getSettings'),
   chooseBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:chooseBackground'),
@@ -74,8 +82,8 @@ const updateApi = {
     ipcRenderer.on(IPC_UPDATE.AVAILABLE, listener)
     return () => ipcRenderer.removeListener(IPC_UPDATE.AVAILABLE, listener)
   },
-  onDownloadProgress: (callback: (progress: { percent: number }) => void): (() => void) => {
-    const listener = (_event: unknown, progress: { percent: number }): void => callback(progress)
+  onDownloadProgress: (callback: (progress: import('../main/updater').UpdateDownloadProgress) => void): (() => void) => {
+    const listener = (_event: unknown, progress: import('../main/updater').UpdateDownloadProgress): void => callback(progress)
     ipcRenderer.on(IPC_UPDATE.DOWNLOAD_PROGRESS, listener)
     return () => ipcRenderer.removeListener(IPC_UPDATE.DOWNLOAD_PROGRESS, listener)
   },
@@ -95,7 +103,7 @@ const updateApi = {
     return () => ipcRenderer.removeListener(IPC_UPDATE.ERROR, listener)
   },
   checkForUpdate: (): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.CHECK),
-  startUpdateDownload: (): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.START_DOWNLOAD),
+  startUpdateDownload: (fullDownload = false): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.START_DOWNLOAD, fullDownload),
   quitAndInstallUpdate: (): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.QUIT_AND_INSTALL),
   getUpdateState: (): Promise<import('../main/updater').UpdateState> => ipcRenderer.invoke(IPC_UPDATE.GET_STATE)
 }

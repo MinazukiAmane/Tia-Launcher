@@ -46,6 +46,8 @@ interface SettingsPanelProps {
   userDataDir: string
   scope: 'launcher' | 'game'
   onChangeInstallDir: () => void
+  onInstallationMoved: (path: string) => void
+  onMoveBusyChanged: (busy: boolean) => void
   onClose: () => void
 
   onUninstalled: () => void
@@ -145,6 +147,8 @@ export function SettingsPanel({
   userDataDir,
   scope,
   onChangeInstallDir,
+  onInstallationMoved,
+  onMoveBusyChanged,
   onClose,
   onUninstalled,
   onBackgroundChanged
@@ -158,6 +162,34 @@ export function SettingsPanel({
   const [selectedTab, setActiveTab] = useState<NavTab>(scope === 'launcher' ? 'launcher' : 'manage')
   const activeTab = navItems.some(({ key }) => key === selectedTab) ? selectedTab : navItems[0].key
   const panelTitle = scope === 'launcher' ? 'Launcher Settings' : 'Game Settings'
+
+  const [moving, setMoving] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
+  const [moveMessage, setMoveMessage] = useState<string | null>(null)
+  const [moveProgress, setMoveProgress] = useState<Parameters<Parameters<typeof window.csore.onMoveProgress>[0]>[0] | null>(null)
+
+  async function handleMoveInstallation(): Promise<void> {
+    if (!installDir || moving) return
+    setMoving(true)
+    onMoveBusyChanged(true)
+    setMoveError(null)
+    setMoveMessage(null)
+    setMoveProgress(null)
+    const unsubscribe = window.csore.onMoveProgress(setMoveProgress)
+    try {
+      const result = await window.csore.moveInstallation(installDir)
+      if (result) {
+        onInstallationMoved(result.installDir)
+        setMoveMessage(result.warning ?? 'Installation moved successfully.')
+      }
+    } catch (error) {
+      setMoveError(error instanceof Error ? error.message : 'Could not move the installation.')
+    } finally {
+      unsubscribe()
+      setMoving(false)
+      onMoveBusyChanged(false)
+    }
+  }
 
 
   const [speedLimitInput, setSpeedLimitInput] = useState('')
@@ -377,6 +409,7 @@ export function SettingsPanel({
               <button
                 key={item.key}
                 type="button"
+                disabled={moving}
                 onClick={() => setActiveTab(item.key)}
                 className={`rounded-md px-3 py-2 text-left text-sm transition ${
                   activeTab === item.key
@@ -394,6 +427,7 @@ export function SettingsPanel({
         <div className="relative flex-1 overflow-y-auto p-6">
           <button
             type="button"
+            disabled={moving}
             onClick={onClose}
             title="Close"
             className="absolute right-4 top-4 text-white/50 hover:text-white"
@@ -558,6 +592,7 @@ export function SettingsPanel({
                   installDir && (
                     <button
                       type="button"
+                      disabled={moving}
                       onClick={() => setConfirmingUninstall(true)}
                       className="flex items-center gap-1.5 text-xs font-normal text-white/50 hover:text-red-400"
                     >
@@ -580,7 +615,17 @@ export function SettingsPanel({
 
               <SectionCard title="Game Install Path">
                 <p className="truncate text-xs text-white/50">{installDir ?? 'Not installed yet'}</p>
-                <Row label="Change game install path" onClick={onChangeInstallDir} />
+                <Row label="Select another game folder" onClick={onChangeInstallDir} disabled={moving} />
+                <Row label={moving ? 'Moving installation…' : 'Move installation with all files…'} onClick={handleMoveInstallation} disabled={!installDir || moving || verifying || repairing} />
+                <p className="text-xs text-white/40">To move this game, choose an empty destination folder. All files move with it.</p>
+                {moving && moveProgress && (
+                  <p role="status" className="text-xs text-white/60">
+                    {moveProgress.phase === 'copying' ? 'Copying files…' : moveProgress.phase === 'verifying'
+                      ? `Verifying copied files: ${moveProgress.processed} / ${moveProgress.total}` : 'Moving files…'}
+                  </p>
+                )}
+                {moveError && <p className="text-xs text-red-400">{moveError}</p>}
+                {moveMessage && <p className="text-xs text-white/70">{moveMessage}</p>}
                 <Row label="Open file directory" onClick={handleOpenInstallDir} disabled={!installDir} />
               </SectionCard>
 
@@ -635,7 +680,7 @@ export function SettingsPanel({
                   <button
                     type="button"
                     onClick={handleVerify}
-                    disabled={verifying || repairing}
+                    disabled={moving || verifying || repairing}
                     className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
                   >
                     {verifying ? 'Verifying…' : 'Check Game Integrity'}

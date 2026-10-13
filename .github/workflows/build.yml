@@ -80,7 +80,10 @@ jobs:
 
           aws s3 sync installers/ "s3://${{ secrets.TIA_S3_BUCKET }}/" \
             --endpoint-url "${{ secrets.TIA_S3_ENDPOINT }}" \
-            --exclude "latest*.yml" --delete --no-progress
+            --exclude "latest*.yml" --exclude "*.blockmap" --delete --no-progress
+          aws s3 sync installers/ "s3://${{ secrets.TIA_S3_BUCKET }}/" \
+            --endpoint-url "${{ secrets.TIA_S3_ENDPOINT }}" \
+            --exclude "*" --include "*.blockmap" --no-progress
           aws s3 sync installers/ "s3://${{ secrets.TIA_S3_BUCKET }}/" \
             --endpoint-url "${{ secrets.TIA_S3_ENDPOINT }}" \
             --exclude "*" --include "latest*.yml" --no-progress
@@ -102,8 +105,23 @@ jobs:
           UPDATES_BASE: ${{ vars.TIA_UPDATES_BASE }}
         run: |
           if [ -z "$UPDATES_BASE" ]; then echo "TIA_UPDATES_BASE not set, skipping"; exit 0; fi
+          cache_headers="$(mktemp)"
+          trap 'rm -f "$cache_headers"' EXIT
           for f in installers/*; do
             name="$(basename "$f")"
-            echo "Warming cache: $name"
-            curl -sS -o /dev/null -w "  %{http_code} %{time_total}s\n" "$UPDATES_BASE/$name" || true
+            if ! curl --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+              --head --dump-header "$cache_headers" --output /dev/null "$UPDATES_BASE/$name"; then
+              echo "::warning::Could not check cache eligibility for $name"
+              continue
+            fi
+            cache_status="$(awk 'tolower($1) == "cf-cache-status:" {gsub(/\r/, "", $2); print toupper($2)}' "$cache_headers" | tail -n 1)"
+            if [[ "$name" != *.yml && ( "$cache_status" == "DYNAMIC" || "$cache_status" == "BYPASS" ) ]]; then
+              echo "::warning::$name is not eligible for CDN cache ($cache_status). Enable a Cloudflare Cache Rule before prewarming."
+              continue
+            fi
+            echo "Warming cache: $name (status: ${cache_status:-unknown})"
+            if ! curl --fail --silent --show-error --connect-timeout 10 --max-time 300 \
+              --output /dev/null --write-out "  %{http_code} %{time_total}s\n" "$UPDATES_BASE/$name"; then
+              echo "::warning::Cache warm failed or timed out for $name"
+            fi
           done
