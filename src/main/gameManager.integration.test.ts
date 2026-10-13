@@ -1,6 +1,7 @@
 
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import { createServer, type Server } from 'http'
+import { readFileSync, writeFileSync } from 'fs'
 import { mkdtemp, rm, readFile, mkdir } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -13,7 +14,7 @@ function md5(buf: Buffer): string {
 }
 
 // --- Build the fixture "client" zip (fresh install, version 1.0.0) ---
-const EXE_CONTENT_V1 = Buffer.from('fake cstrike-online.exe bytes v1')
+const EXE_CONTENT_V1 = readFileSync(join(process.cwd(), 'src/main/launcher/fixtures/flags-fixture-x86.exe'))
 const DATA_FILE_V1 = Buffer.from('fake data file v1')
 
 function buildClientZip(exeContent: Buffer, dataContent: Buffer): Buffer {
@@ -251,6 +252,10 @@ describe('install -> patch -> launch integration', () => {
         ...actual,
         spawn: vi.fn((...args: unknown[]) => {
           spawnCalls.push(args)
+          // Simulate only the native process boundary acknowledging initialization.
+          const reportArg = (args[1] as string[])[0]
+          const report = process.platform === 'win32' ? reportArg : reportArg.slice(2).replace(/\\/g, '/')
+          writeFileSync(report, 'ready\nflags_before_resume: 1\n')
           const child = new EventEmitter() as EventEmitter & { unref: () => void }
           child.unref = () => {}
           setImmediate(() => child.emit('spawn'))
@@ -265,8 +270,9 @@ describe('install -> patch -> launch integration', () => {
 
     expect(spawnCalls).toHaveLength(1)
     const [exePathArg, argsArg, optsArg] = spawnCalls[0] as [string, string[], { cwd: string }]
-    expect(exePathArg).toBe(join(installDir, 'Bin', 'cstrike-online.exe'))
-    expect(argsArg).toEqual(['-console'])
+    expect(exePathArg).toBe(join(process.cwd(), 'build/native/flag-launch-x86.exe'))
+    const clientArg = process.platform === 'win32' ? join(installDir, 'Bin', 'cstrike-online.exe') : 'Z:' + join(installDir, 'Bin', 'cstrike-online.exe').replace(/\//g, '\\')
+    expect(argsArg.slice(1)).toEqual([clientArg, '-console'])
     expect(optsArg.cwd).toBe(join(installDir, 'Bin'))
   })
 })

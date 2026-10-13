@@ -1,3 +1,9 @@
+// Process/wrapper tests isolate native helper preparation.
+vi.mock('./flagLaunch', () => ({
+  prepareFlagLaunch: async (executable: string, args: string[]) => ({
+    executable, args, ready: async () => {}, cleanup: async () => {}
+  })
+}))
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mkdtemp, rm, mkdir, writeFile } from 'fs/promises'

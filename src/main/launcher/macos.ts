@@ -1,3 +1,4 @@
+import { prepareFlagLaunch } from './flagLaunch'
 import { spawn } from 'child_process'
 import { join, dirname, isAbsolute } from 'path'
 import { access, stat, readFile, writeFile, mkdir, mkdtemp, rm } from 'fs/promises'
@@ -54,10 +55,10 @@ function batchArg(value: string): string {
   if (/[\r\n\0"]/.test(value)) throw new Error('Unsupported quote or control character in macOS game path or argument.')
   return `"${value.replace(/%/g, '%%')}"`
 }
-export function buildSikarugirBatch(exePath: string, args: string[]): string {
+export function buildSikarugirBatch(exePath: string, args: string[], workingDirectory = dirname(exePath)): string {
   const windowsPath = (path: string): string => 'Z:' + path.replace(/\//g, '\\')
   return '@echo off\r\nsetlocal DisableDelayedExpansion\r\n' +
-    `cd /d ${batchArg(windowsPath(dirname(exePath)))}\r\n` +
+    `cd /d ${batchArg(windowsPath(workingDirectory))}\r\n` +
     [windowsPath(exePath), ...args].map(batchArg).join(' ') + '\r\n'
 }
 
@@ -66,7 +67,8 @@ export async function launchMacOS(wrapperPath: string, exePath: string, args: st
   args = options.args
   launchCommand = options.command
   const wrapper = await inspectSikarugirWrapper(wrapperPath)
-  const batch = buildSikarugirBatch(exePath, args)
+  const client = await prepareFlagLaunch(exePath, args)
+  const batch = buildSikarugirBatch(client.executable, client.args, dirname(exePath))
   const staging = await mkdtemp(join(tmpdir(), 'tia-sikarugir-'))
   const batchPath = join(staging, 'launch-game.bat')
   try {
@@ -83,9 +85,10 @@ export async function launchMacOS(wrapperPath: string, exePath: string, args: st
       child.once('exit', () => { void rm(staging, { recursive: true, force: true }).catch(() => {}) })
       child.once('spawn', () => { child.unref(); resolve() })
     })
+    await client.ready()
   } catch (err) {
     await rm(staging, { recursive: true, force: true })
     logError('launchMacOS: Sikarugir launch failed', { error: (err as Error).message })
     throw new Error(`Could not launch the game through Sikarugir: ${(err as Error).message}`)
-  }
+  } finally { await client.cleanup() }
 }

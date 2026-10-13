@@ -1,3 +1,4 @@
+import { DeveloperSettings } from './DeveloperAccess'
 import { useEffect, useState } from 'react'
 import { ProgressBar } from './ProgressBar'
 import { SystemNotificationModal } from './SystemNotificationModal'
@@ -208,6 +209,7 @@ export function SettingsPanel({
   const [confirmingUninstall, setConfirmingUninstall] = useState(false)
   const [confirmingLauncherUninstall, setConfirmingLauncherUninstall] = useState(false)
   const [removeLauncherData, setRemoveLauncherData] = useState(false)
+  const [uninstallingLauncher, setUninstallingLauncher] = useState(false)
   const [launcherUninstallMessage, setLauncherUninstallMessage] = useState<string | null>(null)
   const [uninstalling, setUninstalling] = useState(false)
   const [uninstallError, setUninstallError] = useState<string | null>(null)
@@ -439,6 +441,7 @@ export function SettingsPanel({
 
           {settings && activeTab === 'launcher' && (
             <div className="space-y-4 pr-8">
+              <DeveloperSettings />
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
               <SectionCard title="Launcher Background">
                 <p className="text-xs text-white/40">
@@ -806,7 +809,7 @@ export function SettingsPanel({
               </SectionCard>
 
               <SectionCard title="Uninstall Launcher">
-                <Row label="Uninstall Tia Launcher" onClick={() => setConfirmingLauncherUninstall(true)} />
+                <Row label="Uninstall Tia Launcher" onClick={() => { if (!uninstallingLauncher) setConfirmingLauncherUninstall(true) }} />
                 <p className="text-xs text-white/40">
                   Removes the launcher only. Game files stay where they are -- use &quot;Uninstall game&quot; in
                   Manage Games first if you want those gone too.
@@ -861,13 +864,16 @@ export function SettingsPanel({
           confirmLabel="Uninstall"
           onCancel={() => setConfirmingLauncherUninstall(false)}
           onConfirm={async () => {
+            if (uninstallingLauncher) return
             setConfirmingLauncherUninstall(false)
+            setUninstallingLauncher(true)
+            setLauncherUninstallMessage('Starting uninstall… Approve the administrator prompt if shown.')
             try {
               const result = await window.csore.uninstallLauncher(removeLauncherData)
               setLauncherUninstallMessage(result.message)
             } catch (err) {
               setLauncherUninstallMessage(err instanceof Error ? err.message : 'Could not uninstall the launcher.')
-            }
+            } finally { setUninstallingLauncher(false) }
           }}
         >
           <div className="space-y-3">

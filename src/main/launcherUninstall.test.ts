@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planLauncherUninstall } from './launcherUninstall'
+import { planLauncherUninstall, runPackageUninstaller, openWindowsUninstaller } from './launcherUninstall'
 
 const base = { isPackaged: true, appImagePath: undefined, uninstallerExists: true }
 
@@ -22,13 +22,13 @@ describe('planLauncherUninstall', () => {
     ).toBe('manual')
   })
 
-  it('reveals the .app bundle on macOS', () => {
+  it('moves the .app bundle to Trash on macOS', () => {
     const plan = planLauncherUninstall({
       ...base,
       platform: 'darwin',
       execPath: '/Applications/Tia Launcher.app/Contents/MacOS/Tia Launcher'
     })
-    expect(plan).toMatchObject({ kind: 'reveal_app', appPath: '/Applications/Tia Launcher.app' })
+    expect(plan).toMatchObject({ kind: 'trash_app', appPath: '/Applications/Tia Launcher.app' })
   })
 
   it('deletes the AppImage, or gives package-manager commands, on Linux', () => {
@@ -38,4 +38,19 @@ describe('planLauncherUninstall', () => {
     const manual = planLauncherUninstall({ ...base, platform: 'linux', execPath: '/opt/Tia Launcher/tia' })
     expect(manual.kind).toBe('manual')
   })
+})
+
+it('uses the native package manager for pacman and deb installed builds', () => {
+  const input = { ...base, platform: 'linux' as const, execPath: '/opt/Tia Launcher/tia' }
+  expect(planLauncherUninstall({ ...input, packageType: 'pacman' })).toEqual({ kind: 'package_manager', command: 'pkexec', args: ['pacman', '-R', '--noconfirm', 'tia-launcher'] })
+  expect(planLauncherUninstall({ ...input, packageType: 'deb' })).toEqual({ kind: 'package_manager', command: 'pkexec', args: ['apt-get', 'remove', '-y', 'tia-launcher'] })
+})
+it('reports Windows shell failures instead of claiming the uninstaller started', async () => {
+  await expect(openWindowsUninstaller('fixture.exe', async () => 'access denied')).rejects.toThrow('access denied')
+  await expect(openWindowsUninstaller('fixture.exe', async () => '')).resolves.toBeUndefined()
+})
+it('waits for package removal and reports authentication cancellation and errors', async () => {
+  await expect(runPackageUninstaller(process.execPath, ['-e', 'process.exit(0)'])).resolves.toBeUndefined()
+  await expect(runPackageUninstaller(process.execPath, ['-e', 'process.exit(126)'])).rejects.toThrow(/canceled/)
+  await expect(runPackageUninstaller(process.execPath, ['-e', 'console.error("fixture removal failed");process.exit(1)'])).rejects.toThrow('fixture removal failed')
 })

@@ -3,6 +3,16 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_UPDATE } from '../main/updater'
 
 const gameApi = {
+  getDeveloperState: (): Promise<import('../main/developerAccess').DeveloperState> => ipcRenderer.invoke('developer:getState'),
+  getDeveloperDevice: (): Promise<import('../main/developerHardware').HardwareIdentity> => ipcRenderer.invoke('developer:getDevice'),
+  unlockDeveloper: (code: string): Promise<import('../main/developerAccess').DeveloperState> => ipcRenderer.invoke('developer:unlock', code),
+  lockDeveloper: (): Promise<import('../main/developerAccess').DeveloperState> => ipcRenderer.invoke('developer:lock'),
+  setDeveloperApiChecks: (enabled: boolean): Promise<import('../main/developerAccess').DeveloperState> => ipcRenderer.invoke('developer:setApiChecks', enabled),
+  onDeveloperState: (callback: (state: import('../main/developerAccess').DeveloperState) => void): (() => void) => {
+    const listener = (_event: unknown, state: import('../main/developerAccess').DeveloperState): void => callback(state)
+    ipcRenderer.on('developer:state', listener)
+    return () => ipcRenderer.removeListener('developer:state', listener)
+  },
   getLauncherInfo: (): Promise<import('../main/launcherApi').GamePackageEntry> =>
     ipcRenderer.invoke('game:getLauncherInfo'),
 

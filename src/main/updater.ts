@@ -1,7 +1,8 @@
 import { setLauncherVersionStatus, type VersionStatus } from './launcherVersionGate'
 import { currentWindow, type WindowSource } from './windowSource'
 import { app, ipcMain } from 'electron'
-import { autoUpdater } from 'electron-updater'
+import { win32 } from 'path'
+import { autoUpdater, type AppUpdater, type NsisUpdater } from 'electron-updater'
 import { isOperationInProgress } from './gameManager'
 import { logInfo, logError, logDebug } from './logger'
 
@@ -50,7 +51,16 @@ export function initialUpdateState(): UpdateState {
   return { versionStatus: app.isPackaged ? 'checking' : 'current', available: null, progress: null, downloaded: false, downloading: false, downloadProgress: null, error: null }
 }
 
+export function configureUpdateInstallDirectory(
+  updater: AppUpdater, platform: NodeJS.Platform, packaged: boolean, executable: string
+): void {
+  if (platform === 'win32' && packaged) {
+    (updater as NsisUpdater).installDirectory = win32.dirname(executable)
+  }
+}
+
 export function initAutoUpdater(win: WindowSource): void {
+  configureUpdateInstallDirectory(autoUpdater, process.platform, app.isPackaged, process.execPath)
   autoUpdater.setFeedURL({ provider: 'generic', url: UPDATE_FEED_URL })
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = false

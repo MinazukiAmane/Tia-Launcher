@@ -187,3 +187,22 @@ describe('mandatory launcher version checks', () => {
     expect(() => assertLauncherCurrent()).toThrow(/latest/)
   })
 })
+
+describe('Windows updates preserve the active launcher location', () => {
+  it('pins NSIS to the running directory, including custom drives and paths with spaces', async () => {
+    const { configureUpdateInstallDirectory } = await import('./updater')
+    for (const directory of ['C:\\Program Files\\Tia Launcher', 'D:\\Custom Apps\\Tia Launcher', 'C:\\Users\\Player\\AppData\\Local\\Programs\\Tia Launcher']) {
+      const updater = {} as import('electron-updater').NsisUpdater
+      configureUpdateInstallDirectory(updater, 'win32', true, directory + '\\Tia Launcher.exe')
+      expect(updater.installDirectory).toBe(directory)
+    }
+  })
+  it('does not change updater directories for development or Linux/macOS', async () => {
+    const { configureUpdateInstallDirectory } = await import('./updater')
+    for (const [platform, packaged] of [['win32', false], ['linux', true], ['darwin', true]] as const) {
+      const updater = {} as import('electron-updater').NsisUpdater
+      configureUpdateInstallDirectory(updater, platform, packaged, '/usr/bin/electron')
+      expect(updater.installDirectory).toBeUndefined()
+    }
+  })
+})

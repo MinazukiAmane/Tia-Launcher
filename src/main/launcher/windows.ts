@@ -1,3 +1,4 @@
+import { prepareFlagLaunch } from './flagLaunch'
 
 import { spawn } from 'child_process'
 import { join, dirname } from 'path'
@@ -13,46 +14,52 @@ export async function findGameExecutable(installDir: string): Promise<string> {
 }
 
 // Optional shell wrapper supporting the %command% placeholder.
-export function launchWindows(exePath: string, args: string[], launchCommand?: string | null): Promise<void> {
+export async function launchWindows(exePath: string, args: string[], launchCommand?: string | null): Promise<void> {
   const options = resolveLaunchOptions(args, launchCommand)
   args = options.args
   launchCommand = options.command
+  const client = await prepareFlagLaunch(exePath, args)
+  const launchExe = client.executable
+  const launchArgs = client.args
   logInfo('launchWindows: attempting launch', { exePath })
-  const realCommand = [exePath, ...args].map(quoteShellArgWindows).join(' ')
+  const realCommand = [launchExe, ...launchArgs].map(quoteShellArgWindows).join(' ')
   const wrapped = buildWrappedCommand(launchCommand, realCommand)
   if (wrapped) logDebug('launchWindows: resolved launch command', { command: wrapped })
 
-  return new Promise((resolve, reject) => {
-    const child =
-      wrapped === null
-        ? spawn(exePath, args, {
-            cwd: dirname(exePath),
-            detached: true,
-            stdio: 'ignore'
-          })
-        : spawn(wrapped, {
-            cwd: dirname(exePath),
-            detached: true,
-            stdio: 'ignore',
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child =
+        wrapped === null
+          ? spawn(launchExe, launchArgs, {
+              cwd: dirname(exePath),
+              detached: true,
+              stdio: 'ignore'
+            })
+          : spawn(wrapped, {
+              cwd: dirname(exePath),
+              detached: true,
+              stdio: 'ignore',
 
-            shell: true,
+              shell: true,
 
-            windowsHide: true
-          })
+              windowsHide: true
+            })
 
-    // Handle spawn errors so failed launches cannot crash the main process.
-    child.once('error', (err: NodeJS.ErrnoException) => {
-      const launchErr =
-        wrapped === null && err.code === 'ENOENT'
-          ? new Error(`Could not start the game: executable not found at ${exePath}`)
-          : new Error(`Could not start the game: ${err.message}`)
-      logError('launchWindows: failed', { exePath, error: launchErr.message })
-      reject(launchErr)
+      // Handle spawn errors so failed launches cannot crash the main process.
+      child.once('error', (err: NodeJS.ErrnoException) => {
+        const launchErr =
+          wrapped === null && err.code === 'ENOENT'
+            ? new Error(`Could not start the game: executable not found at ${exePath}`)
+            : new Error(`Could not start the game: ${err.message}`)
+        logError('launchWindows: failed', { exePath, error: launchErr.message })
+        reject(launchErr)
+      })
+      child.once('spawn', () => {
+        child.unref()
+        logInfo('launchWindows: succeeded', { exePath })
+        resolve()
+      })
     })
-    child.once('spawn', () => {
-      child.unref()
-      logInfo('launchWindows: succeeded', { exePath })
-      resolve()
-    })
-  })
+  await client.ready()
+  } finally { await client.cleanup() }
 }

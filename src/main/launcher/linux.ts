@@ -1,3 +1,4 @@
+import { prepareFlagLaunch } from './flagLaunch'
 
 import { spawn, execFile } from 'child_process'
 import { promisify } from 'util'
@@ -105,7 +106,7 @@ export async function extractDWProtonTarball(tarballPath: string, destDir: strin
   }
 }
 
-export function launchLinux(
+export async function launchLinux(
   protonDir: string,
   compatDataDir: string,
   exePath: string,
@@ -115,6 +116,9 @@ export function launchLinux(
   const options = resolveLaunchOptions(args, launchCommand)
   args = options.args
   launchCommand = options.command
+  const client = await prepareFlagLaunch(exePath, args)
+  const launchExe = client.executable
+  const launchArgs = client.args
   logInfo('launchLinux: attempting launch', { exePath, protonDir })
   const env = {
     ...process.env,
@@ -122,42 +126,45 @@ export function launchLinux(
     GAMEID: 'tia-launcher',
     WINEPREFIX: compatDataDir
   }
-  const realCommand = ['umu-run', exePath, ...args].map(quoteShellArgUnix).join(' ')
+  const realCommand = ['umu-run', launchExe, ...launchArgs].map(quoteShellArgUnix).join(' ')
   const wrapped = buildWrappedCommand(launchCommand, realCommand)
   if (wrapped) logDebug('launchLinux: resolved launch command', { command: wrapped })
 
-  return new Promise((resolve, reject) => {
-    const child =
-      wrapped === null
-        ? spawn('umu-run', [exePath, ...args], {
-            cwd: dirname(exePath),
-            env,
-            detached: true,
-            stdio: 'ignore'
-          })
-        : spawn(wrapped, {
-            cwd: dirname(exePath),
-            env,
-            detached: true,
-            stdio: 'ignore',
-            // Launch Command wrappers require a shell.
-            shell: true
-          })
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child =
+        wrapped === null
+          ? spawn('umu-run', [launchExe, ...launchArgs], {
+              cwd: dirname(exePath),
+              env,
+              detached: true,
+              stdio: 'ignore'
+            })
+          : spawn(wrapped, {
+              cwd: dirname(exePath),
+              env,
+              detached: true,
+              stdio: 'ignore',
+              // Launch Command wrappers require a shell.
+              shell: true
+            })
 
-    child.once('error', (err: NodeJS.ErrnoException) => {
-      const launchErr =
-        wrapped === null && err.code === 'ENOENT'
-          ? new Error(
-              'umu-launcher is not installed (umu-run not found on PATH). Install it from https://github.com/Open-Wine-Components/umu-launcher and try again.'
-            )
-          : new Error(`Could not start the game: ${err.message}`)
-      logError('launchLinux: failed', { exePath, error: launchErr.message })
-      reject(launchErr)
+      child.once('error', (err: NodeJS.ErrnoException) => {
+        const launchErr =
+          wrapped === null && err.code === 'ENOENT'
+            ? new Error(
+                'umu-launcher is not installed (umu-run not found on PATH). Install it from https://github.com/Open-Wine-Components/umu-launcher and try again.'
+              )
+            : new Error(`Could not start the game: ${err.message}`)
+        logError('launchLinux: failed', { exePath, error: launchErr.message })
+        reject(launchErr)
+      })
+      child.once('spawn', () => {
+        child.unref()
+        logInfo('launchLinux: succeeded', { exePath })
+        resolve()
+      })
     })
-    child.once('spawn', () => {
-      child.unref()
-      logInfo('launchLinux: succeeded', { exePath })
-      resolve()
-    })
-  })
+  await client.ready()
+  } finally { await client.cleanup() }
 }

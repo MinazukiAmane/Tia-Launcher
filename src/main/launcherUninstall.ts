@@ -1,10 +1,12 @@
 
-import { basename, dirname, join } from 'path'
+import { spawn } from 'child_process'
+import { dirname, join } from 'path'
 
 export type LauncherUninstallPlan =
   | { kind: 'run_uninstaller'; uninstallerPath: string }
+  | { kind: 'package_manager'; command: string; args: string[] }
   | { kind: 'delete_appimage'; appImagePath: string }
-  | { kind: 'reveal_app'; appPath: string; message: string }
+  | { kind: 'trash_app'; appPath: string }
   | { kind: 'manual'; message: string }
   | { kind: 'unavailable'; message: string }
 
@@ -14,6 +16,7 @@ export interface PlanInput {
   execPath: string
   appImagePath: string | undefined
   // Whether the NSIS uninstaller exists next to the executable.
+  packageType?: string
   uninstallerExists: boolean
 }
 
@@ -37,14 +40,15 @@ export function planLauncherUninstall(input: PlanInput): LauncherUninstallPlan {
     // execPath: <App>.app/Contents/MacOS/<bin>
     const appPath = dirname(dirname(dirname(input.execPath)))
     return {
-      kind: 'reveal_app',
+      kind: 'trash_app',
       appPath,
-      message: `Drag "${basename(appPath)}" to the Trash (it has been revealed in Finder).`
     }
   }
   if (input.appImagePath) {
     return { kind: 'delete_appimage', appImagePath: input.appImagePath }
   }
+  if (input.packageType === 'pacman') return { kind: 'package_manager', command: 'pkexec', args: ['pacman', '-R', '--noconfirm', 'tia-launcher'] }
+  if (input.packageType === 'deb') return { kind: 'package_manager', command: 'pkexec', args: ['apt-get', 'remove', '-y', 'tia-launcher'] }
   return {
     kind: 'manual',
     message:
@@ -52,4 +56,24 @@ export function planLauncherUninstall(input: PlanInput): LauncherUninstallPlan {
       '  Arch/CachyOS:  sudo pacman -R tia-launcher\n' +
       '  Debian/Ubuntu: sudo apt remove tia-launcher'
   }
+}
+
+// Keep the launcher open until authentication and package removal succeed.
+export function runPackageUninstaller(command: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true })
+    let stderr = ''
+    child.stderr?.on('data', chunk => { stderr = (stderr + String(chunk)).slice(-8192) })
+    child.once('error', error => reject(new Error(`Could not start the package uninstaller: ${error.message}. Make sure polkit (pkexec) is installed.`)))
+    child.once('close', code => {
+      if (code === 0) resolve()
+      else if (code === 126) reject(new Error('Uninstall canceled at the administrator authentication prompt.'))
+      else reject(new Error(`Package uninstall failed (${code ?? 'terminated'}). ${stderr.trim()}`))
+    })
+  })
+}
+
+export async function openWindowsUninstaller(path: string, open: (path: string) => Promise<string>): Promise<void> {
+  const error = await open(path)
+  if (error) throw new Error(`Could not start the launcher uninstaller: ${error}`)
 }

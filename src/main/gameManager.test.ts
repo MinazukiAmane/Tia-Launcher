@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtemp, rm, chmod, mkdir, writeFile, access } from 'fs/promises'
 import { tmpdir } from 'os'
+import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -160,7 +161,7 @@ describe('runLinuxLaunch (via selectLaunchFn) starting from a clean machine', ()
 
     installDir = await mkdtemp(join(tmpdir(), 'csore-install-'))
     await mkdir(join(installDir, 'Bin'), { recursive: true })
-    await writeFile(join(installDir, 'Bin', 'cstrike-online.exe'), 'fake exe bytes')
+    await writeFile(join(installDir, 'Bin', 'cstrike-online.exe'), readFileSync(join(process.cwd(), 'src/main/launcher/fixtures/flags-fixture-x86.exe')))
 
     // Build a real fixture DWProton tarball + its real sha512sum.
     fixtureServerDir = await mkdtemp(join(tmpdir(), 'csore-dwproton-fixture-'))
@@ -203,6 +204,11 @@ describe('runLinuxLaunch (via selectLaunchFn) starting from a clean machine', ()
       return {
         ...actual,
         spawn: vi.fn((_cmd: string, _args: string[], _opts: unknown) => {
+          if (_cmd === 'umu-run') {
+            const reportArg = _args[1]
+            const report = process.platform === 'win32' ? reportArg : reportArg.slice(2).replace(/\\/g, '/')
+            writeFileSync(report, 'ready\nflags_before_resume: 1\n')
+          }
           const child = new EventEmitter() as EventEmitter & { unref: () => void }
           child.unref = () => {}
           setImmediate(() => child.emit('spawn'))

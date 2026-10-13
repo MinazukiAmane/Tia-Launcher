@@ -36,14 +36,19 @@ it.skipIf(process.platform === 'win32')('forwards IP and port through a real Lin
     const bin = join(root, 'Bin')
     await mkdir(bin)
     const exe = join(bin, 'cstrike-online.exe')
+    await writeFile(exe, await readFile(join(process.cwd(), 'src/main/launcher/fixtures/flags-fixture-x86.exe')))
     const output = join(root, 'argv.json')
     await writeFile(join(root, 'umu-run'), `#!${process.execPath}
 require('fs').writeFileSync(${JSON.stringify(output)}, JSON.stringify(process.argv.slice(2)))
+const report = process.argv[3].slice(2).split(String.fromCharCode(92)).join('/')
+require('fs').writeFileSync(report, 'ready' + String.fromCharCode(10))
 `, { mode: 0o755 })
     process.env.PATH = root + delimiter + (previousPath ?? '')
     await launchLinux('/proton-fixture', '/prefix-fixture', exe, ['-lang', 'na_en'], '-ip 84.247.156.34 -port 50600')
     await vi.waitFor(async () => {
-      expect(JSON.parse(await readFile(output, 'utf8'))).toEqual([exe, '-lang', 'na_en', '-ip', '84.247.156.34', '-port', '50600'])
+      const received = JSON.parse(await readFile(output, 'utf8'))
+      expect(received[0]).toBe(join(process.cwd(), 'build/native/flag-launch-x86.exe'))
+      expect(received.slice(2)).toEqual(['Z:' + exe.replace(/\//g, '\\'), '-lang', 'na_en', '-ip', '84.247.156.34', '-port', '50600'])
     })
   } finally {
     if (previousPath === undefined) delete process.env.PATH

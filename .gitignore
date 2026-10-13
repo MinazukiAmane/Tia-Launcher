@@ -5,4 +5,5 @@ release/
 dist/
 *.log
 *.tsbuildinfo
+release-test/
 ref/
