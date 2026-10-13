@@ -42,7 +42,7 @@ export async function fetchVersionManifest(resListUrl: string | undefined): Prom
 
 async function md5OfFileStreaming(filePath: string): Promise<string> {
   const hash = createHash('md5')
-  await pipeline(createReadStream(filePath), hash)
+  await pipeline(createReadStream(filePath, { highWaterMark: 1024 * 1024 }), hash)
   return hash.digest('hex')
 }
 
@@ -62,23 +62,38 @@ export async function verifyAgainstManifest(
     } catch { /* first check */ }
   }
   const next: Record<string, string> = {}
-  for (const entry of manifest.files) {
+  // Validate the complete list before starting any disk work.
+  const entries = manifest.files.map(entry => {
     if (!entry.path || entry.path.includes('\\') || entry.path.includes(':') || entry.path.split('/').some(p => !p || p === '.' || p === '..')) {
       throw new Error('Invalid manifest file path')
     }
     const filePath = resolveWithinRoot(installDir, entry.path, 'manifest file', reason => { throw new Error(reason) })
-    let info: Awaited<ReturnType<typeof stat>>
-    try { info = await stat(filePath) } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') { missingFiles.push(entry.path); continue }
-      throw err
+    return { entry, filePath }
+  })
+  // Bound metadata IO; hash one file at a time to avoid HDD seek contention.
+  for (let offset = 0; offset < entries.length; offset += 4) {
+    const batch = entries.slice(offset, offset + 4)
+    const metadata = await Promise.allSettled(batch.map(({ filePath }) => stat(filePath)))
+    for (let index = 0; index < batch.length; index++) {
+      const { entry, filePath } = batch[index]
+      const found = metadata[index]
+      if (found.status === 'rejected') {
+        if ((found.reason as NodeJS.ErrnoException).code === 'ENOENT') { missingFiles.push(entry.path); continue }
+        throw found.reason
+      }
+      const info = found.value
+      if (!info.isFile() || (entry.size !== undefined && info.size !== entry.size)) { corruptFiles.push(entry.path); continue }
+      const stamp = JSON.stringify([entry.md5, info.size, info.mtimeMs, info.ctimeMs, info.ino, info.dev])
+      if (quick && previous[entry.path] === stamp) { next[entry.path] = stamp; continue }
+      if (await md5OfFileStreaming(filePath) !== entry.md5) { corruptFiles.push(entry.path); continue }
+      const after = await stat(filePath)
+      if (after.size === info.size && after.mtimeMs === info.mtimeMs && after.ctimeMs === info.ctimeMs && after.ino === info.ino && after.dev === info.dev) next[entry.path] = stamp
+      else corruptFiles.push(entry.path)
     }
-    if (!info.isFile() || (entry.size !== undefined && info.size !== entry.size)) { corruptFiles.push(entry.path); continue }
-    const stamp = JSON.stringify([entry.md5, info.size, info.mtimeMs, info.ctimeMs, info.ino, info.dev])
-    if (quick && previous[entry.path] === stamp) { next[entry.path] = stamp; continue }
-    if (await md5OfFileStreaming(filePath) !== entry.md5) { corruptFiles.push(entry.path); continue }
-    const after = await stat(filePath)
-    if (after.size === info.size && after.mtimeMs === info.mtimeMs && after.ctimeMs === info.ctimeMs) next[entry.path] = stamp
-    else corruptFiles.push(entry.path)
+  }
+  // Warm Play checks do not need to rewrite identical cache data.
+  if (quick && JSON.stringify(previous) === JSON.stringify(next)) {
+    return { ok: !corruptFiles.length && !missingFiles.length, corruptFiles, missingFiles }
   }
   try {
     const temp = cachePath + '.' + process.pid + '.tmp'
