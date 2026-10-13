@@ -2,7 +2,7 @@
 import { spawn } from 'child_process'
 import { join, dirname } from 'path'
 import { access } from 'fs/promises'
-import { buildWrappedCommand, quoteShellArgWindows } from './launchCommand'
+import { resolveLaunchOptions, buildWrappedCommand, quoteShellArgWindows } from './launchCommand'
 import { logInfo, logDebug, logError } from '../logger'
 
 // Convention: Bin/cstrike-online.exe directly under the install dir.
@@ -14,6 +14,9 @@ export async function findGameExecutable(installDir: string): Promise<string> {
 
 // Optional shell wrapper supporting the %command% placeholder.
 export function launchWindows(exePath: string, args: string[], launchCommand?: string | null): Promise<void> {
+  const options = resolveLaunchOptions(args, launchCommand)
+  args = options.args
+  launchCommand = options.command
   logInfo('launchWindows: attempting launch', { exePath })
   const realCommand = [exePath, ...args].map(quoteShellArgWindows).join(' ')
   const wrapped = buildWrappedCommand(launchCommand, realCommand)

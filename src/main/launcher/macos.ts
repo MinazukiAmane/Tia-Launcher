@@ -3,7 +3,7 @@ import { join, dirname, isAbsolute } from 'path'
 import { access, stat, readFile, writeFile, mkdir, mkdtemp, rm } from 'fs/promises'
 import { constants } from 'fs'
 import { homedir, tmpdir } from 'os'
-import { buildWrappedCommand, quoteShellArgUnix } from './launchCommand'
+import { resolveLaunchOptions, buildWrappedCommand, quoteShellArgUnix } from './launchCommand'
 import { logInfo, logDebug, logError } from '../logger'
 
 export interface SikarugirWrapper { wrapperPath: string; launcherPath: string; prefixPath: string }
@@ -62,6 +62,9 @@ export function buildSikarugirBatch(exePath: string, args: string[]): string {
 }
 
 export async function launchMacOS(wrapperPath: string, exePath: string, args: string[], launchCommand?: string | null): Promise<void> {
+  const options = resolveLaunchOptions(args, launchCommand)
+  args = options.args
+  launchCommand = options.command
   const wrapper = await inspectSikarugirWrapper(wrapperPath)
   const batch = buildSikarugirBatch(exePath, args)
   const staging = await mkdtemp(join(tmpdir(), 'tia-sikarugir-'))

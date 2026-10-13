@@ -6,7 +6,7 @@ import { access, mkdir, rm, rename } from 'fs/promises'
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
 import { pipeline } from 'stream/promises'
-import { buildWrappedCommand, quoteShellArgUnix } from './launchCommand'
+import { resolveLaunchOptions, buildWrappedCommand, quoteShellArgUnix } from './launchCommand'
 import { logInfo, logDebug, logError } from '../logger'
 
 const execFileAsync = promisify(execFile)
@@ -112,6 +112,9 @@ export function launchLinux(
   args: string[],
   launchCommand?: string | null
 ): Promise<void> {
+  const options = resolveLaunchOptions(args, launchCommand)
+  args = options.args
+  launchCommand = options.command
   logInfo('launchLinux: attempting launch', { exePath, protonDir })
   const env = {
     ...process.env,

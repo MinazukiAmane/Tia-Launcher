@@ -765,13 +765,13 @@ export function SettingsPanel({
                 <textarea
                   value={settings.launchCommand ?? ''}
                   maxLength={MAX_LAUNCH_COMMAND_LENGTH}
-                  placeholder="e.g. _GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1 %command%"
+                  placeholder="e.g. -ip 84.247.156.34 -port 50600"
                   onChange={(e) => update({ launchCommand: e.target.value === '' ? null : e.target.value })}
                   rows={3}
                   className="w-full resize-none rounded bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30"
                 />
                 <div className="flex items-center justify-between text-xs text-white/40">
-                  <span>Leave this blank unless necessary</span>
+                  <span>Game arguments, or a wrapper using %command%</span>
                   <span>
                     {(settings.launchCommand ?? '').length}/{MAX_LAUNCH_COMMAND_LENGTH}
                   </span>

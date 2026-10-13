@@ -63,7 +63,19 @@ describe('launchWindows', () => {
   })
 })
 
-describe('launchWindows: Launch Command wrapper', () => {
+it('forwards bare IP and port options to a real child process', async () => {
+  const dir = await makeTempDir()
+  const output = join(dir, 'argv.json')
+  const script = join(dir, 'argv.cjs')
+  await writeFile(script, `require('fs').writeFileSync(${JSON.stringify(output)}, JSON.stringify(process.argv.slice(2)))`)
+  await launchWindows(process.execPath, [script, '-lang', 'na_en'], '-ip 84.247.156.34 -port 50600')
+  const { readFile } = await import('fs/promises')
+  await vi.waitFor(async () => {
+    expect(JSON.parse(await readFile(output, 'utf8'))).toEqual(['-lang', 'na_en', '-ip', '84.247.156.34', '-port', '50600'])
+  })
+})
+
+describe('launchWindows: Launch Command wrapper' , () => {
   afterEach(() => {
     vi.doUnmock('child_process')
     vi.resetModules()
