@@ -9,7 +9,7 @@ const INSTALL_DIR_STORAGE_KEY = 'tia-install-dir'
 
 const DONATE_URL = 'https://tako.id/csorseid'
 
-type SettingsTab = 'launcher' | 'manage' | 'advanced' | 'logs' | 'about'
+type SettingsScope = 'launcher' | 'game'
 
 function GearIcon(): React.JSX.Element {
   return (
@@ -49,8 +49,7 @@ export default function App(): React.JSX.Element {
   const [installDir, setInstallDir] = useState<string | null>(() =>
     localStorage.getItem(INSTALL_DIR_STORAGE_KEY)
   )
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('launcher')
+  const [settingsScope, setSettingsScope] = useState<SettingsScope | null>(null)
   const [userDataDir, setUserDataDir] = useState<string>('')
   const [pickError, setPickError] = useState<string | null>(null)
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
@@ -67,9 +66,8 @@ export default function App(): React.JSX.Element {
     setInstallDir(null)
   }
 
-  function openSettings(tab: SettingsTab = 'launcher'): void {
-    setSettingsInitialTab(tab)
-    setSettingsOpen(true)
+  function openSettings(scope: SettingsScope): void {
+    setSettingsScope(scope)
   }
 
   async function pickInstallDir(): Promise<void> {
@@ -112,7 +110,7 @@ export default function App(): React.JSX.Element {
         <button
           type="button"
           onClick={() => openSettings('launcher')}
-          title="Settings"
+          title="Launcher Settings"
           className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
         >
           <GearIcon />
@@ -136,20 +134,21 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} onOpenSettings={openSettings} />
+      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} onOpenGameSettings={() => openSettings('game')} />
       {pickError && (
         <p className="absolute top-14 right-3 z-30 max-w-xs rounded bg-red-950/80 px-3 py-2 text-xs text-red-300">
           {pickError}
         </p>
       )}
 
-      {settingsOpen && (
+      {settingsScope && (
         <SettingsPanel
           installDir={installDir}
           userDataDir={userDataDir}
-          initialTab={settingsInitialTab}
+          key={settingsScope}
+          scope={settingsScope}
           onChangeInstallDir={pickInstallDir}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => setSettingsScope(null)}
           onUninstalled={handleUninstalled}
           onBackgroundChanged={setBackgroundUrl}
         />

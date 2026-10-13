@@ -44,7 +44,7 @@ type Settings = Awaited<ReturnType<typeof window.csore.getSettings>>
 interface SettingsPanelProps {
   installDir: string | null
   userDataDir: string
-  initialTab?: NavTab
+  scope: 'launcher' | 'game'
   onChangeInstallDir: () => void
   onClose: () => void
 
@@ -58,13 +58,13 @@ type DWProtonStatus = Awaited<ReturnType<typeof window.csore.getDWProtonStatus>>
 type SikarugirStatus = Awaited<ReturnType<typeof window.csore.getSikarugirStatus>>
 type UpdateState = Awaited<ReturnType<typeof window.csore.getUpdateState>>
 type Progress = { processed: number; total: number; phase: string }
-export type NavTab = 'launcher' | 'manage' | 'advanced' | 'logs' | 'about'
+type NavTab = 'launcher' | 'manage' | 'advanced' | 'logs' | 'about'
 
 const NAV_ITEMS: { key: NavTab; label: string }[] = [
   { key: 'launcher', label: 'Launcher Settings' },
   { key: 'manage', label: 'Manage Games' },
   { key: 'advanced', label: 'Advanced Settings' },
-  { key: 'logs', label: 'Game Logs' },
+  { key: 'logs', label: 'Launcher Logs' },
   { key: 'about', label: 'About' }
 ]
 
@@ -143,7 +143,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 export function SettingsPanel({
   installDir,
   userDataDir,
-  initialTab,
+  scope,
   onChangeInstallDir,
   onClose,
   onUninstalled,
@@ -152,7 +152,12 @@ export function SettingsPanel({
   const [settings, setSettings] = useState<Settings | null>(null)
   const [backgroundError, setBackgroundError] = useState<string | null>(null)
   const [backgroundBusy, setBackgroundBusy] = useState(false)
-  const [activeTab, setActiveTab] = useState<NavTab>(initialTab ?? 'launcher')
+  const navItems = NAV_ITEMS.filter(({ key }) =>
+    scope === 'launcher' ? ['launcher', 'logs', 'about'].includes(key) : ['manage', 'advanced'].includes(key)
+  )
+  const [selectedTab, setActiveTab] = useState<NavTab>(scope === 'launcher' ? 'launcher' : 'manage')
+  const activeTab = navItems.some(({ key }) => key === selectedTab) ? selectedTab : navItems[0].key
+  const panelTitle = scope === 'launcher' ? 'Launcher Settings' : 'Game Settings'
 
 
   const [speedLimitInput, setSpeedLimitInput] = useState('')
@@ -360,15 +365,15 @@ export function SettingsPanel({
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/60 p-6">
-      <div className="flex h-[85vh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-zinc-950 text-white shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label={panelTitle} className="flex h-[85vh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-zinc-950 text-white shadow-2xl">
         {/* Left sidebar */}
         <div className="flex w-48 flex-shrink-0 flex-col gap-1 bg-black/40 p-3">
           <div className="flex items-center gap-2 px-2 py-2 text-base font-semibold">
             <GearIcon />
-            Settings
+            {panelTitle}
           </div>
           <nav className="mt-2 flex flex-col gap-1">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <button
                 key={item.key}
                 type="button"
@@ -484,6 +489,21 @@ export function SettingsPanel({
                     Exit launcher
                   </label>
                 </div>
+              </SectionCard>
+
+              <SectionCard title="Troubleshooting">
+                <label className="flex items-center justify-between text-sm">
+                  <span>
+                    Troubleshooting Mode
+                    <span className="block text-xs text-white/40">
+                      Enable this to generate logs for customer support if you have trouble using the launcher or running the game.
+                    </span>
+                  </span>
+                  <Toggle
+                    checked={settings.troubleshootingMode}
+                    onChange={(v) => update({ troubleshootingMode: v })}
+                  />
+                </label>
               </SectionCard>
 
               <SectionCard title="Download Speed Limit">
@@ -713,27 +733,14 @@ export function SettingsPanel({
                 </div>
               </SectionCard>
 
-              <SectionCard title="Launch Options">
-                <label className="flex items-center justify-between text-sm">
-                  <span>
-                    Troubleshooting Mode
-                    <span className="block text-xs text-white/40">
-                      Enable this to generate logs for customer support if you have trouble running the game.
-                    </span>
-                  </span>
-                  <Toggle
-                    checked={settings.troubleshootingMode}
-                    onChange={(v) => update({ troubleshootingMode: v })}
-                  />
-                </label>
-              </SectionCard>
+
             </div>
           )}
 
           {settings && activeTab === 'logs' && (
             <div className="space-y-4 pr-8">
               <SectionCard title="Log Information">
-                <Row label="View Client Logs" sublabel={logPath ?? undefined} onClick={handleViewLogs} />
+                <Row label="View Launcher Logs" sublabel={logPath ?? undefined} onClick={handleViewLogs} />
               </SectionCard>
             </div>
           )}
@@ -765,7 +772,7 @@ export function SettingsPanel({
                 )}
               </SectionCard>
 
-              <SectionCard title="Client Log">
+              <SectionCard title="Launcher Log">
                 <Row label="View" onClick={handleViewLogs} />
                 {}
                 <Row label="Submit Logs (Login Required)" disabled />

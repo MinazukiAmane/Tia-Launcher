@@ -101,10 +101,10 @@ interface HomeScreenProps {
   // Player's custom launcher background (data: URL), or null for the default.
   backgroundUrl: string | null
   onNeedInstallDir: () => void
-  onOpenSettings: (tab?: 'launcher' | 'manage' | 'advanced' | 'logs' | 'about') => void
+  onOpenGameSettings: () => void
 }
 
-export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpenSettings }: HomeScreenProps): React.JSX.Element {
+export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -223,6 +223,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
   }
 
   async function onPrimaryAction(): Promise<void> {
+    if (primaryDisabled) return
     if (state === 'up_to_date') {
       setErrorMessage(null)
 
@@ -375,11 +376,16 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
     paused: 'Resume'
   }
 
-  const label = isHovering ? hoverLabel[state] : idleLabel[state]
+  const primaryDisabled = state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
+  const label = verifying
+    ? 'Checking Integrity'
+    : primaryDisabled && state === 'working'
+      ? (progress ? PHASE_LABEL[progress.phase] ?? progress.phase : 'Working…')
+      : isHovering ? hoverLabel[state] : idleLabel[state]
 
   function renderIcon(): React.JSX.Element {
     if (state === 'up_to_date') return <PlayIcon />
-    if (state === 'working') return isHovering ? <PauseIcon /> : <DownloadIcon />
+    if (state === 'working') return isHovering && !primaryDisabled ? <PauseIcon /> : <DownloadIcon />
     if (state === 'paused') return isHovering ? <PlayIcon /> : <PauseIcon />
     return <DownloadIcon />
   }
@@ -441,7 +447,10 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
         {errorMessage && <p className="max-w-xs text-right text-sm text-red-400">{errorMessage}</p>}
 
         {/* Detailed hover popup (ref/launcher-cursor-hover-ondownloading- button-change.png): phase, percent + byte counts, speed, ETA. */}
-        {isHovering && (state === 'working' || repairing) && progress && (
+        {isHovering && verifying && !progress && (
+          <div className="w-72 rounded-lg border border-white/10 bg-zinc-950/95 p-4 shadow-xl">Checking game integrity…</div>
+        )}
+        {isHovering && (state === 'working' || repairing || verifying) && progress && (
           <div className="w-72 rounded-lg border border-white/10 bg-zinc-950/95 p-4 shadow-xl">
             <p className="text-sm font-semibold text-white">{PHASE_LABEL[progress.phase] ?? progress.phase}</p>
             {hasRealTotal ? (
@@ -478,17 +487,17 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
         )}
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={state === 'loading' || verifying}
-            onClick={onPrimaryAction}
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-            className="flex h-11 items-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-black shadow-lg transition hover:bg-yellow-300 disabled:opacity-60"
-          >
-            {renderIconWithRing()}
-            {label}
-          </button>
+          <div onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}>
+            <button
+              type="button"
+              disabled={primaryDisabled}
+              onClick={() => { if (!primaryDisabled) void onPrimaryAction() }}
+              className="flex h-11 items-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-black shadow-lg transition hover:bg-yellow-300 disabled:bg-zinc-700 disabled:text-white/50 disabled:cursor-not-allowed"
+            >
+              {renderIconWithRing()}
+              {label}
+            </button>
+          </div>
 
           <div className="relative">
             <button
@@ -508,7 +517,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, onOpen
                     type="button"
                     onClick={() => {
                       setMenuOpen(false)
-                      onOpenSettings('manage')
+                      onOpenGameSettings()
                     }}
                     className="block w-full px-4 py-2.5 text-left text-sm text-white hover:bg-white/10"
                   >
