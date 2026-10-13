@@ -13,8 +13,15 @@ export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,
     height: 650,
-    minWidth: 900,
-    minHeight: 550,
+    minWidth: 1100,
+    maxWidth: 1100,
+    minHeight: 650,
+    maxHeight: 650,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    // Remove the native Windows sizing frame, including Aero Snap resizing.
+    thickFrame: false,
     frame: false,
     backgroundColor: '#0a0a0a',
 
@@ -26,6 +33,12 @@ export function createMainWindow(): BrowserWindow {
       sandbox: false
     }
   })
+
+  // Keep user gestures and OS snap operations from changing the window size.
+  win.on('will-resize', (event) => event.preventDefault())
+  // Linux does not implement maximizable; handle window-manager requests too.
+  win.on('maximize', () => win.unmaximize())
+  win.on('enter-full-screen', () => win.setFullScreen(false))
 
   win.on('ready-to-show', () => { if (!isQuitting) win.show() })
 
