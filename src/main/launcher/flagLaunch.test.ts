@@ -7,6 +7,10 @@ import { promisify } from 'util'
 import { exportedFlagArchitecture, prepareFlagLaunch } from './flagLaunch'
 vi.mock('electron', () => ({ app: { isPackaged: false } }))
 vi.mock('../logger', () => ({ logInfo: vi.fn(), logError: vi.fn() }))
+vi.mock('fs/promises', async importOriginal => {
+  const actual = await importOriginal<typeof import('fs/promises')>()
+  return { ...actual, rm: vi.fn(actual.rm) }
+})
 const exec = promisify(execFile)
 const fixture = (arch: string): string => join(process.cwd(), 'src/main/launcher/fixtures', `flags-fixture-${arch}.exe`)
 
@@ -72,4 +76,16 @@ it.skipIf(process.platform !== 'win32')('refuses a missing export without starti
     expect(await readFile(report, 'utf8')).toContain('error: Find exported flags')
     await expect(readFile(output)).rejects.toMatchObject({ code: 'ENOENT' })
   } finally { await rm(dir, { recursive: true, force: true }) }
+})
+
+it('does not reject a ready client when Windows keeps its status report locked', async () => {
+  const launch = await prepareFlagLaunch(fixture('x86'), [])
+  const report = process.platform === 'win32' ? launch.args[0] : launch.args[0].slice(2).replace(/\\/g, '/')
+  try {
+    await writeFile(report, 'ready\nflags_before_resume: 1\n')
+    await launch.ready()
+    vi.mocked(rm).mockRejectedValueOnce(Object.assign(new Error('locked status report'), { code: 'EBUSY' }))
+    await expect(launch.cleanup()).resolves.toBeUndefined()
+    expect(rm).toHaveBeenLastCalledWith(join(report, '..'), { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  } finally { await launch.cleanup() }
 })

@@ -87,6 +87,10 @@ export async function prepareFlagLaunch(exePath: string, args: string[]): Promis
       }
       throw new Error('Timed out waiting for client flags initialization. The client was not confirmed ready.')
     },
-    cleanup: () => rm(staging, { recursive: true, force: true })
+    cleanup: async () => {
+      // Windows can still hold the report open after its first ready line.
+      try { await rm(staging, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
+      catch (error) { logError('flagLaunch: temporary report cleanup deferred', { report, code: (error as NodeJS.ErrnoException).code }) }
+    }
   }
 }
