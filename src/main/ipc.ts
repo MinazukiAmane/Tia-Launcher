@@ -230,11 +230,18 @@ export async function handleLaunchGame(_event: unknown, installDir: string): Pro
 export function makeHandleStartInstallOrUpdate(
   win: WindowSource
 ): (_event: unknown, installDir: string) => Promise<InstallOperationResult> {
+  let pending: { installDir: string; result: Promise<InstallOperationResult> } | null = null
   return async (_event: unknown, installDir: string): Promise<InstallOperationResult> => {
     await assertApprovedInstallDir(installDir)
-    return performInstallOrUpdate(installDir, (update: ProgressUpdate) => {
+    if (pending) {
+      if (pending.installDir === installDir) return pending.result
+      throw new Error('Wait for the current installation to finish before updating another folder.')
+    }
+    const result = performInstallOrUpdate(installDir, (update: ProgressUpdate) => {
       currentWindow(win)?.webContents.send('game:progress', update)
-    })
+    }).finally(() => { pending = null })
+    pending = { installDir, result }
+    return result
   }
 }
 

@@ -128,6 +128,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   const [repairing, setRepairing] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
+  // Synchronous guard: React state alone cannot block same-frame duplicate clicks.
+  const actionInFlightRef = useRef(false)
   const lastSampleRef = useRef<{ processed: number; time: number } | null>(null)
 
 
@@ -209,7 +211,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   }), [installDir, state, verifying, repairing, operationBusy])
 
   async function runInstallOrUpdate(): Promise<void> {
-    if (!installDir) return
+    if (!installDir || actionInFlightRef.current || operationBusy) return
+    actionInFlightRef.current = true
     setState('working')
     setErrorMessage(null)
 
@@ -230,6 +233,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       setErrorMessage(err instanceof Error ? err.message : 'Install/update failed.')
       setState('error')
     } finally {
+      actionInFlightRef.current = false
       if (!paused) setProgress(null)
     }
   }
@@ -241,6 +245,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       return
     }
     if (state === 'up_to_date') {
+      if (actionInFlightRef.current) return
+      actionInFlightRef.current = true
       setErrorMessage(null)
 
       setVerifying(true)
@@ -253,6 +259,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       } catch (err) {
         setErrorMessage(err instanceof Error ? err.message : 'Could not launch the game.')
       } finally {
+        actionInFlightRef.current = false
         setVerifying(false)
       }
       return
@@ -306,7 +313,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
 
   async function handleCheckIntegrity(): Promise<void> {
     setMenuOpen(false)
-    if (!installDir) return
+    if (!installDir || actionInFlightRef.current || operationBusy) return
+    actionInFlightRef.current = true
     setVerifying(true)
     setVerifyMessage(null)
     try {
@@ -321,12 +329,14 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     } catch (err) {
       setVerifyMessage(err instanceof Error ? err.message : 'Could not verify the install.')
     } finally {
+      actionInFlightRef.current = false
       setVerifying(false)
     }
   }
 
   async function handleConfirmRepair(): Promise<void> {
-    if (!installDir) return
+    if (!installDir || actionInFlightRef.current || operationBusy) return
+    actionInFlightRef.current = true
     setConfirmingRepair(false)
     setRepairing(true)
     setState('working')
@@ -347,6 +357,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       setErrorMessage(err instanceof Error ? err.message : 'Repair failed.')
       setState('error')
     } finally {
+      actionInFlightRef.current = false
       setRepairing(false)
       if (!paused) setProgress(null)
     }
