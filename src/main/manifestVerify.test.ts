@@ -154,3 +154,14 @@ describe('verifyAgainstManifest', () => {
     expect(result).toEqual({ ok: true, corruptFiles: [], missingFiles: [] })
   })
 })
+
+it('ignores changed or missing runtime logs in an existing server manifest', async () => {
+  const dir = await tmp()
+  await writeFile(join(dir, 'Error.log'), 'runtime output')
+  await writeFile(join(dir, 'game.dat'), 'game')
+  expect(await verifyAgainstManifest(dir, { files: [
+    { path: 'Error.log', md5: md5('old output') },
+    { path: 'Missing.LOG', md5: md5('missing') },
+    { path: 'game.dat', md5: md5('game') }
+  ] })).toEqual({ ok: true, corruptFiles: [], missingFiles: [] })
+})

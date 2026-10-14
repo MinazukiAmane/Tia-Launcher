@@ -149,6 +149,8 @@ export async function applyPatch(
     if (entry.delta_file) assertSafeRelativePath(entry.delta_file, entry, 'delta_file')
   }
 
+  // Runtime logs change whenever the game runs; never apply deltas to them.
+  manifest = { ...manifest, entries: manifest.entries.filter(entry => !entry.path.toLowerCase().endsWith('.log')) }
   const { zipfile, entries } = await openZip(patchZipPath)
 
   try {

@@ -69,7 +69,7 @@ export async function verifyAgainstManifest(
     }
     const filePath = resolveWithinRoot(installDir, entry.path, 'manifest file', reason => { throw new Error(reason) })
     return { entry, filePath }
-  })
+  }).filter(({ entry }) => !entry.path.toLowerCase().endsWith('.log'))
   // Bound metadata IO; hash one file at a time to avoid HDD seek contention.
   for (let offset = 0; offset < entries.length; offset += 4) {
     const batch = entries.slice(offset, offset + 4)

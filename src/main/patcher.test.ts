@@ -302,3 +302,26 @@ describe('openZip file descriptor handling (fd leak fix)', () => {
     }
   )
 })
+
+ it('preserves changed runtime logs while applying game files from an older published patch', async () => {
+  const dir = await makeTempDir()
+  const install = join(dir, 'game')
+  await mkdir(join(install, 'Bin'), { recursive: true })
+  await writeFile(join(install, 'Bin', 'Error.log'), 'new runtime output')
+  await writeFile(join(install, 'Bin', 'game.dat'), 'old')
+  const manifest: Manifest = { entries: [
+    { path: 'Bin/Error.log', action: 'modified', old_md5: md5(Buffer.from('old log')), new_md5: md5(Buffer.from('patched log')), delta_file: 'deltas/log' },
+    { path: 'Bin/Crash.log', action: 'removed' },
+    { path: 'Bin/game.dat', action: 'modified', old_md5: md5(Buffer.from('old')), new_md5: md5(Buffer.from('oldnew')), delta_file: 'deltas/game' }
+  ] }
+  await writeFile(join(install, 'Bin', 'Crash.log'), 'keep crash report')
+  const zip = new AdmZip()
+  zip.addFile('deltas/game', Buffer.from('new'))
+  zip.addFile('deltas/log', Buffer.from('irrelevant'))
+  const zipPath = join(dir, 'patch.zip')
+  zip.writeZip(zipPath)
+  await applyPatch(install, zipPath, manifest, fakeBspatch)
+  expect(await readFile(join(install, 'Bin', 'Error.log'), 'utf8')).toBe('new runtime output')
+  expect(await readFile(join(install, 'Bin', 'Crash.log'), 'utf8')).toBe('keep crash report')
+  expect(await readFile(join(install, 'Bin', 'game.dat'), 'utf8')).toBe('oldnew')
+})
