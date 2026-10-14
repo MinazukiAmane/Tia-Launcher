@@ -165,3 +165,28 @@ it('ignores changed or missing runtime logs in an existing server manifest', asy
     { path: 'game.dat', md5: md5('game') }
   ] })).toEqual({ ok: true, corruptFiles: [], missingFiles: [] })
 })
+
+it('checks the canonical Renderer.dll and ignores the conflicting lowercase alias', async () => {
+  const dir = await tmp()
+  await mkdir(join(dir, 'Bin'))
+  const manifest = { files: [
+    { path: 'Bin/Renderer.dll', md5: md5('correct DLL'), size: 11 },
+    { path: 'Bin/renderer.dll', md5: md5('legacy DLL'), size: 10 }
+  ] }
+  await writeFile(join(dir, 'Bin/Renderer.dll'), 'wrong DLL')
+  expect((await verifyAgainstManifest(dir, manifest)).corruptFiles).toEqual(['Bin/Renderer.dll'])
+
+  await writeFile(join(dir, 'Bin/Renderer.dll'), 'correct DLL')
+  for (const quick of [false, true, true]) {
+    expect(await verifyAgainstManifest(dir, manifest, quick)).toEqual({ ok: true, corruptFiles: [], missingFiles: [] })
+  }
+})
+
+it('still verifies a lowercase-only renderer from an older manifest', async () => {
+  const dir = await tmp()
+  const result = await verifyAgainstManifest(dir, { files: [
+    { path: 'Bin/renderer.dll', md5: md5('legacy DLL') }
+  ] })
+  expect(result.missingFiles).toEqual(['Bin/renderer.dll'])
+  expect(result.ok).toBe(false)
+})

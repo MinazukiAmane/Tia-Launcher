@@ -62,6 +62,8 @@ export async function verifyAgainstManifest(
     } catch { /* first check */ }
   }
   const next: Record<string, string> = {}
+  // The published package contains a legacy lowercase alias with a different hash.
+  const hasCanonicalRenderer = manifest.files.some(entry => entry.path === 'Bin/Renderer.dll')
   // Validate the complete list before starting any disk work.
   const entries = manifest.files.map(entry => {
     if (!entry.path || entry.path.includes('\\') || entry.path.includes(':') || entry.path.split('/').some(p => !p || p === '.' || p === '..')) {
@@ -69,7 +71,8 @@ export async function verifyAgainstManifest(
     }
     const filePath = resolveWithinRoot(installDir, entry.path, 'manifest file', reason => { throw new Error(reason) })
     return { entry, filePath }
-  }).filter(({ entry }) => !entry.path.toLowerCase().endsWith('.log'))
+  }).filter(({ entry }) => !entry.path.toLowerCase().endsWith('.log') &&
+    !(hasCanonicalRenderer && entry.path === 'Bin/renderer.dll'))
   // Bound metadata IO; hash one file at a time to avoid HDD seek contention.
   for (let offset = 0; offset < entries.length; offset += 4) {
     const batch = entries.slice(offset, offset + 4)
