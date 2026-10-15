@@ -1,4 +1,3 @@
-import { DeveloperEntry } from './components/DeveloperAccess'
 import { useEffect, useState } from 'react'
 import { HomeScreen, INSTALL_CONFIRMED_STORAGE_KEY } from './components/HomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -149,7 +148,6 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <DeveloperEntry />
       <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
       {pickError && (
         <p className="absolute top-14 right-3 z-30 max-w-xs rounded bg-red-950/80 px-3 py-2 text-xs text-red-300">

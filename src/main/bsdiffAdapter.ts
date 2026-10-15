@@ -1,24 +1,12 @@
 
-import { patch } from '@bsdiff-rust/node'
-import { mkdtemp, rm, readFile, writeFile } from 'fs/promises'
+import { mkdtemp, rm, readFile, writeFile, open } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { logError } from './logger'
 
-async function readPatchOutput(path: string): Promise<Buffer> {
-  for (let attempt = 0; ; attempt++) {
-    try { return await readFile(path) }
-    catch (error) {
-      const code = (error as NodeJS.ErrnoException).code
-      const transient = code === 'EBUSY' || code === 'EPERM' || code === 'EACCES' || (process.platform === 'win32' && code === 'UNKNOWN')
-      if (!transient || attempt >= 8) throw error
-      // Windows scanners can briefly hold a newly generated executable.
-      await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)))
-    }
-  }
-}
+import { retryTransientFileAccess } from './fileAccess'
 
-export async function bspatch(oldFile: Buffer, delta: Buffer): Promise<Buffer> {
+const bufferPatch = async (oldFile: Buffer, delta: Buffer): Promise<Buffer> => {
   const dir = await mkdtemp(join(tmpdir(), 'csore-bspatch-'))
   try {
     const oldPath = join(dir, 'old.bin')
@@ -28,11 +16,24 @@ export async function bspatch(oldFile: Buffer, delta: Buffer): Promise<Buffer> {
     await writeFile(oldPath, oldFile)
     await writeFile(deltaPath, delta)
 
+    // Load the native binding only when a delta actually needs applying.
+    const { patch } = await import('@bsdiff-rust/node')
     await patch(oldPath, newPath, deltaPath)
 
-    return await readPatchOutput(newPath)
+    return await retryTransientFileAccess(() => readFile(newPath))
   } finally {
     try { await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
     catch (error) { logError('bspatch: temporary file cleanup deferred', { dir, code: (error as NodeJS.ErrnoException).code }) }
   }
 }
+
+// Patch files directly to avoid duplicate buffers and temporary files.
+async function filePatch(oldPath: string, newPath: string, deltaPath: string): Promise<void> {
+  const { patch } = await import('@bsdiff-rust/node')
+  await patch(oldPath, newPath, deltaPath)
+  await retryTransientFileAccess(async () => {
+    const handle = await open(newPath, 'r')
+    await handle.close()
+  })
+}
+export const bspatch = Object.assign(bufferPatch, { files: filePatch })

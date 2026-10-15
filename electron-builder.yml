@@ -17,10 +17,6 @@ publish:
   channel: latest
 
 extraResources:
-  - from: build/hardware
-    to: dev-hardware
-    filter:
-      - "dev-signer-*"
   - from: build/native
     to: flag-launch
     filter:

@@ -1,4 +1,3 @@
-import { DeveloperSettings } from './DeveloperAccess'
 import { useEffect, useState } from 'react'
 import { ProgressBar } from './ProgressBar'
 import { SystemNotificationModal } from './SystemNotificationModal'
@@ -441,7 +440,6 @@ export function SettingsPanel({
 
           {settings && activeTab === 'launcher' && (
             <div className="space-y-4 pr-8">
-              <DeveloperSettings />
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
               <SectionCard title="Launcher Background">
                 <p className="text-xs text-white/40">

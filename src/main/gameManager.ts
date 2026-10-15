@@ -503,6 +503,10 @@ export async function performInstallOrUpdate(
         throw err
       }
 
+      try {
+        await rm(partsDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+        await rm(zipPath, { force: true, maxRetries: 5, retryDelay: 50 })
+      } catch (error) { logInfo('performInstallOrUpdate: patch download cleanup deferred', { error: (error as Error).message }) }
       const files = mergeManifestEntries(state?.files ?? [], manifest.entries)
 
       const gameSideState: InstallState = { version: action.toVersion, installDir, files }

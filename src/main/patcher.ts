@@ -1,15 +1,22 @@
+import { retryTransientFileAccess } from './fileAccess'
+import { logError } from './logger'
 
 import * as yauzl from 'yauzl'
 import type { Entry as ZipEntry, ZipFile } from 'yauzl'
 import { createHash } from 'crypto'
-import { promises as fs } from 'fs'
+import { promises as fs, createReadStream, createWriteStream } from 'fs'
+import { pipeline } from 'stream/promises'
+import { Transform } from 'stream'
 import { join, dirname } from 'path'
 import { mkdtemp, rm, mkdir } from 'fs/promises'
-import { tmpdir } from 'os'
 import {
   assertSafeRelativePath as assertSafeRelativePathShared,
   resolveWithinRoot as resolveWithinRootShared
 } from './pathSafety'
+
+export type PatchFunction = ((oldFile: Buffer, delta: Buffer) => Promise<Buffer>) & {
+  files?: (oldPath: string, newPath: string, deltaPath: string) => Promise<void>
+}
 
 export interface ManifestEntry {
   path: string
@@ -115,6 +122,26 @@ async function readEntryData(zipfile: ZipFile, entry: ZipEntry): Promise<Buffer>
   return Buffer.concat(chunks)
 }
 
+// Stream assets and checksums rather than allocating another whole-file Buffer.
+async function streamEntryToFile(zipfile: ZipFile, zipEntry: ZipEntry, path: string, entry: ManifestEntry): Promise<void> {
+  let size = 0
+  const guard = new Transform({ transform(chunk: Buffer, _encoding, callback) {
+    size += chunk.length
+    if (size > MAX_ENTRY_BYTES || (entry.size !== undefined && size > entry.size)) {
+      callback(new PatchVerificationError(entry, 'content exceeds its allowed decompressed size'))
+    } else callback(null, chunk)
+  } })
+  await pipeline(await zipfile.openReadStreamPromise(zipEntry), guard, createWriteStream(path))
+  if (entry.size !== undefined && size !== entry.size) throw new PatchVerificationError(entry, 'content size does not match the manifest')
+}
+async function hashFile(path: string): Promise<string> {
+  return retryTransientFileAccess(async () => {
+    const hash = createHash('md5')
+    await pipeline(createReadStream(path, { highWaterMark: 1024 * 1024 }), hash)
+    return hash.digest('hex')
+  })
+}
+
 export async function readManifest(patchZipPath: string): Promise<Manifest> {
   const { zipfile, entries } = await openZip(patchZipPath)
   try {
@@ -141,7 +168,7 @@ export async function applyPatch(
   installDir: string,
   patchZipPath: string,
   manifest: Manifest,
-  bspatch: (oldFile: Buffer, delta: Buffer) => Promise<Buffer>
+  bspatch: PatchFunction
 ): Promise<void> {
   // Validate manifest paths before opening the archive.
   for (const entry of manifest.entries) {
@@ -154,7 +181,9 @@ export async function applyPatch(
   const { zipfile, entries } = await openZip(patchZipPath)
 
   try {
-    const stagingDir = await mkdtemp(join(tmpdir(), 'csore-patch-staging-'))
+    const stagingRoot = join(installDir, '.csore_download_tmp')
+    await mkdir(stagingRoot, { recursive: true })
+    const stagingDir = await mkdtemp(join(stagingRoot, 'patch-staging-'))
     await applyPatchWithStaging(installDir, zipfile, entries, manifest, bspatch, stagingDir)
   } finally {
     zipfile.close()
@@ -166,7 +195,7 @@ async function applyPatchWithStaging(
   zipfile: ZipFile,
   entries: Map<string, ZipEntry>,
   manifest: Manifest,
-  bspatch: (oldFile: Buffer, delta: Buffer) => Promise<Buffer>,
+  bspatch: PatchFunction,
   stagingDir: string
 ): Promise<void> {
   try {
@@ -185,17 +214,14 @@ async function applyPatchWithStaging(
         if (!zipEntry) throw new PatchVerificationError(entry, `missing from patch zip: ${entry.path}`)
         assertDeclaredSizeWithinCap(zipEntry, entry, 'content')
         if (entry.size !== undefined) assertDeclaredSizeMatches(zipEntry, entry.size, entry, 'content')
-        const data = await readEntryData(zipfile, zipEntry)
-        if (entry.size !== undefined) assertActualSizeMatches(data, entry.size, entry, 'content')
-        await fs.writeFile(stagedPath, data)
+        await streamEntryToFile(zipfile, zipEntry, stagedPath, entry)
       } else if (entry.action === 'modified') {
         if (!entry.delta_file || !entry.old_md5) {
           throw new PatchVerificationError(entry, 'missing delta_file/old_md5 on a modified entry')
         }
-
         const livePath = resolveWithinRoot(installDir, entry.path, entry, 'path')
-        const oldBytes = await fs.readFile(livePath)
-        const oldMd5 = md5(oldBytes)
+        const oldBytes = bspatch.files ? undefined : await fs.readFile(livePath)
+        const oldMd5 = oldBytes ? md5(oldBytes) : await hashFile(livePath)
         if (oldMd5 !== entry.old_md5) {
           throw new PatchVerificationError(
             entry,
@@ -206,20 +232,29 @@ async function applyPatchWithStaging(
         const deltaEntry = entries.get(entry.delta_file)
         if (!deltaEntry) throw new PatchVerificationError(entry, `missing delta file: ${entry.delta_file}`)
         assertDeclaredSizeWithinCap(deltaEntry, entry, 'delta_file')
-        const deltaBuf = await readEntryData(zipfile, deltaEntry)
-        if (deltaBuf.length > MAX_ENTRY_BYTES) {
-          throw new PatchVerificationError(
-            entry,
-            `delta_file's actual decompressed size (${deltaBuf.length}) exceeds the ${MAX_ENTRY_BYTES}-byte ceiling -- refusing to apply (possible zip bomb)`
-          )
+        if (bspatch.files) {
+          const inputDir = await mkdtemp(join(stagingDir, '.delta-'))
+          try {
+            const deltaPath = join(inputDir, 'input.bsdiff')
+            await streamEntryToFile(zipfile, deltaEntry, deltaPath, { ...entry, size: deltaEntry.uncompressedSize })
+            await bspatch.files(livePath, stagedPath, deltaPath)
+          } finally {
+            try { await rm(inputDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
+            catch (error) { logError('patcher: delta cleanup deferred', { inputDir, code: (error as NodeJS.ErrnoException).code }) }
+          }
+        } else {
+          const deltaBuf = await readEntryData(zipfile, deltaEntry)
+          const newBytes = await bspatch(oldBytes!, deltaBuf)
+          if (entry.size !== undefined) assertActualSizeMatches(newBytes, entry.size, entry, 'bspatch result')
+          await fs.writeFile(stagedPath, newBytes)
         }
-        const newBytes = await bspatch(oldBytes, deltaBuf)
-        if (entry.size !== undefined) assertActualSizeMatches(newBytes, entry.size, entry, 'bspatch result')
-        await fs.writeFile(stagedPath, newBytes)
+        const resultSize = (await fs.stat(stagedPath)).size
+        if (resultSize > MAX_ENTRY_BYTES || (entry.size !== undefined && resultSize !== entry.size)) {
+          throw new PatchVerificationError(entry, 'patch result size does not match its allowed size')
+        }
       }
 
-      const stagedBytes = await fs.readFile(stagedPath)
-      const stagedMd5 = md5(stagedBytes)
+      const stagedMd5 = await hashFile(stagedPath)
       if (stagedMd5 !== entry.new_md5) {
         throw new PatchVerificationError(
           entry,
@@ -244,9 +279,10 @@ async function applyPatchWithStaging(
       const stagedPath = resolveWithinRoot(stagingDir, entry.path, entry, 'path')
       const livePath = resolveWithinRoot(installDir, entry.path, entry, 'path')
       await mkdir(dirname(livePath), { recursive: true })
-      await fs.copyFile(stagedPath, livePath)
+      await retryTransientFileAccess(() => fs.rename(stagedPath, livePath))
     }
   } finally {
-    await rm(stagingDir, { recursive: true, force: true })
+    try { await rm(stagingDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
+    catch (error) { logError('patcher: staging cleanup deferred', { stagingDir, code: (error as NodeJS.ErrnoException).code }) }
   }
 }

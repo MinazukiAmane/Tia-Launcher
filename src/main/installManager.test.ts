@@ -382,12 +382,14 @@ describe('reassembleParts', () => {
       { url: `${baseUrl}/clean`, md5: createHash('md5').update(chunk).digest('hex'), size: String(chunk.length), decompressed_size: '0' }
     ]
 
-    const start = Date.now()
-    await reassembleParts(parts, destZip, partsDir, undefined, undefined, undefined, FAST_RETRY_OPTIONS)
-    const elapsedMs = Date.now() - start
-
-    expect(requestCount).toBe(1)
-    expect(elapsedMs).toBeLessThan(50)
+    const delayMs = 7234
+    const timer = vi.spyOn(globalThis, 'setTimeout')
+    try {
+      await reassembleParts(parts, destZip, partsDir, undefined, undefined, undefined,
+        { maxAttempts: 4, baseDelayMs: delayMs, maxDelayMs: delayMs })
+      expect(requestCount).toBe(1)
+      expect(timer.mock.calls.some(([, delay]) => delay === delayMs)).toBe(false)
+    } finally { timer.mockRestore() }
     const got = await readFile(destZip)
     expect(got.equals(chunk)).toBe(true)
   })

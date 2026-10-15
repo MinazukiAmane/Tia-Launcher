@@ -1,7 +1,6 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ perform: vi.fn() }))
 vi.mock('electron', () => ({ app: {}, dialog: {}, ipcMain: {}, shell: {} }))
-vi.mock('./developerAccess', () => ({ developerAccess: {} }))
 vi.mock('./gameManager', () => ({ isApprovedInstallDir: async () => true, performInstallOrUpdate: mocks.perform }))
 import { makeHandleStartInstallOrUpdate } from './ipc'
 beforeEach(() => vi.clearAllMocks())

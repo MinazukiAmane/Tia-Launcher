@@ -1,6 +1,3 @@
-import { developerAccess } from './developerAccess'
-import { developerHardware } from './developerHardware'
-import { findGameExecutable } from './launcher/windows'
 import { assertLauncherCurrent } from './launcherVersionGate'
 import { importExistingInstall } from './existingInstall'
 import { saveSikarugirWrapper } from './launcher/macos'
@@ -45,11 +42,6 @@ export async function handlePing(): Promise<string> {
 }
 
 export async function handleGetLauncherInfo(): Promise<unknown> {
-  if (await developerAccess.useBypass()) {
-    const selected = await getSelectedInstallDir()
-    const state = selected ? await readInstallState(selected) : null
-    return { game: { id: 'developer-local', biz: 'csore_global' }, main: { major: { version: state?.version ?? '0.0.0', game_pkgs: [], res_list_url: '' }, patches: [], required_client_version: '' } }
-  }
   return fetchLauncherInfo('https://sg-csore-api.serenetia.com', 'csore_global')
 }
 
@@ -63,10 +55,6 @@ export async function handleGetInstallState(
   installDir: string
 ): Promise<InstallStateResponse | null> {
   const state = await readInstallState(installDir)
-  if (await developerAccess.useBypass()) {
-    try { await findGameExecutable(installDir) } catch { return null }
-    return { ...(state ?? { version: '0.0.0', installDir, files: [] }), needsRepair: false, pendingAudioPatch: false }
-  }
   if (!state) return null
   const pending = await readPendingAudioPatch(installDir)
   return { ...state, pendingAudioPatch: pending !== null }
@@ -86,8 +74,7 @@ export async function handleChooseInstallFolder(): Promise<string | null> {
     )
   }
   if (isOperationInProgress()) throw new Error('Wait for the install or repair to finish before choosing a folder.')
-  if (await developerAccess.useBypass()) await findGameExecutable(chosen)
-  else await importExistingInstall(chosen)
+  await importExistingInstall(chosen)
   await setApprovedInstallDir(chosen)
   return chosen
 }
@@ -210,10 +197,6 @@ export interface LaunchGameResult {
 export async function handleLaunchGame(_event: unknown, installDir: string): Promise<LaunchGameResult> {
   await assertApprovedInstallDir(installDir)
   if (isOperationInProgress()) throw new Error('Wait for the install or repair to finish before playing.')
-  if (await developerAccess.useBypass()) {
-    await launchGame(installDir)
-    return { launched: true }
-  }
   const verifyResult = await verifyInstall(installDir, true)
   if (!verifyResult.ok) {
     logError('handleLaunchGame: verification failed, refusing to launch', {
@@ -381,15 +364,6 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
       return listener(event, ...args)
     })
   }
-  developerAccess.onChange = state => { currentWindow(win)?.webContents.send('developer:state', state) }
-  handle('developer:getState', () => developerAccess.state())
-  handle('developer:getDevice', () => developerHardware.identity())
-  handle('developer:unlock', (_event, code: string) => developerAccess.unlock(code))
-  handle('developer:lock', () => developerAccess.lock())
-  handle('developer:setApiChecks', (_event, enabled: boolean) => {
-    if (launching || isGameRunning?.() || isOperationInProgress()) throw new Error('Finish the game or current operation before changing developer settings.')
-    return developerAccess.setApiChecks(enabled)
-  })
   handle('news:get', handleGetNews)
   handle('game:getLauncherInfo', handleGetLauncherInfo)
   handle('game:getInstallState', handleGetInstallState)

@@ -206,10 +206,6 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installDir])
 
-  useEffect(() => window.csore.onDeveloperState(() => {
-    if (state !== 'working' && !verifying && !repairing && !operationBusy) void refreshState()
-  }), [installDir, state, verifying, repairing, operationBusy])
-
   async function runInstallOrUpdate(): Promise<void> {
     if (!installDir || actionInFlightRef.current || operationBusy) return
     actionInFlightRef.current = true

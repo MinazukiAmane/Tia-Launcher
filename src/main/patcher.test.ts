@@ -1,8 +1,8 @@
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import AdmZip from 'adm-zip'
 import { mkdtemp, rm, mkdir, writeFile, readFile, access } from 'fs/promises'
-import { readdirSync, existsSync } from 'fs'
+import { readdirSync, existsSync, promises as nativeFs } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 import { createHash } from 'crypto'
@@ -324,4 +324,48 @@ describe('openZip file descriptor handling (fd leak fix)', () => {
   expect(await readFile(join(install, 'Bin', 'Error.log'), 'utf8')).toBe('new runtime output')
   expect(await readFile(join(install, 'Bin', 'Crash.log'), 'utf8')).toBe('keep crash report')
   expect(await readFile(join(install, 'Bin', 'game.dat'), 'utf8')).toBe('oldnew')
+})
+
+it('streams a large added asset without reading the staged file into a Buffer', async () => {
+  const dir = await makeTempDir()
+  const install = join(dir, 'game')
+  await mkdir(install)
+  const content = Buffer.alloc(40 * 1024 * 1024, 0x5a)
+  const zip = new AdmZip()
+  zip.addFile('Data/large.pak', content)
+  const zipPath = join(dir, 'patch.zip')
+  zip.writeZip(zipPath)
+  const spy = vi.spyOn(nativeFs, 'readFile').mockImplementation(async () => { throw new Error('whole-file read prohibited') })
+  try {
+    await applyPatch(install, zipPath, { entries: [{ path: 'Data/large.pak', action: 'added', new_md5: md5(content), size: content.length }] }, fakeBspatch)
+    expect(spy).not.toHaveBeenCalled()
+  } finally { spy.mockRestore() }
+  expect(md5(await readFile(join(install, 'Data/large.pak')))).toBe(md5(content))
+  const staging = await nativeFs.readdir(join(install, '.csore_download_tmp'))
+  expect(staging).toEqual([])
+})
+
+it('applies a delta directly between files without whole-file JS reads', async () => {
+  const dir = await makeTempDir()
+  const install = join(dir, 'game')
+  await mkdir(join(install, 'Bin'), { recursive: true })
+  await writeFile(join(install, 'Bin/client.dll'), 'old')
+  const zip = new AdmZip()
+  zip.addFile('deltas/1', Buffer.from('new'))
+  const zipPath = join(dir, 'patch.zip'); zip.writeZip(zipPath)
+  const bufferFn = vi.fn(fakeBspatch)
+  const fileFn = vi.fn(async (oldPath: string, newPath: string, deltaPath: string) => {
+    await nativeFs.copyFile(oldPath, newPath)
+    const { createReadStream } = await import('fs')
+    for await (const chunk of createReadStream(deltaPath)) await nativeFs.appendFile(newPath, chunk)
+  })
+  const engine = Object.assign(bufferFn, { files: fileFn })
+  const spy = vi.spyOn(nativeFs, 'readFile').mockImplementation(async () => { throw new Error('whole-file read prohibited') })
+  try {
+    await applyPatch(install, zipPath, { entries: [{ path: 'Bin/client.dll', action: 'modified', delta_file: 'deltas/1', old_md5: md5(Buffer.from('old')), new_md5: md5(Buffer.from('oldnew')), size: 6 }] }, engine)
+    expect(bufferFn).not.toHaveBeenCalled()
+    expect(fileFn).toHaveBeenCalledOnce()
+    expect(spy).not.toHaveBeenCalled()
+  } finally { spy.mockRestore() }
+  expect(await readFile(join(install, 'Bin/client.dll'), 'utf8')).toBe('oldnew')
 })

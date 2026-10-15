@@ -156,9 +156,11 @@ describe('pause/resume (real local-server download)', () => {
 
     const installPromise = performInstallOrUpdate(installDir, () => {})
 
-    // Let the slow stream deliver a few chunks (well under the full
-    // ~400ms transfer) before pausing.
-    await new Promise((r) => setTimeout(r, 120))
+    await vi.waitFor(async () => {
+      const file = await stat(join(installDir, '.csore_download_tmp', 'parts', `part-${CLIENT_ZIP_MD5}`))
+      expect(file.size).toBeGreaterThan(0)
+      expect(file.size).toBeLessThan(CLIENT_ZIP.length)
+    }, { interval: 10, timeout: 3000 })
     expect(isOperationInProgress()).toBe(true)
 
     const paused = pauseCurrentOperation()

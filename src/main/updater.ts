@@ -11,18 +11,8 @@ const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 // Public update proxy (tia-launcher-site's /api/updates, in front of the launcher's S3 bucket).
 const UPDATE_FEED_URL = 'https://tia-launcher.serenetia.com/api/updates'
 
-export const IPC_UPDATE = {
-  STATE: 'update:state',
-  AVAILABLE: 'update:available',
-  DOWNLOAD_PROGRESS: 'update:download-progress',
-  DOWNLOADED: 'update:downloaded',
-  NOT_AVAILABLE: 'update:not-available',
-  ERROR: 'update:error',
-  START_DOWNLOAD: 'update:start-download',
-  QUIT_AND_INSTALL: 'update:quit-and-install',
-  CHECK: 'update:check',
-  GET_STATE: 'update:get-state'
-} as const
+import { IPC_UPDATE } from '../shared/updateChannels'
+export { IPC_UPDATE } from '../shared/updateChannels'
 
 export interface UpdateAvailableInfo {
   version: string
