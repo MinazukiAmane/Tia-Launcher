@@ -1,5 +1,5 @@
 // Validate archive and manifest paths before filesystem access.
-import { isAbsolute, normalize, resolve, sep } from 'path'
+import { isAbsolute, normalize, relative, resolve, sep } from 'path'
 
 // Reject absolute paths and parent traversal before resolving.
 export function assertSafeRelativePath(
@@ -16,6 +16,12 @@ export function assertSafeRelativePath(
   }
 }
 
+// Use relative paths to support drive roots and UNC shares.
+export function isWithinRoot(root: string, target: string): boolean {
+  const path = relative(resolve(root), resolve(target))
+  return path === '' || (path !== '..' && !path.startsWith('..' + sep) && !isAbsolute(path))
+}
+
 // Reject resolved paths outside the installation root.
 export function resolveWithinRoot(
   root: string,
@@ -26,7 +32,7 @@ export function resolveWithinRoot(
   assertSafeRelativePath(relPath, label, onViolation)
   const resolvedRoot = resolve(root)
   const resolvedTarget = resolve(resolvedRoot, relPath)
-  if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + sep)) {
+  if (!isWithinRoot(resolvedRoot, resolvedTarget)) {
     onViolation(`${label} resolves outside of its root directory: ${relPath}`)
   }
   return resolvedTarget

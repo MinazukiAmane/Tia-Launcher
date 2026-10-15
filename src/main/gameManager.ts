@@ -1,7 +1,7 @@
 import { moveInstallDirectory, type MoveProgress, type MoveResult } from './moveInstallation'
 
 import { app } from 'electron'
-import { join, dirname, sep } from 'path'
+import { join, dirname } from 'path'
 import { writeFile, unlink, mkdir, rm, readFile, readdir, rename, realpath } from 'fs/promises'
 import { createHash } from 'crypto'
 import {
@@ -19,7 +19,7 @@ import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
 import { fetchVersionManifest, findVersionBlock, verifyAgainstManifest } from './manifestVerify'
 import { decideAction, reassembleParts, downloadPartWithRetry } from './installManager'
-import { resolveWithinRoot } from './pathSafety'
+import { resolveWithinRoot, isWithinRoot } from './pathSafety'
 import { DownloadPausedError } from './downloader'
 import { readManifest, applyPatch, PatchVerificationError } from './patcher'
 import { extractZip } from './zipExtract'
@@ -626,7 +626,7 @@ export async function repairInstall(
       await mkdir(dirname(target), { recursive: true })
       const root = await realpath(installDir)
       const parent = await realpath(dirname(target))
-      if (parent !== root && !parent.startsWith(root + sep)) throw new Error('Repair directory escapes the installation folder.')
+      if (!isWithinRoot(root, parent)) throw new Error('Repair directory escapes the installation folder.')
       const staged = join(staging, createHash('sha256').update(file.path + file.md5).digest('hex'))
       await downloadPartWithRetry(
         { url: file.url!, md5: file.md5, size: file.size }, staged, maxBytesPerSecond,
