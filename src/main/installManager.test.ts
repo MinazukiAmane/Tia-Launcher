@@ -67,7 +67,6 @@ describe('decideAction', () => {
   })
 
   it('returns fresh_install (not a crash) when state exists but installDir/files are stale and version has no matching patch', () => {
-
     const state: InstallState = { version: '0.0.1', installDir: '/does/not/exist', files: [{ path: 'a', md5: 'x' }] }
     const action = decideAction(makeInfo('0.1.51', [{ version: '0.0.51' }]), state)
     expect(action.kind).toBe('fresh_install')
@@ -236,7 +235,6 @@ describe('reassembleParts', () => {
     server = createServer((req, res) => {
       requestCount++
       if (requestCount <= 2) {
-
         req.socket.destroy()
         return
       }

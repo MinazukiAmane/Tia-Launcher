@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { HomeScreen, INSTALL_CONFIRMED_STORAGE_KEY } from './components/HomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UpdateWindow } from './components/UpdateWindow'
-
+import launcherIcon from './assets/game-icon.png'
+import heroBackground from './assets/hero-background.png'
 
 const INSTALL_DIR_STORAGE_KEY = 'tia-install-dir'
-
 
 const DONATE_URL = 'https://tako.id/csorseid'
 
@@ -66,7 +66,6 @@ export default function App(): React.JSX.Element {
     window.csore.getBackground().then(setBackgroundUrl).catch(() => setBackgroundUrl(null))
   }, [])
 
-
   function handleUninstalled(): void {
     localStorage.removeItem(INSTALL_DIR_STORAGE_KEY)
     localStorage.removeItem(INSTALL_CONFIRMED_STORAGE_KEY)
@@ -85,7 +84,6 @@ export default function App(): React.JSX.Element {
       localStorage.setItem(INSTALL_DIR_STORAGE_KEY, chosen)
       setInstallDir(chosen)
     } catch (err) {
-
       setPickError(err instanceof Error ? err.message : 'Could not use that folder.')
     }
   }
@@ -96,7 +94,18 @@ export default function App(): React.JSX.Element {
   }
 
   return (
-    <div className="relative">
+    <div className="launcher-shell">
+      <aside className="launcher-sidebar" aria-label="Launcher navigation">
+        <img className="launcher-brand" src={launcherIcon} alt="Tia Launcher" draggable={false} />
+        <button type="button" className="sidebar-game" disabled={movingInstallation} aria-label="CSO: Re-Server Edition home" aria-current={settingsScope ? undefined : 'page'} title="CSO: Re-Server Edition" onClick={() => setSettingsScope(null)}>
+          <img src={heroBackground} alt="" draggable={false} />
+          <span>CSO<span>RSE</span></span>
+        </button>
+        <button type="button" className="sidebar-library" title="Launcher Settings" aria-label="Open launcher settings" disabled={movingInstallation} onClick={() => openSettings('launcher')}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z" /></svg>
+        </button>
+      </aside>
+      <div className="launcher-stage">
       {/* Frameless window (see src/main/index.ts's frame: false): this
           strip is the only way to drag the window, and the buttons below
           must opt back out of the drag region to stay clickable. */}
@@ -108,14 +117,14 @@ export default function App(): React.JSX.Element {
           window-chrome-related lives together instead of being split
           into separate floating groups at slightly different heights. */}
       <div
-        className="absolute top-2 right-2 z-30 flex items-center gap-1"
+        className="window-controls"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
           type="button"
           onClick={() => window.csore.openExternal(DONATE_URL)}
           title="Donate"
-          className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
+          className="window-control"
         >
           <WalletIcon />
         </button>
@@ -124,7 +133,7 @@ export default function App(): React.JSX.Element {
           disabled={movingInstallation}
           onClick={() => openSettings('launcher')}
           title="Launcher Settings"
-          className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
+          className="window-control"
         >
           <GearIcon />
         </button>
@@ -133,7 +142,7 @@ export default function App(): React.JSX.Element {
           type="button"
           onClick={() => window.csore.minimizeWindow()}
           title="Minimize"
-          className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white"
+          className="window-control"
         >
           <MinimizeIcon />
         </button>
@@ -142,7 +151,7 @@ export default function App(): React.JSX.Element {
           disabled={movingInstallation}
           onClick={() => window.csore.closeWindow()}
           title="Close"
-          className="flex h-7 w-7 items-center justify-center rounded text-white/70 hover:bg-red-500/80 hover:text-white"
+          className="window-control window-control-close"
         >
           <CloseIcon />
         </button>
@@ -170,6 +179,7 @@ export default function App(): React.JSX.Element {
         />
       )}
 
+      </div>
       <UpdateWindow />
     </div>
   )

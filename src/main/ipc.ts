@@ -42,7 +42,7 @@ export async function handlePing(): Promise<string> {
 }
 
 export async function handleGetLauncherInfo(): Promise<unknown> {
-  return fetchLauncherInfo('https://sg-csore-api.serenetia.com', 'csore_global')
+  return fetchLauncherInfo('https://sg-csore-api.serenetia.com', 'csore_global', { forPlay: true })
 }
 
 // Persisted audio work keeps an otherwise current install in the update state.

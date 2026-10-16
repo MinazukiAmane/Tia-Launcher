@@ -1,6 +1,7 @@
 
-import { createWriteStream, createReadStream } from 'fs'
-import { stat, rm } from 'fs/promises'
+import { createReadStream } from 'fs'
+import { stat, rm, open } from 'fs/promises'
+import { retryTransientFileAccess } from './fileAccess'
 import { createHash } from 'crypto'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
@@ -28,7 +29,7 @@ export class DownloadPausedError extends Error {
 
 async function existingSize(destPath: string): Promise<number> {
   try {
-    return (await stat(destPath)).size
+    return (await retryTransientFileAccess(() => stat(destPath))).size
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return 0
     throw err
@@ -36,9 +37,11 @@ async function existingSize(destPath: string): Promise<number> {
 }
 
 async function md5OfFile(path: string): Promise<string> {
-  const hash = createHash('md5')
-  await pipeline(createReadStream(path), hash)
-  return hash.digest('hex')
+  return retryTransientFileAccess(async () => {
+    const hash = createHash('md5')
+    await pipeline(createReadStream(path), hash)
+    return hash.digest('hex')
+  })
 }
 
 // Abort only when data stops arriving; slow downloads remain valid.
@@ -48,7 +51,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export async function downloadPart(
+async function downloadPartToFile(
   part: DownloadPart,
   destPath: string,
   onProgress?: (bytesWritten: number, totalBytes: number) => void,
@@ -99,7 +102,9 @@ export async function downloadPart(
 
       const isPartialResponse = res.status === 206
       const resumingCleanly = existing > 0 && isPartialResponse
-      const writeStream = createWriteStream(destPath, { flags: resumingCleanly ? 'a' : 'w' })
+      // Retry opening before consuming the response; never replay partial stream writes.
+      const handle = await retryTransientFileAccess(() => open(destPath, resumingCleanly ? 'a' : 'w'))
+      const writeStream = handle.createWriteStream()
 
       let written = resumingCleanly ? existing : 0
 
@@ -159,6 +164,8 @@ export async function downloadPart(
         throw err
       }
     } catch (err) {
+      controller.abort(err)
+
       if (pausedByCaller) {
         throw new DownloadPausedError(part)
       }
@@ -173,5 +180,19 @@ export async function downloadPart(
   if (gotMd5 !== part.md5) {
     await rm(destPath, { force: true })
     throw new DownloadVerificationError(part)
+  }
+}
+
+// Include the local error code and path to distinguish disk failures from network failures.
+export async function downloadPart(...args: Parameters<typeof downloadPartToFile>): Promise<void> {
+  try {
+    await downloadPartToFile(...args)
+  } catch (error) {
+    const local = error as NodeJS.ErrnoException
+    if (['UNKNOWN', 'EBUSY', 'EPERM', 'EACCES', 'ENOSPC', 'EIO', 'EROFS'].includes(local.code ?? '')) {
+      const message = `Cannot access download file "${args[1]}" (${local.code}). Check free space, folder permissions, disk health, and antivirus/quarantine history. ${local.message}`
+      throw Object.assign(new Error(message, { cause: error }), { code: local.code, path: local.path ?? args[1] })
+    }
+    throw error
   }
 }

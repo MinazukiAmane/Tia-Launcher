@@ -21,6 +21,7 @@ import { fetchVersionManifest, findVersionBlock, verifyAgainstManifest } from '.
 import { decideAction, reassembleParts, downloadPartWithRetry } from './installManager'
 import { resolveWithinRoot, isWithinRoot } from './pathSafety'
 import { DownloadPausedError } from './downloader'
+import { retryTransientFileAccess } from './fileAccess'
 import { readManifest, applyPatch, PatchVerificationError } from './patcher'
 import { extractZip } from './zipExtract'
 import { readFreshGameCheckpoint, writeFreshGameCheckpoint, clearFreshGameCheckpoint } from './freshInstallCheckpoint'
@@ -198,7 +199,6 @@ async function readPersistedApprovedInstallDir(): Promise<string | null> {
     const data = JSON.parse(raw) as { installDir?: unknown }
     return typeof data.installDir === 'string' ? data.installDir : null
   } catch {
-
     return null
   }
 }
@@ -571,8 +571,8 @@ async function verifyInstallContents(installDir: string, quick: boolean): Promis
   if (!state) throw new Error(`no install found at "${installDir}" -- nothing to verify`)
   let manifest: Awaited<ReturnType<typeof fetchVersionManifest>> = null
   try {
-    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
-    manifest = await fetchVersionManifest(findVersionBlock(info, state.version)?.res_list_url)
+    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ, { forPlay: quick })
+    manifest = await fetchVersionManifest(findVersionBlock(info, state.version)?.res_list_url, quick ? 4000 : 10000)
   } catch (err) {
     logInfo('verifyInstall: server unavailable, using local state', { error: (err as Error).message })
   }
@@ -634,7 +634,7 @@ export async function repairInstall(
         bytes => onProgress({ phase: 'downloading', processed: completed + bytes, total })
       )
       // The downloader verifies the complete MD5 before replacing the live file.
-      await rename(staged, target)
+      await retryTransientFileAccess(() => rename(staged, target))
       completed += file.size
       onProgress({ phase: 'downloading', processed: completed, total })
     }

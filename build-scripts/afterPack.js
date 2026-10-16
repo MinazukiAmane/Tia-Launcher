@@ -71,7 +71,6 @@ exports.default = async function afterPack(context) {
   fs.writeFileSync(path.join(appDir, 'bootstrap.js'), obfuscated)
 }
 
-
 function bootstrapSource(keyHex) {
   const keyBytes = Buffer.from(keyHex, 'hex')
   const CHUNKS = 4

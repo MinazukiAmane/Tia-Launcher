@@ -20,7 +20,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'news', label: 'News' }
 ]
 
-
 function matchesTab(item: NewsItem, tab: TabKey): boolean {
   if (tab === 'notices') return true
   if (tab === 'events') return item.category === 'event'
@@ -41,14 +40,12 @@ export function NoticesPanel(): React.JSX.Element | null {
   const [carouselIndex, setCarouselIndex] = useState(0)
 
   useEffect(() => {
-
     window.csore.getNews().then((items: NewsItem[]) => setNews(items))
     const unsubscribe = window.csore.onNews((items: NewsItem[]) => setNews(items))
     return unsubscribe
   }, [])
 
   const filtered = useMemo(() => news.filter((item) => matchesTab(item, activeTab)), [news, activeTab])
-
 
   useEffect(() => {
     setCarouselIndex(0)
@@ -67,10 +64,10 @@ export function NoticesPanel(): React.JSX.Element | null {
   const current = filtered[Math.min(carouselIndex, Math.max(filtered.length - 1, 0))]
 
   return (
-    <div className="flex items-end gap-2">
-      <div className="flex h-44 w-[420px] overflow-hidden rounded-xl bg-black/50 backdrop-blur-sm border border-white/10">
+    <section aria-label="Game news" className="notices-panel">
+      <div className="notices-card">
         {/* Carousel */}
-        <div className="relative h-full w-44 flex-shrink-0 bg-black/30">
+        <div className="notices-art">
           {current ? (
             <>
               <button
@@ -110,21 +107,23 @@ export function NoticesPanel(): React.JSX.Element | null {
 
         {/* Tabbed list */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex border-b border-white/10 px-3 pt-2 text-xs font-semibold tracking-wide text-white/50">
+          <div className="notices-tabs" role="tablist" aria-label="News category">
             {TABS.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                aria-controls="news-items"
+                id={`news-tab-${tab.key}`}
                 onClick={() => setActiveTab(tab.key)}
-                className={`mr-4 pb-2 transition ${
-                  activeTab === tab.key ? 'text-white border-b-2 border-yellow-400' : 'hover:text-white/80'
-                }`}
+                className={activeTab === tab.key ? 'notice-tab is-active' : 'notice-tab'}
               >
                 {tab.label}
               </button>
             ))}
           </div>
-          <ul className="flex-1 overflow-y-auto">
+          <ul id="news-items" role="tabpanel" aria-labelledby={`news-tab-${activeTab}`} className="notices-list">
             {filtered.length === 0 ? (
               <li className="px-4 py-3 text-xs text-white/40">Nothing here yet.</li>
             ) : (
@@ -132,13 +131,14 @@ export function NoticesPanel(): React.JSX.Element | null {
                 <li key={item.id}>
                   <button
                     type="button"
-                    className="flex w-full flex-col items-start gap-0.5 px-4 py-2 text-left hover:bg-white/5 transition"
+                    className="notice-row"
+                    title={item.title}
                     onClick={() => window.csore.openExternal(`${CSO_RSE_BASE}/news/${item.slug}`)}
                   >
-                    <span className="w-full truncate text-sm text-white">{item.title}</span>
-                    <span className="text-xs text-white/50">
-                      {item.category} · {new Date(item.created_at).toLocaleDateString()}
-                    </span>
+                    <span className="notice-title">{item.title}</span>
+                    <time className="notice-date" dateTime={item.created_at}>
+                      {new Date(item.created_at).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}
+                    </time>
                   </button>
                 </li>
               ))
@@ -147,18 +147,10 @@ export function NoticesPanel(): React.JSX.Element | null {
         </div>
       </div>
 
-      {/* Social column -- only Discord requested; positioned loosely like
-          the reference's vertical icon column beside the notices panel. */}
-      <div className="flex flex-col gap-1.5">
-        <button
-          type="button"
-          onClick={() => window.csore.openExternal(DISCORD_INVITE_URL)}
-          title="Join our Discord"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition"
-        >
-          <DiscordIcon />
-        </button>
-      </div>
-    </div>
+    </section>
   )
+}
+
+export function CommunityLink(): React.JSX.Element {
+  return <button type="button" onClick={() => window.csore.openExternal(DISCORD_INVITE_URL)} title="Join our Discord" aria-label="Join our Discord"><DiscordIcon /></button>
 }

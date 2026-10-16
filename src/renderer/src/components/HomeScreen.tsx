@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import heroBackground from '../assets/hero-background.png'
-import { NoticesPanel } from './NoticesPanel'
+import { NoticesPanel, CommunityLink } from './NoticesPanel'
 import { SystemNotificationModal } from './SystemNotificationModal'
 
-
 type ActionState = 'loading' | 'needs_repair' | 'fresh_install' | 'up_to_date' | 'apply_patch' | 'working' | 'paused' | 'error'
-
 
 type Settings = Awaited<ReturnType<typeof window.csore.getSettings>>
 
@@ -43,7 +41,6 @@ function BurgerIcon(): React.JSX.Element {
     </svg>
   )
 }
-
 
 export const INSTALL_CONFIRMED_STORAGE_KEY = 'tia-install-path-confirmed'
 
@@ -93,7 +90,8 @@ const PHASE_LABEL: Record<string, string> = {
   assembling_audio: 'Preparing voice pack',
   extracting: 'Extracting',
   extracting_audio: 'Extracting voice pack',
-  applying_patch: 'Applying patch'
+  applying_patch: 'Applying patch',
+  verifying: 'Checking integrity'
 }
 
 interface HomeScreenProps {
@@ -110,17 +108,16 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   const [state, setState] = useState<ActionState>('loading')
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [apiUnavailable, setApiUnavailable] = useState(false)
   const [isMac, setIsMac] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [speedBps, setSpeedBps] = useState(0)
 
-
   // shown before a FRESH install's download actually starts.
   const [confirmingInstall, setConfirmingInstall] = useState(false)
   const [createShortcut, setCreateShortcut] = useState(false)
-
 
   const [verifying, setVerifying] = useState(false)
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null)
@@ -130,8 +127,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
 
   // Synchronous guard: React state alone cannot block same-frame duplicate clicks.
   const actionInFlightRef = useRef(false)
+  const lastKnownGameVersionRef = useRef<string | null>(null)
   const lastSampleRef = useRef<{ processed: number; time: number } | null>(null)
-
 
   const pausedOperationRef = useRef<'install' | 'repair' | null>(null)
 
@@ -141,7 +138,6 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     })
     return unsubscribe
   }, [])
-
 
   useEffect(() => {
     if (!progress || (progress.phase !== 'downloading' && progress.phase !== 'downloading_audio')) {
@@ -178,26 +174,37 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
 
   async function refreshState(): Promise<void> {
     if (!installDir) {
+      setApiUnavailable(false)
       setState('fresh_install')
+      return
+    }
+    // Read local installation state even when the API is unavailable.
+    let localState: Awaited<ReturnType<typeof window.csore.getInstallState>>
+    try {
+      localState = await window.csore.getInstallState(installDir)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Could not read the installation.')
+      setState('error')
       return
     }
     try {
       const info = await window.csore.getLauncherInfo()
-      const installState = await window.csore.getInstallState(installDir)
-      if (!installState) {
-        setState('fresh_install')
-      } else if (installState.needsRepair) {
-        setState('needs_repair')
-      } else if (installState.pendingAudioPatch) {
-        setState('apply_patch')
-      } else if (installState.version === info.main.major?.version) {
-        setState('up_to_date')
-      } else {
-        setState('apply_patch')
-      }
+      setApiUnavailable(false)
+      lastKnownGameVersionRef.current = info.main.major?.version ?? null
+      setErrorMessage(null)
+      if (!localState) setState('fresh_install')
+      else if (localState.needsRepair) setState('needs_repair')
+      else if (localState.pendingAudioPatch) setState('apply_patch')
+      else setState(localState.version === info.main.major?.version ? 'up_to_date' : 'apply_patch')
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Could not reach the server.')
-      setState('error')
+      setApiUnavailable(true)
+      if (localState && !localState.needsRepair && !localState.pendingAudioPatch) {
+        setErrorMessage(null)
+        setState(lastKnownGameVersionRef.current && localState.version !== lastKnownGameVersionRef.current ? 'apply_patch' : 'up_to_date')
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : 'Could not reach the server.')
+        setState(localState?.needsRepair ? 'needs_repair' : localState?.pendingAudioPatch ? 'apply_patch' : 'error')
+      }
     }
   }
 
@@ -261,12 +268,10 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       return
     }
     if (state === 'working') {
-
       await window.csore.pauseInstallOrUpdate()
       return
     }
     if (state === 'paused') {
-
       if (pausedOperationRef.current === 'repair') {
         await handleConfirmRepair()
       } else {
@@ -415,7 +420,6 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     return <DownloadIcon />
   }
 
-
   const ringFraction =
     progress && progress.total > 0 && hasRealTotal ? Math.min(1, progress.processed / progress.total) : null
   const showRing = (state === 'working' || state === 'paused' || repairing) && ringFraction !== null
@@ -444,43 +448,42 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   }
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-black text-white">
+    <div className="home-screen">
       <div
-        className="absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${backgroundUrl ?? heroBackground})` }}
+        className="home-background"
+        style={{ backgroundImage: `url(${backgroundUrl ?? heroBackground})`, backgroundPosition: backgroundUrl ? 'center' : 'left center' }}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/30" />
+      <div className="home-shade" />
+      <nav className="community-rail" aria-label="Community"><CommunityLink /></nav>
 
-      <div className="absolute bottom-8 left-8 flex flex-col gap-4">
-        <h1 className="text-3xl font-bold tracking-tight drop-shadow-lg">CSO: Re-Server Edition</h1>
+      <div className="home-news">
         <NoticesPanel />
       </div>
 
-      <div className="absolute bottom-8 right-8 flex flex-col items-end gap-3">
+      <div className="home-actions">
         {isMac && (
           <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-xs font-semibold tracking-wide text-yellow-300">
             Experimental (macOS)
           </span>
         )}
 
+        {apiUnavailable && <p role="status" className="home-toast">Game update service unavailable. Play will check your installed files locally.</p>}
         {toast && (
-          <p className="max-w-xs rounded bg-black/70 px-3 py-1.5 text-right text-xs text-white/80">{toast}</p>
+          <p role="status" className="home-toast">{toast}</p>
         )}
-        {verifying && <p className="text-xs text-white/60">Checking game integrity…</p>}
-        {verifyMessage && <p className="text-xs text-white/70">{verifyMessage}</p>}
-        {errorMessage && <p className="max-w-xs text-right text-sm text-red-400">{errorMessage}</p>}
+        {verifyMessage && <p role="status" className="home-toast">{verifyMessage}</p>}
+        {errorMessage && <p role="alert" className="home-error">{errorMessage}</p>}
 
         {/* Detailed hover popup (ref/launcher-cursor-hover-ondownloading- button-change.png): phase, percent + byte counts, speed, ETA. */}
         {isHovering && verifying && !progress && (
-          <div className="w-72 rounded-lg border border-white/10 bg-zinc-950/95 p-4 shadow-xl">Checking game integrity…</div>
+          <div role="status" className="action-progress"><p className="progress-title">Checking integrity</p><p className="text-xs text-white/60">Verifying installed game files…</p></div>
         )}
-        {isHovering && (state === 'working' || repairing || verifying) && progress && (
-          <div className="w-72 rounded-lg border border-white/10 bg-zinc-950/95 p-4 shadow-xl">
-            <p className="text-sm font-semibold text-white">{PHASE_LABEL[progress.phase] ?? progress.phase}</p>
+        {isHovering && (state === 'working' || state === 'paused' || repairing || verifying) && progress && (
+          <div role="status" className="action-progress">
+            <p className="progress-title">{state === 'paused' ? 'Paused' : PHASE_LABEL[progress.phase] ?? progress.phase}</p>
             {hasRealTotal ? (
               <>
-                <p className="mt-2 text-sm text-white">
+                <p className="progress-amount">
                   {progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0}%{' '}
                   <span className="text-white/50">
                     {isExtractingPhase
@@ -488,9 +491,9 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
                       : `(${formatBytes(progress.processed)} / ${formatBytes(progress.total)})`}
                   </span>
                 </p>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="progress-track">
                   <div
-                    className="h-full rounded-full bg-yellow-400"
+                    className="progress-fill"
                     style={{
                       width: `${progress.total > 0 ? Math.min(100, (progress.processed / progress.total) * 100) : 0}%`
                     }}
@@ -498,9 +501,9 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
                 </div>
                 {isDownloadingPhase && (
                   <div className="mt-3 flex items-center justify-between text-xs text-white/60">
-                    <span>{speedBps > 0 ? `${formatBytes(speedBps)}/S` : '--'}</span>
+                    <span>{state === 'paused' ? '0 B/s' : speedBps > 0 ? `${formatBytes(speedBps)}/s` : '--'}</span>
                     <span>
-                      {speedBps > 0 ? formatEta((progress.total - progress.processed) / speedBps) : '--:--:--'}
+                      {state !== 'paused' && speedBps > 0 ? formatEta((progress.total - progress.processed) / speedBps) : '--:--:--'}
                     </span>
                   </div>
                 )}
@@ -511,16 +514,17 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <div onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}>
+        <div className={`action-pill ${primaryDisabled ? 'action-pill-disabled' : ''}`}>
+          <div className="primary-action-wrap" tabIndex={primaryDisabled ? 0 : undefined} aria-label={primaryDisabled ? label : undefined} onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)} onFocus={() => setIsHovering(true)} onBlur={() => setIsHovering(false)}>
             <button
               type="button"
               disabled={primaryDisabled}
               onClick={() => { if (!primaryDisabled) void onPrimaryAction() }}
-              className="flex h-11 items-center gap-2 rounded-full bg-yellow-400 px-5 text-sm font-bold text-black shadow-lg transition hover:bg-yellow-300 disabled:bg-zinc-700 disabled:text-white/50 disabled:cursor-not-allowed"
+              className="primary-action"
+              aria-label={label}
             >
-              {renderIconWithRing()}
-              {label}
+              <span className="action-icon">{renderIconWithRing()}</span>
+              <span className="action-label">{label}</span>
             </button>
           </div>
 
@@ -529,15 +533,17 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
               title="More options"
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/80 hover:bg-white/10 hover:text-white"
+              aria-expanded={menuOpen}
+              aria-controls="game-options-menu"
+              className="action-menu-toggle"
             >
-              <BurgerIcon />
+              {menuOpen ? <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 6 12 12M18 6 6 18" /></svg> : <BurgerIcon />}
             </button>
 
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute bottom-full right-0 z-20 mb-2 w-56 overflow-hidden rounded-lg border border-white/10 bg-zinc-950 shadow-xl">
+                <div id="game-options-menu" className="absolute bottom-full right-0 z-20 mb-3 w-56 overflow-hidden rounded-lg border border-white/10 bg-zinc-950 shadow-xl">
                   <button
                     type="button"
                     onClick={() => {
@@ -577,7 +583,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
         </div>
 
         {settings && (
-          <label className="flex items-center gap-2 text-xs text-white/70 drop-shadow">
+          <label className="renderer-option">
             <input
               type="checkbox"
               checked={settings.alternateRenderer}
@@ -591,27 +597,28 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       {confirmingInstall && installDir && (
         <SystemNotificationModal
           title="System Notification"
+          layout="form"
           confirmLabel="Confirm"
           onCancel={() => setConfirmingInstall(false)}
           onConfirm={handleConfirmInstall}
         >
           <div className="space-y-3">
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-white/40">Game Install Path</p>
-              <div className="flex items-center gap-2 rounded bg-white/5 px-3 py-2 text-white/80">
+              <p className="notice-field-label">Game Install Path</p>
+              <div className="notice-path">
                 <span className="flex-1 truncate">{installDir}</span>
                 <button
                   type="button"
                   title="Choose a different folder"
                   onClick={() => onNeedInstallDir()}
-                  className="flex h-7 w-7 items-center justify-center rounded text-white/80 hover:bg-white/10 hover:text-white"
+                  className="notice-folder-button"
                 >
                   <FolderIcon />
                 </button>
               </div>
             </div>
             {}
-            <label className="flex items-center gap-2 text-white/70">
+            <label className="notice-check-row">
               <input
                 type="checkbox"
                 checked={createShortcut}

@@ -139,7 +139,10 @@ export function initAutoUpdater(win: WindowSource): void {
     if (downloadRequest) return Promise.resolve()
     if (checkRequest) return checkRequest
     state.error = null
-    setVersionStatus(state.available ? 'required' : 'checking')
+    setVersionStatus(state.available ? 'required' : state.versionStatus === 'current' || state.versionStatus === 'failed' ? state.versionStatus : 'checking')
+    const startupDeadline = setTimeout(() => {
+      if (state.versionStatus === 'checking' && !state.available) reportError(new Error('Launcher update service timed out. Installed games can still be played.'))
+    }, 5000)
     checkRequest = Promise.resolve().then(() => autoUpdater.checkForUpdates())
       .then(result => {
         if (app.isPackaged && !result && state.versionStatus === 'checking') {
@@ -147,7 +150,7 @@ export function initAutoUpdater(win: WindowSource): void {
         }
       })
       .catch(reportError)
-      .finally(() => { pendingIsInitialCheck = false; checkRequest = null })
+      .finally(() => { clearTimeout(startupDeadline); pendingIsInitialCheck = false; checkRequest = null })
     return checkRequest
   }
 

@@ -87,12 +87,18 @@ export function UpdateWindow(): React.JSX.Element | null {
   }, [])
 
   if (versionStatus === 'current' && !available) return null
+  if (versionStatus === 'failed' && !available) return (
+    <div role="status" className="service-status">
+      <span>Launcher update service unavailable. You can still play installed games.</span>
+      <button type="button" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>Retry</button>
+    </div>
+  )
 
   if (!available) return (
     <div role="dialog" aria-modal="true" aria-label="Launcher version check" className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950 text-white">
       <div className="w-96 rounded-lg border border-white/10 bg-zinc-900 p-6">
         <p className="text-lg font-semibold">{versionStatus === 'failed' ? 'Version check failed' : 'Checking launcher version…'}</p>
-        <p className="mt-2 text-sm text-white/60">The latest launcher version is required to continue.</p>
+        <p className="mt-2 text-sm text-white/60">If the update service is unavailable, installed games remain playable.</p>
         {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
         {versionStatus === 'failed' && <button type="button" className="mt-4 rounded bg-yellow-400 px-3 py-2 text-black" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>Retry check</button>}
         <button type="button" className="ml-3 mt-4 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>Close launcher</button>

@@ -26,10 +26,10 @@ export function findVersionBlock(info: GamePackageEntry, installedVersion: strin
   return info.main.patches.find((p) => p.version === installedVersion) ?? null
 }
 
-export async function fetchVersionManifest(resListUrl: string | undefined): Promise<VersionManifest | null> {
+export async function fetchVersionManifest(resListUrl: string | undefined, timeoutMs = 10_000): Promise<VersionManifest | null> {
   if (!resListUrl) return null
   try {
-    const res = await fetch(resListUrl, { signal: AbortSignal.timeout(10_000) })
+    const res = await fetch(resListUrl, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) return null
     const body = (await res.json()) as Partial<VersionManifest>
     if (!Array.isArray(body.files)) return null

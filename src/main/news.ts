@@ -41,7 +41,6 @@ export function startNewsPolling(win: WindowSource): void {
       cachedNews = news
       currentWindow(win)?.webContents.send(NEWS_CHANNEL, news)
     } catch {
-
     }
   }
   poll()

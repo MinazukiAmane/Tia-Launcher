@@ -81,12 +81,12 @@ function SectionCard({
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <div className="rounded-lg bg-white/[0.04] border border-white/5">
-      <h3 className="flex items-center justify-between px-5 py-3 text-sm font-bold text-white border-b border-white/10">
+    <div className="settings-card">
+      <h3 className="settings-card-heading">
         <span>{title}</span>
         {right}
       </h3>
-      <div className="p-5 space-y-3">{children}</div>
+      <div className="settings-card-body">{children}</div>
     </div>
   )
 }
@@ -115,13 +115,13 @@ function Row({
     </>
   )
   if (!onClick || disabled) {
-    return <div className="flex items-center justify-between py-1 text-sm text-white/30">{content}</div>
+    return <div className="settings-row settings-row-disabled">{content}</div>
   }
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between py-1 text-sm text-white/80 hover:text-white"
+      className="settings-row"
     >
       {content}
     </button>
@@ -133,9 +133,9 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`flex h-6 w-14 items-center justify-center rounded-full text-xs font-semibold transition ${
-        checked ? 'bg-yellow-400 text-black' : 'bg-white/10 text-white/50'
-      }`}
+      className="settings-toggle"
+      role="switch"
+      aria-checked={checked}
     >
       {checked ? 'ON' : 'OFF'}
     </button>
@@ -397,26 +397,23 @@ export function SettingsPanel({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/60 p-6">
-      <div role="dialog" aria-modal="true" aria-label={panelTitle} className="flex h-[85vh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/10 bg-zinc-950 text-white shadow-2xl">
+    <div className="settings-backdrop">
+      <div role="dialog" aria-modal="true" aria-label={panelTitle} className="settings-dialog">
         {/* Left sidebar */}
-        <div className="flex w-48 flex-shrink-0 flex-col gap-1 bg-black/40 p-3">
-          <div className="flex items-center gap-2 px-2 py-2 text-base font-semibold">
+        <div className="settings-sidebar">
+          <div className="settings-sidebar-title">
             <GearIcon />
-            {panelTitle}
+            Settings
           </div>
-          <nav className="mt-2 flex flex-col gap-1">
+          <nav className="settings-nav" aria-label={panelTitle}>
             {navItems.map((item) => (
               <button
                 key={item.key}
                 type="button"
                 disabled={moving}
                 onClick={() => setActiveTab(item.key)}
-                className={`rounded-md px-3 py-2 text-left text-sm transition ${
-                  activeTab === item.key
-                    ? 'bg-white/15 text-white'
-                    : 'text-white/60 hover:bg-white/5 hover:text-white'
-                }`}
+                aria-current={activeTab === item.key ? 'page' : undefined}
+                className="settings-nav-item"
               >
                 {item.label}
               </button>
@@ -425,21 +422,21 @@ export function SettingsPanel({
         </div>
 
         {/* Right content */}
-        <div className="relative flex-1 overflow-y-auto p-6">
-          <button
+        <button
             type="button"
             disabled={moving}
             onClick={onClose}
             title="Close"
-            className="absolute right-4 top-4 text-white/50 hover:text-white"
+            className="settings-close"
           >
             <CloseIcon />
           </button>
+        <div className="settings-content">
 
           {!settings && <div className="text-white/60">Loading…</div>}
 
           {settings && activeTab === 'launcher' && (
-            <div className="space-y-4 pr-8">
+            <div className="settings-sections">
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
               <SectionCard title="Launcher Background">
                 <p className="text-xs text-white/40">
@@ -586,7 +583,7 @@ export function SettingsPanel({
           )}
 
           {settings && activeTab === 'manage' && (
-            <div className="space-y-4 pr-8">
+            <div className="settings-sections">
               <SectionCard
                 title="CSO: Re-Server Edition"
                 right={
@@ -761,14 +758,14 @@ export function SettingsPanel({
           )}
 
           {settings && activeTab === 'advanced' && (
-            <div className="space-y-4 pr-8">
+            <div className="settings-sections">
               <SectionCard title="Launch Command">
                 <textarea
                   value={settings.launchCommand ?? ''}
                   maxLength={MAX_LAUNCH_COMMAND_LENGTH}
                   onChange={(e) => update({ launchCommand: e.target.value === '' ? null : e.target.value })}
                   rows={3}
-                  className="w-full resize-none rounded bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30"
+                  className="settings-command"
                 />
                 <div className="flex items-center justify-between text-xs text-white/40">
                   <span>Game arguments, or a wrapper using %command%</span>
@@ -783,7 +780,7 @@ export function SettingsPanel({
           )}
 
           {settings && activeTab === 'logs' && (
-            <div className="space-y-4 pr-8">
+            <div className="settings-sections">
               <SectionCard title="Log Information">
                 <Row label="View Launcher Logs" sublabel={logPath ?? undefined} onClick={handleViewLogs} />
               </SectionCard>
@@ -791,7 +788,7 @@ export function SettingsPanel({
           )}
 
           {settings && activeTab === 'about' && (
-            <div className="space-y-4 pr-8">
+            <div className="settings-sections">
               <SectionCard title="Launcher Version" right={<span className="text-xs text-white/40">v{appVersion ?? '…'}</span>}>
                 <Row
                   label={checkingUpdate ? 'Checking…' : 'Check for updates'}
@@ -876,7 +873,7 @@ export function SettingsPanel({
         >
           <div className="space-y-3">
             <p>Are you sure you want to uninstall Tia Launcher? The game files are not removed.</p>
-            <label className="flex items-center gap-2 text-white/70">
+            <label className="notice-check-row">
               <input
                 type="checkbox"
                 checked={removeLauncherData}

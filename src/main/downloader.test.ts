@@ -41,7 +41,6 @@ beforeAll(async () => {
     }
 
     if (req.url === '/always-200') {
-
       res.writeHead(200, { 'Content-Length': String(CONTENT.length) })
       res.end(CONTENT)
       return

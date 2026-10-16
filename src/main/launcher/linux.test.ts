@@ -294,6 +294,7 @@ describe('launchLinux: Launch Command wrapper', () => {
     expect(args).toEqual(['/fake/Bin/cstrike-online.exe', '-lang', 'na_en'])
     expect(options.shell).toBeUndefined()
     expect(options.env.PROTONPATH).toBe('/fake/proton')
+    expect(options.env.STEAM_COMPAT_INSTALL_PATH).toBe('/fake/Bin')
   })
 
   it('with a launchCommand containing %command%, wraps the FULL umu-run invocation and spawns via shell:true, env still set', async () => {
@@ -327,6 +328,7 @@ describe('launchLinux: Launch Command wrapper', () => {
     expect(command).toBe("prime-run 'umu-run' '/fake/Bin/cstrike-online.exe'")
     expect(options.shell).toBe(true)
     expect(options.env.PROTONPATH).toBe('/fake/proton')
+    expect(options.env.STEAM_COMPAT_INSTALL_PATH).toBe('/fake/Bin')
     expect(options.env.WINEPREFIX).toBe('/fake/prefix')
   })
 })

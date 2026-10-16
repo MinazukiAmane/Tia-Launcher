@@ -162,16 +162,27 @@ describe('mandatory launcher version checks', () => {
   })
   afterEach(() => { mocks.packaged = false; vi.clearAllTimers(); vi.useRealTimers() })
 
-  it('blocks startup and errors, then unlocks only after a successful current-version event', async () => {
+  it('allows installed games when version checking fails and recovers when the service returns', async () => {
     const { assertLauncherCurrent } = await import('./launcherVersionGate')
     const { IPC_UPDATE } = await import('./updater')
-    expect(() => assertLauncherCurrent()).toThrow(/verify/)
     await mocks.handlers[IPC_UPDATE.CHECK]()
     expect(mocks.handlers[IPC_UPDATE.GET_STATE]()).toMatchObject({ versionStatus: 'failed' })
-    expect(() => assertLauncherCurrent()).toThrow(/verify/)
+    expect(() => assertLauncherCurrent()).not.toThrow()
     mocks.events['update-not-available']({ version: '1.4.3' })
     expect(() => assertLauncherCurrent()).not.toThrow()
     expect(mocks.handlers[IPC_UPDATE.GET_STATE]()).toMatchObject({ versionStatus: 'current', error: null })
+  })
+
+  it('stops blocking startup when the update service never responds', async () => {
+    const { autoUpdater } = await import('electron-updater')
+    vi.mocked(autoUpdater.checkForUpdates).mockReturnValue(new Promise(() => {}))
+    const { assertLauncherCurrent } = await import('./launcherVersionGate')
+    const { IPC_UPDATE, initAutoUpdater } = await import('./updater')
+    initAutoUpdater(win)
+    expect(() => assertLauncherCurrent()).toThrow(/verify/)
+    await vi.advanceTimersByTimeAsync(5001)
+    expect(mocks.handlers[IPC_UPDATE.GET_STATE]()).toMatchObject({ versionStatus: 'failed' })
+    expect(() => assertLauncherCurrent()).not.toThrow()
   })
 
   it('keeps the old launcher locked after downloading, including after an update error', async () => {

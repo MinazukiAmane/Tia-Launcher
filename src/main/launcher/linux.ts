@@ -124,7 +124,9 @@ export async function launchLinux(
     ...process.env,
     PROTONPATH: protonDir,
     GAMEID: 'tia-launcher',
-    WINEPREFIX: compatDataDir
+    WINEPREFIX: compatDataDir,
+    // Point Proton at the game directory instead of the helper installation.
+    STEAM_COMPAT_INSTALL_PATH: dirname(exePath)
   }
   const realCommand = ['umu-run', launchExe, ...launchArgs].map(quoteShellArgUnix).join(' ')
   const wrapped = buildWrappedCommand(launchCommand, realCommand)
