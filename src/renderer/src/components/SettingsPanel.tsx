@@ -1,3 +1,4 @@
+import { saveBackgroundMode } from '../backgroundFrames'
 import { useEffect, useState } from 'react'
 import { ProgressBar } from './ProgressBar'
 import { SystemNotificationModal } from './SystemNotificationModal'
@@ -440,7 +441,7 @@ export function SettingsPanel({
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
               <SectionCard title="Launcher Background">
                 <p className="text-xs text-white/40">
-                  Use your own image as the launcher background. PNG, JPG, WEBP and animated GIF (max 25 MB).
+                  Choose an image or animated GIF (max 25 MB). Video mode always uses the built-in background.
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -451,9 +452,12 @@ export function SettingsPanel({
                       setBackgroundBusy(true)
                       try {
                         const url = await window.csore.chooseBackground()
-                        if (url) onBackgroundChanged(url)
+                        if (url) {
+                          saveBackgroundMode('image')
+                          onBackgroundChanged(url)
+                        }
                       } catch (err) {
-                        setBackgroundError(err instanceof Error ? err.message : 'Could not use that image.')
+                        setBackgroundError(err instanceof Error ? err.message : 'Could not use that background.')
                       } finally {
                         setBackgroundBusy(false)
                       }
@@ -468,6 +472,7 @@ export function SettingsPanel({
                     onClick={async () => {
                       setBackgroundError(null)
                       await window.csore.clearBackground()
+                      saveBackgroundMode('image')
                       onBackgroundChanged(null)
                     }}
                     className="rounded bg-white/5 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 disabled:opacity-60"

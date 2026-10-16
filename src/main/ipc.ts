@@ -3,7 +3,7 @@ import { importExistingInstall } from './existingInstall'
 import { saveSikarugirWrapper } from './launcher/macos'
 import { currentWindow, type WindowSource } from './windowSource'
 import { app, dialog, ipcMain, shell } from 'electron'
-import { importBackground, clearBackgrounds, readBackgroundDataUrl } from './background'
+import { importBackground, clearBackgrounds, readBackgroundDataUrl, readBackgroundSources } from './background'
 import { planLauncherUninstall, runPackageUninstaller, openWindowsUninstaller } from './launcherUninstall'
 import { existsSync, promises as fsPromises } from 'fs'
 import { join as pathJoin, dirname as pathDirname } from 'path'
@@ -375,6 +375,7 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
   handle('launcher:chooseBackground', handleChooseBackground)
   handle('launcher:clearBackground', handleClearBackground)
   handle('launcher:getBackground', handleGetBackground)
+  handle('launcher:getBackgroundSources', () => readBackgroundSources(app.getPath('userData')))
   handle('launcher:uninstall', handleUninstallLauncher)
   handle('game:launch', async (event, installDir: string) => {
     if (launching || isGameRunning?.()) throw new Error('The game is already running or starting.')

@@ -139,3 +139,15 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 .service-status { position: fixed; top: 69px; right: 27px; z-index: 35; display: flex; align-items: center; gap: 12px; max-width: 315px; padding: 11px 13px; border: 1px solid #ffffff20; border-radius: 8px; background: #232326f0; color: #ccc; font-size: 11px; line-height: 1.4; }
 .service-status button { flex-shrink: 0; color: white; text-decoration: underline; text-underline-offset: 3px; }
+
+.background-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.background-switcher-zone { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 160px; height: 68px; z-index: 35; display: flex; justify-content: center; align-items: flex-start; -webkit-app-region: no-drag; }
+.background-switcher-zone[hidden] { display: none; }
+.background-switcher { display: flex; gap: 2px; padding: 4px; border: 1px solid #ffffff60; border-radius: 28px; background: #99999970; backdrop-filter: blur(12px); box-shadow: 0 2px 8px #0005; opacity: 0; transform: translateY(-6px); transition: opacity 160ms, transform 160ms; pointer-events: none; }
+.background-switcher-zone:hover .background-switcher, .background-switcher-zone:focus-within .background-switcher { opacity: 1; transform: none; pointer-events: auto; }
+.background-switcher button { width: 44px; height: 30px; display: grid; place-items: center; border-radius: 22px; color: white; cursor: pointer; }
+.background-switcher button[aria-pressed="true"] { background: #171717e6; box-shadow: 0 1px 5px #0005; }
+.background-switcher button:disabled { opacity: .35; cursor: default; }
+.background-switcher button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.background-switcher svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 2; }
+@media (prefers-reduced-motion: reduce) { .background-switcher { transition: none; } }

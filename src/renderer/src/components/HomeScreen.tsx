@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import heroBackground from '../assets/hero-background.png'
+import { LauncherBackground } from './LauncherBackground'
 import { NoticesPanel, CommunityLink } from './NoticesPanel'
 import { SystemNotificationModal } from './SystemNotificationModal'
 
@@ -449,10 +449,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
 
   return (
     <div className="home-screen">
-      <div
-        className="home-background"
-        style={{ backgroundImage: `url(${backgroundUrl ?? heroBackground})`, backgroundPosition: backgroundUrl ? 'center' : 'left center' }}
-      />
+      <LauncherBackground customUrl={backgroundUrl} inactive={settingsOpen} />
       <div className="home-shade" />
       <nav className="community-rail" aria-label="Community"><CommunityLink /></nav>
 
