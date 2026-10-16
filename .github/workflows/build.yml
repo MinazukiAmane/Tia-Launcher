@@ -27,7 +27,7 @@ jobs:
       - name: Check out private native helper
         uses: actions/checkout@v4
         with:
-          repository: MinazukiAmane/CSORE-Launcher-Helpers
+          repository: MinazukiAmane/Tia-Launcher-Helpers
           ref: e0b678ac6de4f8f927666ddd00aeeaa56f06f2a7
           ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
           persist-credentials: false
