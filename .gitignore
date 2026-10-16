@@ -7,3 +7,4 @@ dist/
 *.tsbuildinfo
 release-test/
 ref/
+.private-helper/

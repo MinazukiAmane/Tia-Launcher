@@ -24,6 +24,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check out private native helper
+        uses: actions/checkout@v4
+        with:
+          repository: MinazukiAmane/CSORE-Launcher-Helpers
+          ref: e0b678ac6de4f8f927666ddd00aeeaa56f06f2a7
+          ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
+          persist-credentials: false
+          path: .private-helper
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
+          use-cache: false
+
+      - name: Build native helper
+        run: node build-scripts/buildFlagLauncher.cjs
+
+      - name: Remove private helper checkout
+        if: always()
+        shell: bash
+        run: rm -rf .private-helper
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
