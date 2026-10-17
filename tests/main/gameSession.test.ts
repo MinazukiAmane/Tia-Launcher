@@ -1,0 +1,56 @@
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { GameSession } from '../../src/main/gameSession'
+
+vi.mock('../../src/main/logger', () => ({ logError: vi.fn() }))
+afterEach(() => vi.useRealTimers())
+
+describe('game session window lifecycle', () => {
+  it('releases the renderer after launch and restores only after the game exits', async () => {
+    vi.useFakeTimers()
+    const suspend = vi.fn(), restore = vi.fn()
+    const probe = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValueOnce(true).mockResolvedValue(false)
+    const session = new GameSession({ suspend, restore, probe, pollMs: 10, startupTimeoutMs: 1000 })
+    session.start('/game/client.exe')
+    session.start('/game/client.exe')
+    expect(session.active).toBe(true)
+    expect(suspend).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(150)
+    expect(suspend).toHaveBeenCalledOnce()
+    expect(restore).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(40)
+    expect(restore).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(restore).toHaveBeenCalledOnce()
+    expect(session.active).toBe(false)
+  })
+  it('restores the launcher when a game exits too quickly to observe', async () => {
+    vi.useFakeTimers()
+    const restore = vi.fn()
+    const session = new GameSession({ suspend: vi.fn(), restore, probe: vi.fn().mockResolvedValue(false), pollMs: 10, startupTimeoutMs: 200 })
+    session.start('/game/client.exe')
+    await vi.advanceTimersByTimeAsync(200)
+    expect(restore).toHaveBeenCalledOnce()
+  })
+  it('restores after repeated process inspection failures', async () => {
+    vi.useFakeTimers()
+    const restore = vi.fn()
+    const session = new GameSession({ suspend: vi.fn(), restore, probe: vi.fn().mockRejectedValue(new Error('probe failed')), pollMs: 10 })
+    session.start('/game/client.exe')
+    await vi.advanceTimersByTimeAsync(170)
+    expect(restore).toHaveBeenCalledOnce()
+  })
+  it('quit cancels even an in-flight probe without reopening a window', async () => {
+    vi.useFakeTimers()
+    let resolveProbe!: (running: boolean) => void
+    const probe = vi.fn(() => new Promise<boolean>(resolve => { resolveProbe = resolve }))
+    const restore = vi.fn()
+    const session = new GameSession({ suspend: vi.fn(), restore, probe })
+    session.start('/game/client.exe')
+    await vi.advanceTimersByTimeAsync(150)
+    session.stop()
+    resolveProbe(false)
+    await vi.advanceTimersByTimeAsync(40_000)
+    expect(restore).not.toHaveBeenCalled()
+    expect(probe).toHaveBeenCalledOnce()
+  })
+})

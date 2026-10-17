@@ -1,3 +1,4 @@
+import { hasFreshGameCheckpoint } from './freshInstallCheckpoint'
 import { readdir, stat } from 'fs/promises'
 import { join } from 'path'
 import { fetchLauncherInfo } from './launcherApi'
@@ -9,7 +10,7 @@ import { resolveWithinRoot } from './pathSafety'
 export async function importExistingInstall(installDir: string): Promise<boolean> {
   if (await readInstallState(installDir)) return false
   const entries = await readdir(installDir, { withFileTypes: true })
-  if (entries.some(entry => entry.name === '.csore_fresh_game.json')) return false
+  if (hasFreshGameCheckpoint(installDir) || entries.some(entry => entry.name === '.csore_fresh_game.json')) return false
   const named = (name: string): boolean => entries.some(entry => entry.isDirectory() &&
     (process.platform === 'win32' ? entry.name.toLowerCase() === name.toLowerCase() : entry.name === name))
   if (!named('Bin')) return false

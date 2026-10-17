@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import heroBackground from '../assets/hero-background.png'
-import { orderedFrameUrls, BACKGROUND_MODE_KEY, saveBackgroundMode } from '../backgroundFrames'
+import { migrateLegacyPreferences } from '../persistence'
+import { orderedFrameUrls, saveBackgroundMode } from '../backgroundFrames'
 
 const imageAssets = import.meta.glob<string>('../assets/backgrounds/images/*.{png,jpg,jpeg,webp,gif}', { eager: true, query: '?url', import: 'default' })
 const explicitFrames = orderedFrameUrls(import.meta.glob<string>('../assets/backgrounds/frames/*.{png,jpg,jpeg,webp}', { eager: true, query: '?url', import: 'default' }))
@@ -44,10 +45,7 @@ function FrameAnimation({ active }: { active: boolean }): React.JSX.Element {
 }
 
 export function LauncherBackground({ customUrl, inactive }: { customUrl: string | null; inactive: boolean }): React.JSX.Element {
-  const [mode, setMode] = useState<Mode>(() => {
-    const saved = localStorage.getItem(BACKGROUND_MODE_KEY)
-    return saved === 'video' || (saved !== 'image' && videos.length > 0) ? 'video' : 'image'
-  })
+  const [mode, setMode] = useState<Mode>(videos.length ? 'video' : 'image')
   const [sources, setSources] = useState<{ image: string | null; video: string | null }>({ image: null, video: null })
   const [visible, setVisible] = useState(!document.hidden)
   const [failedVideo, setFailedVideo] = useState<string | null>(null)
@@ -63,9 +61,13 @@ export function LauncherBackground({ customUrl, inactive }: { customUrl: string 
     return () => document.removeEventListener('visibilitychange', change)
   }, [])
   useEffect(() => {
-    const update = (): void => setMode(localStorage.getItem(BACKGROUND_MODE_KEY) === 'video' ? 'video' : 'image')
+    let mounted = true
+    migrateLegacyPreferences().then(() => window.csore.getPreferences()).then(value => {
+      if (mounted && value.backgroundMode) setMode(value.backgroundMode)
+    }).catch(() => {})
+    const update = (event: Event): void => setMode((event as CustomEvent<Mode>).detail)
     window.addEventListener('tia-background-mode-changed', update)
-    return () => window.removeEventListener('tia-background-mode-changed', update)
+    return () => { mounted = false; window.removeEventListener('tia-background-mode-changed', update) }
   }, [])
   const imageUrl = sources.image ?? (customUrl && !customUrl.startsWith('tia-background:') ? customUrl : null) ?? images[0] ?? frames[0] ?? heroBackground
   const videoUrl = videos[0] ?? null
@@ -78,7 +80,11 @@ export function LauncherBackground({ customUrl, inactive }: { customUrl: string 
     if (active && playVideo) void element.play().catch(() => {})
     else element.pause()
   }, [active, playVideo, videoUrl])
-  function select(value: Mode): void { setMode(value); saveBackgroundMode(value) }
+  function select(value: Mode): void {
+    const previous = mode
+    setMode(value)
+    void saveBackgroundMode(value).catch(() => setMode(previous))
+  }
   return <>
     <div className="home-background" style={{ backgroundImage: `url(${imageUrl})`, backgroundPosition: sources.image ? 'center' : 'left center' }} />
     {animatedFrames && <FrameAnimation active={active} />}

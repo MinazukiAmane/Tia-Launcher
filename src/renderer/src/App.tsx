@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { HomeScreen, INSTALL_CONFIRMED_STORAGE_KEY } from './components/HomeScreen'
+import { migrateLegacyPreferences } from './persistence'
+import { HomeScreen } from './components/HomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UpdateWindow } from './components/UpdateWindow'
 import launcherIcon from './assets/game-icon.png'
 import heroBackground from './assets/hero-background.png'
 
-const INSTALL_DIR_STORAGE_KEY = 'tia-install-dir'
+
 
 const DONATE_URL = 'https://tako.id/csorseid'
 
@@ -46,42 +47,47 @@ function CloseIcon(): React.JSX.Element {
 }
 
 export default function App(): React.JSX.Element {
-  const [installDir, setInstallDir] = useState<string | null>(() =>
-    localStorage.getItem(INSTALL_DIR_STORAGE_KEY)
-  )
+  const [installDir, setInstallDir] = useState<string | null>(null)
   const [settingsScope, setSettingsScope] = useState<SettingsScope | null>(null)
   const [movingInstallation, setMovingInstallation] = useState(false)
+  const [storageReady, setStorageReady] = useState(false)
+  const [storageError, setStorageError] = useState<string | null>(null)
   const [userDataDir, setUserDataDir] = useState<string>('')
   const [pickError, setPickError] = useState<string | null>(null)
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null)
 
+  async function loadSavedData(): Promise<void> {
+    setStorageReady(false)
+    setStorageError(null)
+    try {
+      await migrateLegacyPreferences()
+      setInstallDir(await window.csore.getSelectedInstallDir())
+      setStorageReady(true)
+    } catch (error) {
+      setStorageError(error instanceof Error ? error.message : String(error))
+    }
+  }
+
   useEffect(() => {
-    window.csore.getSelectedInstallDir().then(path => {
-      if (path) {
-        localStorage.setItem(INSTALL_DIR_STORAGE_KEY, path)
-        setInstallDir(path)
-      }
-    }).catch(() => {})
+    void loadSavedData()
     window.csore.getUserDataDir().then(setUserDataDir)
     window.csore.getBackground().then(setBackgroundUrl).catch(() => setBackgroundUrl(null))
   }, [])
 
   function handleUninstalled(): void {
-    localStorage.removeItem(INSTALL_DIR_STORAGE_KEY)
-    localStorage.removeItem(INSTALL_CONFIRMED_STORAGE_KEY)
     setInstallDir(null)
   }
 
   function openSettings(scope: SettingsScope): void {
-    setSettingsScope(scope)
+    if (storageReady) setSettingsScope(scope)
   }
 
   async function pickInstallDir(): Promise<void> {
+    if (!storageReady) return
     setPickError(null)
     try {
       const chosen = await window.csore.chooseInstallFolder()
       if (!chosen) return
-      localStorage.setItem(INSTALL_DIR_STORAGE_KEY, chosen)
       setInstallDir(chosen)
     } catch (err) {
       setPickError(err instanceof Error ? err.message : 'Could not use that folder.')
@@ -89,7 +95,6 @@ export default function App(): React.JSX.Element {
   }
 
   function handleInstallationMoved(path: string): void {
-    localStorage.setItem(INSTALL_DIR_STORAGE_KEY, path)
     setInstallDir(path)
   }
 
@@ -157,7 +162,14 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
+      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || !storageReady} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
+      {storageError && (
+        <div role="alert" className="absolute top-14 right-3 z-50 max-w-sm rounded bg-red-950 px-4 py-3 text-sm text-red-100">
+          <p>Could not load saved launcher data.</p>
+          <p className="mt-2 text-xs">{storageError}</p>
+          <button type="button" className="mt-3 rounded bg-white/15 px-3 py-1" onClick={() => void loadSavedData()}>Retry</button>
+        </div>
+      )}
       {pickError && (
         <p className="absolute top-14 right-3 z-30 max-w-xs rounded bg-red-950/80 px-3 py-2 text-xs text-red-300">
           {pickError}

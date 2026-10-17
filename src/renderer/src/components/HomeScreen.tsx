@@ -1,3 +1,4 @@
+import { migrateLegacyPreferences } from '../persistence'
 import { useEffect, useRef, useState } from 'react'
 import { LauncherBackground } from './LauncherBackground'
 import { NoticesPanel, CommunityLink } from './NoticesPanel'
@@ -42,14 +43,9 @@ function BurgerIcon(): React.JSX.Element {
   )
 }
 
-export const INSTALL_CONFIRMED_STORAGE_KEY = 'tia-install-path-confirmed'
-
-function isInstallPathConfirmed(dir: string): boolean {
-  try {
-    return localStorage.getItem(INSTALL_CONFIRMED_STORAGE_KEY) === dir
-  } catch {
-    return false
-  }
+async function isInstallPathConfirmed(dir: string): Promise<boolean> {
+  await migrateLegacyPreferences()
+  return (await window.csore.getPreferences()).confirmedInstallDir === dir
 }
 
 function FolderIcon(): React.JSX.Element {
@@ -165,7 +161,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   }, [])
 
   useEffect(() => {
-    window.csore.getSettings().then(setSettings)
+    window.csore.getSettings().then(setSettings).catch(error => setErrorMessage(error instanceof Error ? error.message : String(error)))
   }, [])
 
   useEffect(() => {
@@ -285,7 +281,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     }
     if (state === 'fresh_install') {
       // Confirm the destination before downloading.
-      if (isInstallPathConfirmed(installDir)) {
+      if (await isInstallPathConfirmed(installDir)) {
         await runInstallOrUpdate()
         return
       }
@@ -298,7 +294,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   async function handleConfirmInstall(): Promise<void> {
     setConfirmingInstall(false)
     try {
-      if (installDir) localStorage.setItem(INSTALL_CONFIRMED_STORAGE_KEY, installDir)
+      if (installDir) await window.csore.setPreferences({ confirmedInstallDir: installDir })
     } catch {
       // storage unavailable: worst case the dialog shows again next time
     }

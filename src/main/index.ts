@@ -1,3 +1,4 @@
+import { configureDatabaseDirectory } from './localDatabase'
 import { app, BrowserWindow, Tray, Menu, nativeImage } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
@@ -8,6 +9,9 @@ import { readSettings, getCachedWindowCloseBehavior, setCachedWindowCloseBehavio
 import { setTroubleshootingMode } from './logger'
 import { GameSession } from './gameSession'
 import { findGameExecutable } from './launcher/windows'
+
+app.setPath('userData', join(app.getPath('appData'), 'tia-launcher-bootstrap'))
+configureDatabaseDirectory(app.getPath('userData'))
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({

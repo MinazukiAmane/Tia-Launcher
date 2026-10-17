@@ -3,6 +3,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_UPDATE } from '../shared/updateChannels'
 
 const gameApi = {
+  getPreferences: (): Promise<import('../main/preferences').Preferences> => ipcRenderer.invoke('launcher:getPreferences'),
+  setPreferences: (update: Partial<import('../main/preferences').Preferences>): Promise<import('../main/preferences').Preferences> => ipcRenderer.invoke('launcher:setPreferences', update),
+  migrateLegacyPreferences: (legacy: Partial<import('../main/preferences').Preferences> & { installDir: string | null }): Promise<import('../main/preferences').Preferences> => ipcRenderer.invoke('launcher:migrateLegacyPreferences', legacy),
   getLauncherInfo: (): Promise<import('../main/launcherApi').GamePackageEntry> =>
     ipcRenderer.invoke('game:getLauncherInfo'),
 

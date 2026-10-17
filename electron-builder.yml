@@ -6,6 +6,8 @@ directories:
 files:
   - out/**/*
   - package.json
+  - "!tests/**"
+  - "!**/*.test.*"
 
 afterPack: build-scripts/afterPack.js
 # afterPack replaces app.asar with encrypted app.dat.

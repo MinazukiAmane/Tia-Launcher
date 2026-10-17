@@ -1,5 +1,5 @@
 
-import { promises as fs } from 'fs'
+import { migrateRecord, writeRecords } from './localDatabase'
 import { join } from 'path'
 import { isValidBackgroundName } from './background'
 
@@ -63,8 +63,8 @@ function sanitizeTroubleshootingMode(value: unknown): boolean {
 
 export async function readSettings(userDataDir: string): Promise<Settings> {
   try {
-    const raw = await fs.readFile(settingsPath(userDataDir), 'utf-8')
-    const merged = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as Settings
+    const stored = await migrateRecord<Partial<Settings>>('launcher', 'settings', settingsPath(userDataDir), userDataDir)
+    const merged = { ...DEFAULT_SETTINGS, ...stored } as Settings
 
     return {
       ...merged,
@@ -89,7 +89,7 @@ export async function writeSettings(userDataDir: string, settings: Settings): Pr
     troubleshootingMode: sanitizeTroubleshootingMode(settings.troubleshootingMode),
     customBackground: isValidBackgroundName(settings.customBackground) ? settings.customBackground : null
   }
-  await fs.writeFile(settingsPath(userDataDir), JSON.stringify(sanitized, null, 2), 'utf-8')
+  writeRecords('launcher', { settings: sanitized }, userDataDir)
 }
 
 let cachedWindowCloseBehavior: Settings['windowCloseBehavior'] = DEFAULT_SETTINGS.windowCloseBehavior

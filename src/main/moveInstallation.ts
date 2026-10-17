@@ -1,8 +1,9 @@
-import { createHash, randomUUID } from 'crypto'
+import { moveGameRecords } from './localDatabase'
+import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { cp, lstat, mkdir, mkdtemp, readdir, readlink, realpath, rename, rm, rmdir, writeFile } from 'fs/promises'
+import { cp, lstat, mkdir, mkdtemp, readdir, readlink, realpath, rename, rm, rmdir } from 'fs/promises'
 import { basename, dirname, join, relative, resolve, sep, isAbsolute } from 'path'
-import { readInstallState, type InstallState } from './installState'
+import { readInstallState } from './installState'
 
 export interface MoveProgress {
   phase: 'moving' | 'copying' | 'verifying'
@@ -29,16 +30,6 @@ async function listFiles(root: string, prefix = ''): Promise<string[]> {
     else throw new Error(`Cannot move unsupported filesystem entry: ${path}`)
   }
   return files
-}
-
-async function writeMovedState(root: string, state: InstallState): Promise<void> {
-  const temporary = join(root, `.csore_move_state-${randomUUID()}.tmp`)
-  try {
-    await writeFile(temporary, JSON.stringify(state, null, 2))
-    await rename(temporary, join(root, '.csore_install.json'))
-  } finally {
-    await rm(temporary, { force: true })
-  }
 }
 
 // Kept separate from the operation lock so filesystem failures can be tested.
@@ -98,17 +89,19 @@ export async function moveInstallDirectory(
         onProgress({ phase: 'verifying', processed: ++processed, total: files.length })
       }
     }
-    await writeMovedState(stage, { ...state, installDir: destination })
     if (destinationExisted) {
       await rmdir(destination) // Fails safely if another app added files during the move.
       removedEmptyDestination = true
     }
     await rename(stage, destination)
+    try { moveGameRecords(source, destination, { ...state, installDir: destination }) } catch (error) {
+      await rename(destination, stage)
+      throw error
+    }
     committed = true
   } catch (error) {
     if (renamedSource) {
       await rename(stage, source)
-      await writeMovedState(source, state)
     } else {
       await rm(stage, { recursive: true, force: true })
     }

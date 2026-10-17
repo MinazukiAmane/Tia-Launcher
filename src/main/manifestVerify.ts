@@ -1,8 +1,8 @@
 
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { stat, readFile, writeFile, rename } from 'fs/promises'
-import { join } from 'path'
+import { stat } from 'fs/promises'
+import { readGameRecord, writeRecords, gameScope } from './localDatabase'
 import { pipeline } from 'stream/promises'
 import { resolveWithinRoot } from './pathSafety'
 import type { GamePackageEntry, VersionBlock } from './launcherApi'
@@ -53,11 +53,10 @@ export async function verifyAgainstManifest(
 ): Promise<VerifyResult> {
   const corruptFiles: string[] = []
   const missingFiles: string[] = []
-  const cachePath = join(installDir, '.csore_verify_cache.json')
   let previous: Record<string, string> = {}
   if (quick) {
     try {
-      const cached: unknown = JSON.parse(await readFile(cachePath, 'utf8'))
+      const cached: unknown = await readGameRecord(installDir, 'verifyCache')
       if (cached && typeof cached === 'object' && !Array.isArray(cached)) previous = cached as Record<string, string>
     } catch { /* first check */ }
   }
@@ -99,9 +98,7 @@ export async function verifyAgainstManifest(
     return { ok: !corruptFiles.length && !missingFiles.length, corruptFiles, missingFiles }
   }
   try {
-    const temp = cachePath + '.' + process.pid + '.tmp'
-    await writeFile(temp, JSON.stringify(next))
-    await rename(temp, cachePath)
+    writeRecords(gameScope(installDir), { verifyCache: next }, undefined, false)
   } catch { /* Cache failure must not prevent verification. */ }
   return { ok: !corruptFiles.length && !missingFiles.length, corruptFiles, missingFiles }
 }

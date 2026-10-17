@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { readFile, writeFile, rename, rm } from 'fs/promises'
+import { rm } from 'fs/promises'
+import { readGameRecord, writeRecords, readRecord, gameScope } from './localDatabase'
 import { join } from 'path'
 import type { VersionBlock } from './launcherApi'
 import type { InstalledFileEntry } from './installState'
@@ -17,8 +18,10 @@ export async function readFreshGameCheckpoint(
   installDir: string,
   target: VersionBlock
 ): Promise<InstalledFileEntry[] | null> {
+  const stored = await readGameRecord<{ packageKey: string; files: InstalledFileEntry[] }>(installDir, 'checkpoint')
   try {
-    const checkpoint = JSON.parse(await readFile(join(installDir, FILENAME), 'utf-8'))
+    const checkpoint = stored
+    if (!checkpoint) return null
     if (checkpoint.packageKey !== packageKey(target) || !Array.isArray(checkpoint.files)) return null
     // A checkpoint is usable only while every extracted game file still matches.
     for (const file of checkpoint.files) {
@@ -42,13 +45,15 @@ export async function writeFreshGameCheckpoint(
   target: VersionBlock,
   files: InstalledFileEntry[]
 ): Promise<void> {
-  const checkpointPath = join(installDir, FILENAME)
-  const temporaryPath = `${checkpointPath}.tmp`
-  await writeFile(temporaryPath, JSON.stringify({ packageKey: packageKey(target), files }), 'utf-8')
-  await rename(temporaryPath, checkpointPath)
+  writeRecords(gameScope(installDir), { checkpoint: { packageKey: packageKey(target), files } })
 }
 
 export async function clearFreshGameCheckpoint(installDir: string): Promise<void> {
+  writeRecords(gameScope(installDir), { checkpoint: null })
   await rm(join(installDir, FILENAME), { force: true })
   await rm(join(installDir, `${FILENAME}.tmp`), { force: true })
+}
+
+export function hasFreshGameCheckpoint(installDir: string): boolean {
+  return !!readRecord(gameScope(installDir), 'checkpoint')
 }

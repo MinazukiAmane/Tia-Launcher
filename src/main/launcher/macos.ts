@@ -1,7 +1,8 @@
+import { migrateRecord, writeRecords } from '../localDatabase'
 import { prepareFlagLaunch } from './flagLaunch'
 import { spawn } from 'child_process'
 import { join, dirname, isAbsolute } from 'path'
-import { access, stat, readFile, writeFile, mkdir, mkdtemp, rm } from 'fs/promises'
+import { access, stat, writeFile, mkdir, mkdtemp, rm } from 'fs/promises'
 import { constants } from 'fs'
 import { homedir, tmpdir } from 'os'
 import { resolveLaunchOptions, buildWrappedCommand, quoteShellArgUnix } from './launchCommand'
@@ -33,17 +34,18 @@ const selectionPath = (userDataDir: string): string => join(userDataDir, 'sikaru
 export async function saveSikarugirWrapper(userDataDir: string, wrapperPath: string): Promise<void> {
   await inspectSikarugirWrapper(wrapperPath)
   await mkdir(userDataDir, { recursive: true })
-  await writeFile(selectionPath(userDataDir), JSON.stringify({ wrapperPath }), 'utf8')
+  writeRecords('launcher', { sikarugir: { wrapperPath } }, userDataDir)
 }
 
 export async function findSikarugirWrapper(userDataDir: string): Promise<SikarugirWrapper | null> {
   try {
-    const saved = JSON.parse(await readFile(selectionPath(userDataDir), 'utf8')) as { wrapperPath?: unknown }
+    const saved = await migrateRecord<{ wrapperPath?: unknown }>('launcher', 'sikarugir', selectionPath(userDataDir), userDataDir)
+    if (!saved) throw Object.assign(new Error('No saved wrapper'), { code: 'ENOENT' })
     // A stale selection must not silently switch to another wrapper.
     if (typeof saved.wrapperPath !== 'string') return null
     try { return await inspectSikarugirWrapper(saved.wrapperPath) } catch { return null }
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return null
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
   }
   for (const base of [join(homedir(), 'Applications', 'Sikarugir'), '/Applications/Sikarugir']) {
     try { return await inspectSikarugirWrapper(join(base, 'Tia Launcher.app')) } catch { /* not installed here */ }

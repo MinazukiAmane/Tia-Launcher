@@ -1,3 +1,4 @@
+import { readPreferences, writePreferences } from './preferences'
 import { assertLauncherCurrent } from './launcherVersionGate'
 import { importExistingInstall } from './existingInstall'
 import { saveSikarugirWrapper } from './launcher/macos'
@@ -368,6 +369,15 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
   handle('game:getLauncherInfo', handleGetLauncherInfo)
   handle('game:getInstallState', handleGetInstallState)
   handle('game:getSelectedInstallDir', () => getSelectedInstallDir())
+  handle('launcher:getPreferences', () => readPreferences())
+  handle('launcher:setPreferences', (_event, update) => writePreferences(update))
+  handle('launcher:migrateLegacyPreferences', async (_event, legacy) => {
+    if (!legacy || typeof legacy !== 'object') throw new Error('Invalid legacy preferences.')
+    if (!await getSelectedInstallDir() && typeof legacy.installDir === 'string' && await isApprovedInstallDir(legacy.installDir)) {
+      await setApprovedInstallDir(legacy.installDir)
+    }
+    return writePreferences({ backgroundMode: legacy.backgroundMode, confirmedInstallDir: legacy.confirmedInstallDir }, true)
+  })
   handle('game:chooseInstallFolder', handleChooseInstallFolder)
   handle('game:moveInstallation', makeHandleMoveInstallation(win, () => launching || !!isGameRunning?.()))
   handle('game:getSettings', handleGetSettings)

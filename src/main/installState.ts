@@ -1,5 +1,6 @@
 
-import { promises as fs } from 'fs'
+import { readGameRecord, writeRecords, gameScope } from './localDatabase'
+import { rm } from 'fs/promises'
 import { join } from 'path'
 import type { ManifestEntry } from './patcher'
 import type { PkgEntry } from './launcherApi'
@@ -24,17 +25,11 @@ export function installStatePath(installDir: string): string {
 }
 
 export async function readInstallState(installDir: string): Promise<InstallState | null> {
-  try {
-    const raw = await fs.readFile(installStatePath(installDir), 'utf-8')
-    return JSON.parse(raw) as InstallState
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
-    throw err
-  }
+  return readGameRecord<InstallState>(installDir, 'install')
 }
 
 export async function writeInstallState(installDir: string, state: InstallState): Promise<void> {
-  await fs.writeFile(installStatePath(installDir), JSON.stringify(state, null, 2), 'utf-8')
+  writeRecords(gameScope(installDir), { install: state })
 }
 
 export interface PendingAudioPatch {
@@ -49,21 +44,16 @@ export function pendingAudioPatchPath(installDir: string): string {
 }
 
 export async function readPendingAudioPatch(installDir: string): Promise<PendingAudioPatch | null> {
-  try {
-    const raw = await fs.readFile(pendingAudioPatchPath(installDir), 'utf-8')
-    return JSON.parse(raw) as PendingAudioPatch
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null
-    throw err
-  }
+  return readGameRecord<PendingAudioPatch>(installDir, 'pendingAudio')
 }
 
 export async function writePendingAudioPatch(installDir: string, data: PendingAudioPatch): Promise<void> {
-  await fs.writeFile(pendingAudioPatchPath(installDir), JSON.stringify(data, null, 2), 'utf-8')
+  writeRecords(gameScope(installDir), { pendingAudio: data })
 }
 
 export async function clearPendingAudioPatch(installDir: string): Promise<void> {
-  await fs.rm(pendingAudioPatchPath(installDir), { force: true })
+  writeRecords(gameScope(installDir), { pendingAudio: null })
+  await rm(pendingAudioPatchPath(installDir), { force: true })
 }
 
 export function mergeManifestEntries(

@@ -1,15 +1,15 @@
+import { migrateRecord, writeRecords, forgetGameRecords, gameScope } from './localDatabase'
 import { moveInstallDirectory, type MoveProgress, type MoveResult } from './moveInstallation'
 
 import { app } from 'electron'
 import { join, dirname } from 'path'
-import { writeFile, unlink, mkdir, rm, readFile, readdir, rename, realpath } from 'fs/promises'
+import { writeFile, unlink, mkdir, rm, readdir, rename, realpath } from 'fs/promises'
 import { createHash } from 'crypto'
 import {
   readInstallState,
   writeInstallState,
   mergeManifestEntries,
   readPendingAudioPatch,
-  writePendingAudioPatch,
   clearPendingAudioPatch,
   type InstallState,
   type InstalledFileEntry,
@@ -194,23 +194,13 @@ function approvedInstallDirFilePath(): string {
 }
 
 async function readPersistedApprovedInstallDir(): Promise<string | null> {
-  try {
-    const raw = await readFile(approvedInstallDirFilePath(), 'utf-8')
-    const data = JSON.parse(raw) as { installDir?: unknown }
-    return typeof data.installDir === 'string' ? data.installDir : null
-  } catch {
-    return null
-  }
+  const data = await migrateRecord<{ installDir: string }>('launcher', 'selectedInstallation', approvedInstallDirFilePath())
+  return typeof data?.installDir === 'string' ? data.installDir : null
 }
 
 export async function setApprovedInstallDir(dir: string): Promise<void> {
+  writeRecords('launcher', { selectedInstallation: { installDir: dir } })
   approvedInstallDir = dir
-  try {
-    await mkdir(app.getPath('userData'), { recursive: true })
-    await writeFile(approvedInstallDirFilePath(), JSON.stringify({ installDir: dir }), 'utf-8')
-  } catch {
-    // Keep session approval if persisting the selected folder fails.
-  }
 }
 
 export async function getSelectedInstallDir(): Promise<string | null> {
@@ -224,6 +214,7 @@ export function getApprovedInstallDir(): string | null {
 // Clear persisted approval when removing an installation.
 async function clearApprovedInstallDir(): Promise<void> {
   approvedInstallDir = null
+  writeRecords('launcher', { selectedInstallation: null })
   await rm(approvedInstallDirFilePath(), { force: true })
 }
 
@@ -351,7 +342,7 @@ async function doFreshInstall(
 
   const files = mergeFileLists(gameFiles, audioFiles)
   const newState: InstallState = { version: target.version, installDir, files }
-  await writeInstallState(installDir, newState)
+  writeRecords(gameScope(installDir), { install: newState, pendingAudio: null, checkpoint: null })
 
   await clearPendingAudioPatch(installDir)
   await clearFreshGameCheckpoint(installDir)
@@ -394,7 +385,7 @@ async function applyAudioPatchContinuation(
     }
     const files = mergeManifestEntries(baseFiles, audioManifest.entries)
     const newState: InstallState = { version: pending.toVersion, installDir, files }
-    await writeInstallState(installDir, newState)
+    writeRecords(gameScope(installDir), { install: newState, pendingAudio: null })
     await clearPendingAudioPatch(installDir)
     onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
 
@@ -514,8 +505,7 @@ export async function performInstallOrUpdate(
       if (action.patch.audio_pkgs && action.patch.audio_pkgs.length > 0) {
         const pending: PendingAudioPatch = { toVersion: action.toVersion, audioPkgs: action.patch.audio_pkgs }
 
-        await writePendingAudioPatch(installDir, pending)
-        await writeInstallState(installDir, gameSideState)
+        writeRecords(gameScope(installDir), { install: gameSideState, pendingAudio: pending })
         await applyAudioPatchContinuation(
           installDir,
           pending,
@@ -528,8 +518,7 @@ export async function performInstallOrUpdate(
           info.main.major ?? undefined
         )
       } else {
-        await writeInstallState(installDir, gameSideState)
-        await clearPendingAudioPatch(installDir)
+        writeRecords(gameScope(installDir), { install: gameSideState, pendingAudio: null })
 
         await rm(partsDir, { recursive: true, force: true })
       }
@@ -677,6 +666,7 @@ export async function uninstallGame(installDir: string): Promise<void> {
   operationInProgress = true
   try {
     await rm(installDir, { recursive: true, force: true })
+    forgetGameRecords(installDir)
     await clearApprovedInstallDir()
   } finally {
     operationInProgress = false

@@ -5,8 +5,7 @@ export function orderedFrameUrls(sources: Record<string, string>): string[] {
     .map(([, url]) => url)
 }
 
-export const BACKGROUND_MODE_KEY = 'tia-background-mode'
-export function saveBackgroundMode(mode: 'image' | 'video'): void {
- localStorage.setItem(BACKGROUND_MODE_KEY, mode)
- window.dispatchEvent(new Event('tia-background-mode-changed'))
+export async function saveBackgroundMode(mode: 'image' | 'video'): Promise<void> {
+ await window.csore.setPreferences({ backgroundMode: mode })
+ window.dispatchEvent(new CustomEvent('tia-background-mode-changed', { detail: mode }))
 }
