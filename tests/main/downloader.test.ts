@@ -1,5 +1,5 @@
 
-import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { createServer, type Server } from 'http'
 import { mkdtemp, rm, writeFile, readFile, access } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -260,6 +260,38 @@ describe('downloadPart', () => {
   })
 
   describe('maxBytesPerSecond throttling', () => {
+    it('enforces the cap even when the response arrives as one final chunk', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'single-chunk')
+      const request = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(THROTTLE_CONTENT))
+      try {
+        const started = performance.now()
+        await downloadPart({ url: 'https://example.invalid/part', md5: THROTTLE_CONTENT_MD5, size: THROTTLE_CONTENT.length }, dest, undefined, undefined, 40_000)
+        expect(performance.now() - started).toBeGreaterThan(900)
+        expect(await readFile(dest)).toEqual(THROTTLE_CONTENT)
+      } finally { request.mockRestore() }
+    })
+
+    it('cancels a throttle wait promptly when paused instead of waiting for its rate budget', async () => {
+      const dir = await makeTempDir()
+      const dest = join(dir, 'paused-throttle')
+      const controller = new AbortController()
+      let abort: ReturnType<typeof setTimeout> | undefined
+      const body = new ReadableStream<Uint8Array>({
+        start(stream) { stream.enqueue(THROTTLE_CONTENT) },
+        pull(stream) {
+          stream.close()
+          // Start only after the downloader has opened its destination and consumed the chunk.
+          abort = setTimeout(() => controller.abort(), 50)
+        }
+      })
+      const request = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(body))
+      try {
+        await expect(downloadPart({ url: 'https://example.invalid/part', md5: THROTTLE_CONTENT_MD5, size: THROTTLE_CONTENT.length }, dest, undefined, undefined, 1, controller.signal)).rejects.toBeInstanceOf(DownloadPausedError)
+        expect((await readFile(dest)).length).toBeLessThan(THROTTLE_CONTENT.length)
+      } finally { clearTimeout(abort); request.mockRestore() }
+    }, 2000)
+
     it('measurably slows a download while still completing and passing MD5 verification', async () => {
       const dir = await makeTempDir()
       const dest = join(dir, 'part1')
@@ -283,6 +315,15 @@ describe('downloadPart', () => {
       // Allow scheduling jitter while verifying throttling.
       expect(elapsedMs).toBeGreaterThan(expectedMinMs * 0.4)
     }, 15_000)
+
+    it('still aborts a real network stall after finishing a throttle wait', async () => {
+      const dir = await makeTempDir()
+      const body = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(THROTTLE_CONTENT.subarray(0, 1000)) } })
+      const request = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(body))
+      try {
+        await expect(downloadPart({ url: 'https://example.invalid/stalled', md5: THROTTLE_CONTENT_MD5, size: THROTTLE_CONTENT.length }, join(dir, 'stalled'), undefined, 50, 10_000)).rejects.toThrow()
+      } finally { request.mockRestore() }
+    }, 2000)
 
     it('does not slow down the default (no limit) path at all', async () => {
       const dir = await makeTempDir()

@@ -5,6 +5,8 @@ import { retryTransientFileAccess } from './fileAccess'
 import { createHash } from 'crypto'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
+import { setTimeout as delay } from 'timers/promises'
+import { performance } from 'perf_hooks'
 
 export interface DownloadPart {
   url: string
@@ -46,10 +48,6 @@ async function md5OfFile(path: string): Promise<string> {
 
 // Abort only when data stops arriving; slow downloads remain valid.
 const DOWNLOAD_TIMEOUT_MS = 30_000
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
 
 async function downloadPartToFile(
   part: DownloadPart,
@@ -111,52 +109,33 @@ async function downloadPartToFile(
       let sizeExceeded = false
       const nodeStream = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
 
-      const rateStart = Date.now()
-      let throttledBytesThisSession = 0
-      // Keep throttling delays separate from network stalls.
-      const idleKeepAliveStepMs = Math.max(50, Math.floor(idleTimeoutMs / 4))
+      const rateStart = performance.now()
+      let transferred = 0
 
-      // Pace reads when the transfer exceeds the configured rate.
-      async function pacedResume(delayMs: number): Promise<void> {
-        let remaining = delayMs
-        while (remaining > 0 && !nodeStream.destroyed) {
-          const step = Math.min(remaining, idleKeepAliveStepMs)
-          await sleep(step)
+      async function* pacedChunks(source: AsyncIterable<Buffer>, { signal = controller.signal }: { signal?: AbortSignal } = {}): AsyncGenerator<Buffer> {
+        for await (const chunk of source) {
+          clearTimeout(timeout)
+          written += chunk.length
+          if (written > part.size) {
+            sizeExceeded = true
+            throw new Error(
+              `download exceeded declared size for ${part.url}: wrote ${written} bytes, expected at most ${part.size}`
+            )
+          }
+          if (maxBytesPerSecond && maxBytesPerSecond > 0) {
+            transferred += chunk.length
+            const waitMs = (transferred / maxBytesPerSecond) * 1000 - (performance.now() - rateStart)
+            // Local rate limiting is not a network stall; pipeline errors cancel the wait.
+            if (waitMs > 0) await delay(waitMs, undefined, { signal })
+          }
           armIdleTimeout()
-          remaining -= step
+          onProgress?.(written, part.size)
+          yield chunk
         }
-        if (!nodeStream.destroyed) nodeStream.resume()
       }
 
-      nodeStream.on('data', (chunk: Buffer) => {
-        armIdleTimeout()
-        written += chunk.length
-        onProgress?.(written, part.size)
-        if (!sizeExceeded && written > part.size) {
-          // Reject excess bytes before writing them to disk.
-          sizeExceeded = true
-          const err = new Error(
-            `download exceeded declared size for ${part.url}: wrote ${written} bytes, expected at most ${part.size}`
-          )
-          nodeStream.destroy(err)
-          controller.abort(err)
-          return
-        }
-
-        if (maxBytesPerSecond && maxBytesPerSecond > 0) {
-          throttledBytesThisSession += chunk.length
-          const elapsedMs = Date.now() - rateStart
-          const expectedMs = (throttledBytesThisSession / maxBytesPerSecond) * 1000
-          const delayMs = expectedMs - elapsedMs
-          if (delayMs > 0) {
-            nodeStream.pause()
-            void pacedResume(delayMs)
-          }
-        }
-      })
-
       try {
-        await pipeline(nodeStream, writeStream)
+        await pipeline(nodeStream, pacedChunks, writeStream, { signal: controller.signal })
       } catch (err) {
         if (sizeExceeded) {
           await rm(destPath, { force: true })
