@@ -4,7 +4,7 @@
     "启动器语言",
     "런처 언어",
     "ランチャーの言語",
-    "Bahasa Jawi"
+    "Bahasa Jawa"
   ],
   "Launcher navigation": [
     "Navigasi launcher",
@@ -1307,5 +1307,12 @@
     "개발용 빌드는 수동으로 설치합니다. 정식 버전 자동 업데이트는 비활성화되어 있습니다.",
     "開発版は手動でインストールします。製品版への自動更新は無効です。",
     "Build developer dipuninstal kanthi manual. Nganyari otomatis versi produksi dipunpateni."
+  ],
+  "Translation Credits": [
+    "Kredit Terjemahan",
+    "翻译鸣谢",
+    "번역 기여자",
+    "翻訳協力",
+    "Pangajèn Penerjemah"
   ]
 }

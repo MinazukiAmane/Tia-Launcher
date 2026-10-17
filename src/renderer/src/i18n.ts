@@ -4,7 +4,7 @@ import messages from './locales/messages.json'
 
 let language: LauncherLanguage = 'en'
 const listeners = new Set<() => void>()
-const columns = { id: 0, 'zh-CN': 1, ko: 2, ja: 3 } as const
+const columns = { id: 0, 'zh-CN': 1, ko: 2, ja: 3, jv: 4 } as const
 const subscribe = (listener: () => void): (() => void) => {
   listeners.add(listener)
   return () => { listeners.delete(listener) }
