@@ -3,1122 +3,1309 @@
     "Bahasa Launcher",
     "启动器语言",
     "런처 언어",
-    "ランチャーの言語"
+    "ランチャーの言語",
+    "Bahasa Jawi"
   ],
   "Launcher navigation": [
     "Navigasi launcher",
     "启动器导航",
     "런처 탐색",
-    "ランチャーナビゲーション"
+    "ランチャーナビゲーション",
+    "Panuntun Launcher"
   ],
   "CSO: Re-Server Edition home": [
     "Beranda CSO: Re-Server Edition",
     "CSO: Re-Server Edition 主页",
     "CSO: Re-Server Edition 홈",
-    "CSO: Re-Server Edition ホーム"
+    "CSO: Re-Server Edition ホーム",
+    "Kaca Utami CSO: Re-Server Edition"
   ],
   "Launcher Settings": [
     "Pengaturan Launcher",
     "启动器设置",
     "런처 설정",
-    "ランチャー設定"
+    "ランチャー設定",
+    "Pangaturan Launcher"
   ],
   "Open launcher settings": [
     "Buka pengaturan launcher",
     "打开启动器设置",
     "런처 설정 열기",
-    "ランチャー設定を開く"
+    "ランチャー設定を開く",
+    "Bukak Pangaturan Launcher"
   ],
   "Donate": [
     "Donasi",
     "赞助",
     "후원",
-    "寄付"
+    "寄付",
+    "Sumbangan"
   ],
   "Minimize": [
     "Minimalkan",
     "最小化",
     "최소화",
-    "最小化"
+    "最小化",
+    "Minimalaken"
   ],
   "Close": [
     "Tutup",
     "关闭",
     "닫기",
-    "閉じる"
+    "閉じる",
+    "Nutup"
   ],
   "Could not load saved launcher data.": [
     "Gagal memuat data launcher tersimpan.",
     "无法加载已保存的启动器数据。",
     "저장된 런처 데이터를 불러올 수 없습니다.",
-    "保存済みのランチャーデータを読み込めませんでした。"
+    "保存済みのランチャーデータを読み込めませんでした。",
+    "Data launcher ingkang sampun kasimpen boten saged dipunmuat."
   ],
   "Retry": [
     "Coba lagi",
     "重试",
     "다시 시도",
-    "再試行"
+    "再試行",
+    "Mangga dipunbaleni"
   ],
   "Could not use that folder.": [
     "Folder tersebut tidak dapat digunakan.",
     "无法使用此文件夹。",
     "이 폴더를 사용할 수 없습니다.",
-    "このフォルダーは使用できません。"
+    "このフォルダーは使用できません。",
+    "Folder kasebut boten saged dipunginakaken."
   ],
   "Downloading": [
     "Mengunduh",
     "正在下载",
     "다운로드 중",
-    "ダウンロード中"
+    "ダウンロード中",
+    "Saweg ngundhuh"
   ],
   "Downloading voice pack": [
     "Mengunduh paket suara",
     "正在下载语音包",
     "음성 팩 다운로드 중",
-    "音声パックをダウンロード中"
+    "音声パックをダウンロード中",
+    "Saweg ngundhuh paket swanten"
   ],
   "Preparing files": [
     "Menyiapkan file",
     "正在准备文件",
     "파일 준비 중",
-    "ファイルを準備中"
+    "ファイルを準備中",
+    "Saweg nyawisaken berkas"
   ],
   "Preparing voice pack": [
     "Menyiapkan paket suara",
     "正在准备语音包",
     "음성 팩 준비 중",
-    "音声パックを準備中"
+    "音声パックを準備中",
+    "Saweg nyawisaken paket swanten"
   ],
   "Extracting": [
     "Mengekstrak",
     "正在解压",
     "압축 해제 중",
-    "展開中"
+    "展開中",
+    "Saweg ngekstrak"
   ],
   "Extracting voice pack": [
     "Mengekstrak paket suara",
     "正在解压语音包",
     "음성 팩 압축 해제 중",
-    "音声パックを展開中"
+    "音声パックを展開中",
+    "Saweg ngekstrak paket swanten"
   ],
   "Applying patch": [
     "Menerapkan patch",
     "正在应用补丁",
     "패치 적용 중",
-    "パッチ適用中"
+    "パッチ適用中",
+    "Saweg nerapaken patch"
   ],
   "Checking integrity": [
     "Memeriksa integritas",
     "正在检查完整性",
     "무결성 검사 중",
-    "整合性を確認中"
+    "整合性を確認中",
+    "Saweg mriksa integritas"
   ],
   "Checking Integrity": [
     "Memeriksa Integritas",
     "正在检查完整性",
     "무결성 검사 중",
-    "整合性を確認中"
+    "整合性を確認中",
+    "Saweg mriksa integritas"
   ],
   "Could not read the installation.": [
     "Gagal membaca instalasi.",
     "无法读取安装信息。",
     "설치 정보를 읽을 수 없습니다.",
-    "インストール情報を読み込めませんでした。"
+    "インストール情報を読み込めませんでした。",
+    "Informasi instalasi boten saged dipunwaos."
   ],
   "Could not reach the server.": [
     "Tidak dapat terhubung ke server.",
     "无法连接服务器。",
     "서버에 연결할 수 없습니다.",
-    "サーバーに接続できませんでした。"
+    "サーバーに接続できませんでした。",
+    "Server boten saged dipunakses."
   ],
   "Install/update failed.": [
     "Instalasi/pembaruan gagal.",
     "安装或更新失败。",
     "설치/업데이트에 실패했습니다.",
-    "インストールまたは更新に失敗しました。"
+    "インストールまたは更新に失敗しました。",
+    "Instalasi/pembaruan boten kasil."
   ],
   "Could not launch the game.": [
     "Gagal menjalankan game.",
     "无法启动游戏。",
     "게임을 실행할 수 없습니다.",
-    "ゲームを起動できませんでした。"
+    "ゲームを起動できませんでした。",
+    "Game boten saged dipunwiwiti."
   ],
   "All files verified OK.": [
     "Semua file berhasil diverifikasi.",
     "所有文件均已通过验证。",
     "모든 파일이 정상입니다.",
-    "すべてのファイルは正常です。"
+    "すべてのファイルは正常です。",
+    "Sedaya berkas sampun kasil dipunverifikasi."
   ],
   "Could not verify the install.": [
     "Gagal memverifikasi instalasi.",
     "无法验证安装文件。",
     "설치 파일을 확인할 수 없습니다.",
-    "インストールを検証できませんでした。"
+    "インストールを検証できませんでした。",
+    "Instalasi boten saged dipunverifikasi."
   ],
   "Repair failed.": [
     "Perbaikan gagal.",
     "修复失败。",
     "복구에 실패했습니다.",
-    "修復に失敗しました。"
+    "修復に失敗しました。",
+    "Dandosan boten kasil."
   ],
   "Download cache cleared.": [
     "Cache unduhan dibersihkan.",
     "下载缓存已清除。",
     "다운로드 캐시를 삭제했습니다.",
-    "ダウンロードキャッシュを削除しました。"
+    "ダウンロードキャッシュを削除しました。",
+    "Cache undhuhan sampun kasil dipunresiki."
   ],
   "Could not clear the download cache.": [
     "Gagal membersihkan cache unduhan.",
     "无法清除下载缓存。",
     "다운로드 캐시를 삭제할 수 없습니다.",
-    "ダウンロードキャッシュを削除できませんでした。"
+    "ダウンロードキャッシュを削除できませんでした。",
+    "Cache undhuhan boten saged dipunresiki."
   ],
   "Desktop shortcuts are not available yet.": [
     "Pintasan desktop belum tersedia.",
     "桌面快捷方式暂不可用。",
     "바탕 화면 바로 가기는 아직 지원되지 않습니다.",
-    "デスクトップショートカットはまだ利用できません。"
+    "デスクトップショートカットはまだ利用できません。",
+    "Pintasan desktop dereng saged dipunginakaken."
   ],
   "Loading…": [
     "Memuat…",
     "正在加载…",
     "불러오는 중…",
-    "読み込み中…"
+    "読み込み中…",
+    "Saweg muat…"
   ],
   "Download": [
     "Unduh",
     "下载",
     "다운로드",
-    "ダウンロード"
+    "ダウンロード",
+    "Undhuh"
   ],
   "Verify / Repair": [
     "Verifikasi / Perbaiki",
     "验证 / 修复",
     "검사 / 복구",
-    "検証 / 修復"
+    "検証 / 修復",
+    "Verifikasi / Dandosi"
   ],
   "Play": [
     "Mainkan",
     "开始游戏",
     "플레이",
-    "プレイ"
+    "プレイ",
+    "Monggo main"
   ],
   "Update": [
     "Perbarui",
     "更新",
     "업데이트",
-    "更新"
+    "更新",
+    "Nganyari"
   ],
   "Paused": [
     "Dijeda",
     "已暂停",
     "일시 정지됨",
-    "一時停止中"
+    "一時停止中",
+    "Saweg dipunendhegaken"
   ],
   "Pause": [
     "Jeda",
     "暂停",
     "일시 정지",
-    "一時停止"
+    "一時停止",
+    "Endhegaken"
   ],
   "Resume": [
     "Lanjutkan",
     "继续",
     "계속",
-    "再開"
+    "再開",
+    "Terusaken"
   ],
   "Working…": [
     "Memproses…",
     "正在处理…",
     "처리 중…",
-    "処理中…"
+    "処理中…",
+    "Saweg dipunproses…"
   ],
   "Community": [
     "Komunitas",
     "社区",
     "커뮤니티",
-    "コミュニティ"
+    "コミュニティ",
+    "Komunitas"
   ],
   "Experimental (macOS)": [
     "Eksperimental (macOS)",
     "实验性功能 (macOS)",
     "실험적 기능 (macOS)",
-    "実験的機能 (macOS)"
+    "実験的機能 (macOS)",
+    "Eksperimental (macOS)"
   ],
   "Game update service unavailable. Play will check your installed files locally.": [
     "Layanan pembaruan game tidak tersedia. Mainkan akan memeriksa file lokal.",
     "游戏更新服务不可用。开始游戏时将检查本地文件。",
     "게임 업데이트 서비스를 사용할 수 없습니다. 플레이 시 로컬 파일을 검사합니다.",
-    "ゲーム更新サービスを利用できません。プレイ時にローカルファイルを確認します。"
+    "ゲーム更新サービスを利用できません。プレイ時にローカルファイルを確認します。",
+    "Layanan nganyari game boten saged dipunginakaken. Nalika dipunmainaken, berkas ingkang sampun kasimpen badhe dipunpriksa sacara lokal."
   ],
   "Verifying installed game files…": [
     "Memverifikasi file game terpasang…",
     "正在验证已安装的游戏文件…",
     "설치된 게임 파일 검사 중…",
-    "インストール済みのゲームファイルを検証中…"
+    "インストール済みのゲームファイルを検証中…",
+    "Saweg verifikasi berkas game ingkang sampun dipuninstal…"
   ],
   "More options": [
     "Opsi lainnya",
     "更多选项",
     "더 많은 옵션",
-    "その他のオプション"
+    "その他のオプション",
+    "Pilihan sanesipun"
   ],
   "Game Settings": [
     "Pengaturan Game",
     "游戏设置",
     "게임 설정",
-    "ゲーム設定"
+    "ゲーム設定",
+    "Pangaturan Game"
   ],
   "Create Desktop Shortcut": [
     "Buat Pintasan Desktop",
     "创建桌面快捷方式",
     "바탕 화면 바로 가기 만들기",
-    "デスクトップショートカットを作成"
+    "デスクトップショートカットを作成",
+    "Damél pintasan desktop"
   ],
   "Check Game Integrity": [
     "Periksa Integritas Game",
     "检查游戏完整性",
     "게임 무결성 검사",
-    "ゲームの整合性を確認"
+    "ゲームの整合性を確認",
+    "Priksa integritas game"
   ],
   "Clear Download Cache": [
     "Bersihkan Cache Unduhan",
     "清除下载缓存",
     "다운로드 캐시 삭제",
-    "ダウンロードキャッシュを削除"
+    "ダウンロードキャッシュを削除",
+    "Resiki cache undhuhan"
   ],
   "Try new graphics renderer in-game (Beta)": [
     "Coba renderer grafis baru dalam game (Beta)",
     "尝试游戏内的新图形渲染器（测试版）",
     "새 게임 그래픽 렌더러 사용 (베타)",
-    "新しいゲーム内グラフィックレンダラーを試す（ベータ）"
+    "新しいゲーム内グラフィックレンダラーを試す（ベータ）",
+    "Cobi renderer grafis enggal wonten ing game (Beta)"
   ],
   "System Notification": [
     "Pemberitahuan Sistem",
     "系统通知",
     "시스템 알림",
-    "システム通知"
+    "システム通知",
+    "Kabar Sistem"
   ],
   "Confirm": [
     "Konfirmasi",
     "确认",
     "확인",
-    "確認"
+    "確認",
+    "Konfirmasi"
   ],
   "Game Install Path": [
     "Lokasi Instalasi Game",
     "游戏安装路径",
     "게임 설치 경로",
-    "ゲームのインストール先"
+    "ゲームのインストール先",
+    "Lokasi Instalasi Game"
   ],
   "Choose a different folder": [
     "Pilih folder lain",
     "选择其他文件夹",
     "다른 폴더 선택",
-    "別のフォルダーを選択"
+    "別のフォルダーを選択",
+    "Pilih folder sanesipun"
   ],
   "Create desktop shortcut": [
     "Buat pintasan desktop",
     "创建桌面快捷方式",
     "바탕 화면 바로 가기 만들기",
-    "デスクトップショートカットを作成"
+    "デスクトップショートカットを作成",
+    "Damél pintasan desktop"
   ],
   "Quick Repair Notice": [
     "Pemberitahuan Perbaikan",
     "快速修复提示",
     "빠른 복구 안내",
-    "クイック修復のお知らせ"
+    "クイック修復のお知らせ",
+    "Pawartos Dandosan Enggal"
   ],
   "Start Checking": [
     "Mulai Pemeriksaan",
     "开始检查",
     "검사 시작",
-    "確認を開始"
+    "確認を開始",
+    "Wiwiti pemeriksaan"
   ],
   "Your game installation will be scanned for missing and corrupted files. This repair process may take some time. Interrupting the process may cause file loss or corruption.": [
     "Instalasi game akan diperiksa untuk mencari file hilang atau rusak. Proses ini mungkin memakan waktu. Menghentikan proses dapat menyebabkan file hilang atau rusak.",
     "将扫描游戏安装目录以查找缺失或损坏的文件。修复可能需要一些时间。中断此过程可能导致文件丢失或损坏。",
     "누락되거나 손상된 게임 파일을 검사합니다. 복구에는 시간이 걸릴 수 있습니다. 작업을 중단하면 파일이 손실되거나 손상될 수 있습니다.",
-    "不足または破損したゲームファイルを確認します。修復には時間がかかる場合があります。中断するとファイルの消失や破損につながる可能性があります。"
+    "不足または破損したゲームファイルを確認します。修復には時間がかかる場合があります。中断するとファイルの消失や破損につながる可能性があります。",
+    "Instalasi game badhe dipunpriksa kanggé manggihaken berkas ingkang ical utawi rusak. Proses dandosan menika saged mbetahaken wekdal. Menawi proses dipunendhegaken, berkas saged ical utawi risak."
   ],
   "Background mode": [
     "Mode latar belakang",
     "背景模式",
     "배경 모드",
-    "背景モード"
+    "背景モード",
+    "Mode latar wingking"
   ],
   "Video background": [
     "Latar belakang video",
     "视频背景",
     "동영상 배경",
-    "動画背景"
+    "動画背景",
+    "Latar wingking video"
   ],
   "No built-in video available": [
     "Video bawaan tidak tersedia",
     "没有可用的内置视频",
     "기본 동영상을 사용할 수 없습니다",
-    "内蔵動画はありません"
+    "内蔵動画はありません",
+    "Video bawaan dereng kasedhiya"
   ],
   "Image background": [
     "Latar belakang gambar",
     "图片背景",
     "이미지 배경",
-    "画像背景"
+    "画像背景",
+    "Latar wingking gambar"
   ],
   "Image / GIF / frame animation": [
     "Gambar / GIF / animasi frame",
     "图片 / GIF / 帧动画",
     "이미지 / GIF / 프레임 애니메이션",
-    "画像 / GIF / フレームアニメーション"
+    "画像 / GIF / フレームアニメーション",
+    "Gambar / GIF / animasi frame"
   ],
   "Notices": [
     "Pengumuman",
     "公告",
     "공지",
-    "お知らせ"
+    "お知らせ",
+    "Pawartos"
   ],
   "Events": [
     "Acara",
     "活动",
     "이벤트",
-    "イベント"
+    "イベント",
+    "Kagiyatan"
   ],
   "News": [
     "Berita",
     "新闻",
     "뉴스",
-    "ニュース"
+    "ニュース",
+    "Warta"
   ],
   "Game news": [
     "Berita game",
     "游戏新闻",
     "게임 소식",
-    "ゲームニュース"
+    "ゲームニュース",
+    "Warta game"
   ],
   "No items in this category.": [
     "Tidak ada konten di kategori ini.",
     "此分类暂无内容。",
     "이 카테고리에 항목이 없습니다.",
-    "このカテゴリーには項目がありません。"
+    "このカテゴリーには項目がありません。",
+    "Boten wonten isi wonten kategori menika."
   ],
   "News category": [
     "Kategori berita",
     "新闻分类",
     "소식 카테고리",
-    "ニュースカテゴリー"
+    "ニュースカテゴリー",
+    "Kategori warta"
   ],
   "Nothing here yet.": [
     "Belum ada konten.",
     "暂无内容。",
     "아직 항목이 없습니다.",
-    "まだ項目がありません。"
+    "まだ項目がありません。",
+    "Dereng wonten isi wonten mriki."
   ],
   "Join our Discord": [
     "Gabung Discord kami",
     "加入我们的 Discord",
     "Discord 참여",
-    "Discord に参加"
+    "Discord に参加",
+    "Mangga gabung Discord kula sedaya"
   ],
   "Manage Games": [
     "Kelola Game",
     "管理游戏",
     "게임 관리",
-    "ゲーム管理"
+    "ゲーム管理",
+    "Atur Game"
   ],
   "Advanced Settings": [
     "Pengaturan Lanjutan",
     "高级设置",
     "고급 설정",
-    "詳細設定"
+    "詳細設定",
+    "Pangaturan Lanjutan"
   ],
   "Launcher Logs": [
     "Log Launcher",
     "启动器日志",
     "런처 로그",
-    "ランチャーログ"
+    "ランチャーログ",
+    "Log Launcher"
   ],
   "About": [
     "Tentang",
     "关于",
     "정보",
-    "このランチャーについて"
+    "このランチャーについて",
+    "Babagan"
   ],
   "ON": [
     "AKTIF",
     "开",
     "켜짐",
-    "オン"
+    "オン",
+    "AKTIF"
   ],
   "OFF": [
     "NONAKTIF",
     "关",
     "꺼짐",
-    "オフ"
+    "オフ",
+    "NONAKTIF"
   ],
   "Installation moved successfully.": [
     "Instalasi berhasil dipindahkan.",
     "安装文件已成功移动。",
     "설치 파일을 이동했습니다.",
-    "インストールファイルを移動しました。"
+    "インストールファイルを移動しました。",
+    "Instalasi sampun kasil dipunpindhahaken."
   ],
   "Could not move the installation.": [
     "Gagal memindahkan instalasi.",
     "无法移动安装文件。",
     "설치 파일을 이동할 수 없습니다.",
-    "インストールファイルを移動できませんでした。"
+    "インストールファイルを移動できませんでした。",
+    "Instalasi boten saged dipunpindhahaken."
   ],
   "Could not select the Sikarugir wrapper.": [
     "Gagal memilih wrapper Sikarugir.",
     "无法选择 Sikarugir 封装应用。",
     "Sikarugir 래퍼를 선택할 수 없습니다.",
-    "Sikarugir ラッパーを選択できませんでした。"
+    "Sikarugir ラッパーを選択できませんでした。",
+    "Wrapper Sikarugir boten saged dipunpilih."
   ],
   "Uninstall failed.": [
     "Penghapusan gagal.",
     "卸载失败。",
     "제거에 실패했습니다.",
-    "アンインストールに失敗しました。"
+    "アンインストールに失敗しました。",
+    "Pangilangan instalasi boten kasil."
   ],
   "Could not re-download DWProton.": [
     "Gagal mengunduh ulang DWProton.",
     "无法重新下载 DWProton。",
     "DWProton을 다시 다운로드할 수 없습니다.",
-    "DWProton を再ダウンロードできませんでした。"
+    "DWProton を再ダウンロードできませんでした。",
+    "DWProton boten saged dipunundhuh malih."
   ],
   "Settings": [
     "Pengaturan",
     "设置",
     "설정",
-    "設定"
+    "設定",
+    "Pangaturan"
   ],
   "Launcher Background": [
     "Latar Belakang Launcher",
     "启动器背景",
     "런처 배경",
-    "ランチャーの背景"
+    "ランチャーの背景",
+    "Latar Wingking Launcher"
   ],
   "Choose an image or animated GIF (max 25 MB). Video mode always uses the built-in background.": [
     "Pilih gambar atau GIF animasi (maks. 25 MB). Mode video selalu memakai latar belakang bawaan.",
     "选择图片或动态 GIF（最大 25 MB）。视频模式始终使用内置背景。",
     "이미지 또는 움직이는 GIF를 선택하세요 (최대 25 MB). 동영상 모드는 항상 기본 배경을 사용합니다.",
-    "画像またはアニメーション GIF を選択してください（最大 25 MB）。動画モードでは常に内蔵の背景を使用します。"
+    "画像またはアニメーション GIF を選択してください（最大 25 MB）。動画モードでは常に内蔵の背景を使用します。",
+    "Pilih gambar utawi GIF animasi (maks. 25 MB). Mode video tansah ngginakaken latar wingking bawaan."
   ],
   "Could not use that background.": [
     "Latar belakang tersebut tidak dapat digunakan.",
     "无法使用此背景。",
     "이 배경을 사용할 수 없습니다.",
-    "この背景は使用できません。"
+    "この背景は使用できません。",
+    "Latar wingking kasebut boten saged dipunginakaken."
   ],
   "Choose image…": [
     "Pilih gambar…",
     "选择图片…",
     "이미지 선택…",
-    "画像を選択…"
+    "画像を選択…",
+    "Pilih gambar…"
   ],
   "Reset to default": [
     "Kembalikan bawaan",
     "恢复默认",
     "기본값으로 재설정",
-    "既定に戻す"
+    "既定に戻す",
+    "Wangsulaken dhateng setelan wiwitan"
   ],
   "Update Settings": [
     "Pengaturan Pembaruan",
     "更新设置",
     "업데이트 설정",
-    "更新設定"
+    "更新設定",
+    "Pangaturan Nganyari"
   ],
   "Update downloaded -- restart to install.": [
     "Pembaruan telah diunduh. Mulai ulang untuk memasang.",
     "更新已下载。请重启以安装。",
     "업데이트를 다운로드했습니다. 다시 시작하여 설치하세요.",
-    "更新をダウンロードしました。再起動してインストールしてください。"
+    "更新をダウンロードしました。再起動してインストールしてください。",
+    "Nganyari sampun kasil dipunundhuh -- mangga wiwiti malih kanggé masang."
   ],
   "Launcher updates are checked manually -- they never auto-download or auto-install.": [
     "Pembaruan launcher diperiksa manual, tanpa mengunduh atau memasang otomatis.",
     "启动器更新需手动检查，不会自动下载或安装。",
     "런처 업데이트는 수동으로 확인하며 자동으로 다운로드하거나 설치하지 않습니다.",
-    "ランチャーの更新は手動で確認し、自動ダウンロードや自動インストールは行いません。"
+    "ランチャーの更新は手動で確認し、自動ダウンロードや自動インストールは行いません。",
+    "Nganyari launcher dipunpriksa kanthi manual -- boten nate dipunundhuh utawi dipuninstal kanthi otomatis."
   ],
   "Checking…": [
     "Memeriksa…",
     "正在检查…",
     "확인 중…",
-    "確認中…"
+    "確認中…",
+    "Saweg mriksa…"
   ],
   "Check for updates": [
     "Periksa pembaruan",
     "检查更新",
     "업데이트 확인",
-    "更新を確認"
+    "更新を確認",
+    "Priksa nganyari"
   ],
   "When Closing Window": [
     "Saat Menutup Jendela",
     "关闭窗口时",
     "창을 닫을 때",
-    "ウィンドウを閉じるとき"
+    "ウィンドウを閉じるとき",
+    "Nalika Nutup Jendhela"
   ],
   "Minimize to tray": [
     "Minimalkan ke tray",
     "最小化到系统托盘",
     "트레이로 최소화",
-    "トレイに最小化"
+    "トレイに最小化",
+    "Minimalaken dhateng tray"
   ],
   "Exit launcher": [
     "Keluar dari launcher",
     "退出启动器",
     "런처 종료",
-    "ランチャーを終了"
+    "ランチャーを終了",
+    "Medal saking launcher"
   ],
   "Troubleshooting": [
     "Pemecahan Masalah",
     "故障排除",
     "문제 해결",
-    "トラブルシューティング"
+    "トラブルシューティング",
+    "Ngatasi Masalah"
   ],
   "Troubleshooting Mode": [
     "Mode Pemecahan Masalah",
     "故障排除模式",
     "문제 해결 모드",
-    "トラブルシューティングモード"
+    "トラブルシューティングモード",
+    "Mode Ngatasi Masalah"
   ],
   "Enable this to generate logs for customer support if you have trouble using the launcher or running the game.": [
     "Aktifkan untuk membuat log bagi tim dukungan jika launcher atau game bermasalah.",
     "如果启动器或游戏出现问题，请启用此选项生成日志以供客服排查。",
     "런처나 게임 실행에 문제가 있으면 지원팀에 전달할 로그를 생성하도록 활성화하세요.",
-    "ランチャーやゲームの起動に問題がある場合、サポート用のログを生成します。"
+    "ランチャーやゲームの起動に問題がある場合、サポート用のログを生成します。",
+    "Aktifaken menika supados log saged dipundamel kanggé tim pitulungan menawi panjenengan nemahi masalah nalika ngginakaken launcher utawi nglampahaken game."
   ],
   "Download Speed Limit": [
     "Batas Kecepatan Unduhan",
     "下载限速",
     "다운로드 속도 제한",
-    "ダウンロード速度制限"
+    "ダウンロード速度制限",
+    "Wates Kacepetan Undhuhan"
   ],
   "No limit": [
     "Tanpa batas",
     "不限速",
     "제한 없음",
-    "制限なし"
+    "制限なし",
+    "Tanpa wates"
   ],
   "Uninstall game": [
     "Hapus game",
     "卸载游戏",
     "게임 제거",
-    "ゲームをアンインストール"
+    "ゲームをアンインストール",
+    "Busak instalasi game"
   ],
   "Not installed": [
     "Belum terpasang",
     "未安装",
     "설치되지 않음",
-    "未インストール"
+    "未インストール",
+    "Dereng dipuninstal"
   ],
   "Not installed yet": [
     "Belum terpasang",
     "尚未安装",
     "아직 설치되지 않음",
-    "まだインストールされていません"
+    "まだインストールされていません",
+    "Dereng dipuninstal"
   ],
   "Select another game folder": [
     "Pilih folder game lain",
     "选择其他游戏文件夹",
     "다른 게임 폴더 선택",
-    "別のゲームフォルダーを選択"
+    "別のゲームフォルダーを選択",
+    "Pilih folder game sanesipun"
   ],
   "Moving installation…": [
     "Memindahkan instalasi…",
     "正在移动安装文件…",
     "설치 파일 이동 중…",
-    "インストールファイルを移動中…"
+    "インストールファイルを移動中…",
+    "Saweg mindhah instalasi…"
   ],
   "Move installation with all files…": [
     "Pindahkan instalasi beserta semua file…",
     "移动安装目录及所有文件…",
     "모든 설치 파일 이동…",
-    "すべてのインストールファイルを移動…"
+    "すべてのインストールファイルを移動…",
+    "Pindhah instalasi sesarengan kaliyan sedaya berkas…"
   ],
   "To move this game, choose an empty destination folder. All files move with it.": [
     "Pilih folder tujuan kosong untuk memindahkan game beserta semua filenya.",
     "请选择一个空的目标文件夹，所有游戏文件将一并移动。",
     "게임을 이동하려면 비어 있는 대상 폴더를 선택하세요. 모든 파일이 함께 이동됩니다.",
-    "空の移動先フォルダーを選択してください。すべてのゲームファイルが移動されます。"
+    "空の移動先フォルダーを選択してください。すべてのゲームファイルが移動されます。",
+    "Kanggé mindhah game menika, pilih folder tujuan ingkang taksih kosong. Sedaya berkas badhe tumut dipunpindhahaken."
   ],
   "Copying files…": [
     "Menyalin file…",
     "正在复制文件…",
     "파일 복사 중…",
-    "ファイルをコピー中…"
+    "ファイルをコピー中…",
+    "Saweg nyalin berkas…"
   ],
   "Moving files…": [
     "Memindahkan file…",
     "正在移动文件…",
     "파일 이동 중…",
-    "ファイルを移動中…"
+    "ファイルを移動中…",
+    "Saweg mindhah berkas…"
   ],
   "Open file directory": [
     "Buka folder file",
     "打开文件目录",
     "파일 폴더 열기",
-    "ファイルのフォルダーを開く"
+    "ファイルのフォルダーを開く",
+    "Bukak direktori berkas"
   ],
   "Game Launch Options": [
     "Opsi Peluncuran Game",
     "游戏启动选项",
     "게임 실행 옵션",
-    "ゲームの起動オプション"
+    "ゲームの起動オプション",
+    "Pilihan Peluncuran Game"
   ],
   "Language": [
     "Bahasa Game",
     "游戏语言",
     "게임 언어",
-    "ゲームの言語"
+    "ゲームの言語",
+    "Basa"
   ],
   "Use classic UI inside the game": [
     "Gunakan UI klasik dalam game",
     "使用经典游戏界面",
     "클래식 게임 UI 사용",
-    "ゲーム内でクラシック UI を使用"
+    "ゲーム内でクラシック UI を使用",
+    "Ginakaken UI klasik wonten ing game"
   ],
   "Switches the in-game interface to the classic layout.": [
     "Mengubah antarmuka game ke tampilan klasik.",
     "将游戏界面切换为经典布局。",
     "게임 인터페이스를 클래식 레이아웃으로 전환합니다.",
-    "ゲーム内のインターフェースをクラシックレイアウトに切り替えます。"
+    "ゲーム内のインターフェースをクラシックレイアウトに切り替えます。",
+    "Nggantos antarmuka wonten ing game dados tata letak klasik."
   ],
   "Try new graphics renderer in-game": [
     "Coba renderer grafis baru dalam game",
     "尝试新的游戏图形渲染器",
     "새 게임 그래픽 렌더러 사용",
-    "新しいゲーム内グラフィックレンダラーを試す"
+    "新しいゲーム内グラフィックレンダラーを試す",
+    "Cobi renderer grafis enggal wonten ing game"
   ],
   "Beta": [
     "Beta",
     "测试版",
     "베타",
-    "ベータ"
+    "ベータ",
+    "Beta"
   ],
   "Experimental in-game renderer. Switch back if the game has issues launching.": [
     "Renderer game eksperimental. Nonaktifkan jika game gagal dijalankan.",
     "实验性游戏渲染器。如果游戏启动异常，请切回。",
     "실험적인 게임 렌더러입니다. 게임 실행에 문제가 있으면 원래 설정으로 되돌리세요.",
-    "実験的なゲームレンダラーです。起動に問題がある場合は元に戻してください。"
+    "実験的なゲームレンダラーです。起動に問題がある場合は元に戻してください。",
+    "Renderer game menika taksih eksperimental. Mangga wangsulaken setelan menawi game nemahi masalah nalika dipunwiwiti."
   ],
   "Verify / Repair Files": [
     "Verifikasi / Perbaiki File",
     "验证 / 修复文件",
     "파일 검사 / 복구",
-    "ファイルの検証 / 修復"
+    "ファイルの検証 / 修復",
+    "Verifikasi / Dandosi Berkas"
   ],
   "Verifying…": [
     "Memverifikasi…",
     "正在验证…",
     "검사 중…",
-    "検証中…"
+    "検証中…",
+    "Saweg verifikasi…"
   ],
   "Repairing…": [
     "Memperbaiki…",
     "正在修复…",
     "복구 중…",
-    "修復中…"
+    "修復中…",
+    "Saweg ndandosi…"
   ],
   "Repair complete.": [
     "Perbaikan selesai.",
     "修复完成。",
     "복구가 완료되었습니다.",
-    "修復が完了しました。"
+    "修復が完了しました。",
+    "Dandosan sampun rampung."
   ],
   "Not installed yet -- installs automatically on first Play.": [
     "Belum terpasang. Dipasang otomatis saat pertama kali Mainkan.",
     "尚未安装，将在首次开始游戏时自动安装。",
     "아직 설치되지 않았습니다. 처음 플레이할 때 자동으로 설치됩니다.",
-    "未インストールです。初回プレイ時に自動でインストールします。"
+    "未インストールです。初回プレイ時に自動でインストールします。",
+    "Dereng dipuninstal -- badhe dipuninstal kanthi otomatis nalika sepisanan dipunmainaken."
   ],
   "Re-downloading…": [
     "Mengunduh ulang…",
     "正在重新下载…",
     "다시 다운로드 중…",
-    "再ダウンロード中…"
+    "再ダウンロード中…",
+    "Saweg ngundhuh malih…"
   ],
   "Re-download DWProton": [
     "Unduh Ulang DWProton",
     "重新下载 DWProton",
     "DWProton 다시 다운로드",
-    "DWProton を再ダウンロード"
+    "DWProton を再ダウンロード",
+    "Undhuh DWProton malih"
   ],
   "Downloading…": [
     "Mengunduh…",
     "正在下载…",
     "다운로드 중…",
-    "ダウンロード中…"
+    "ダウンロード中…",
+    "Saweg ngundhuh…"
   ],
   "Create a game wrapper in Sikarugir Creator, initialize its Wine engine, then select the wrapper .app below.": [
     "Buat wrapper game di Sikarugir Creator, inisialisasi mesin Wine-nya, lalu pilih wrapper .app di bawah.",
     "在 Sikarugir Creator 中创建游戏封装应用，初始化 Wine 引擎，然后在下方选择该 .app。",
     "Sikarugir Creator에서 게임 래퍼를 만들고 Wine 엔진을 초기화한 다음 아래에서 .app 래퍼를 선택하세요.",
-    "Sikarugir Creator でゲームラッパーを作成し、Wine エンジンを初期化してから、以下で .app を選択してください。"
+    "Sikarugir Creator でゲームラッパーを作成し、Wine エンジンを初期化してから、以下で .app を選択してください。",
+    "Damél wrapper game wonten ing Sikarugir Creator, wiwiti mesin Wine-nipun, lajeng pilih wrapper .app wonten ing ngandhap."
   ],
   "Selecting…": [
     "Memilih…",
     "正在选择…",
     "선택 중…",
-    "選択中…"
+    "選択中…",
+    "Saweg milih…"
   ],
   "Select Sikarugir wrapper": [
     "Pilih wrapper Sikarugir",
     "选择 Sikarugir 封装应用",
     "Sikarugir 래퍼 선택",
-    "Sikarugir ラッパーを選択"
+    "Sikarugir ラッパーを選択",
+    "Pilih wrapper Sikarugir"
   ],
   "macOS 14.6 or later. Apple Silicon requires Rosetta 2.": [
     "macOS 14.6 atau lebih baru. Apple Silicon memerlukan Rosetta 2.",
     "需要 macOS 14.6 或更高版本。Apple Silicon 需要 Rosetta 2。",
     "macOS 14.6 이상이 필요합니다. Apple Silicon에는 Rosetta 2가 필요합니다.",
-    "macOS 14.6 以降が必要です。Apple Silicon では Rosetta 2 が必要です。"
+    "macOS 14.6 以降が必要です。Apple Silicon では Rosetta 2 が必要です。",
+    "Mbetahaken macOS 14.6 utawi ingkang langkung enggal. Apple Silicon mbetahaken Rosetta 2."
   ],
   "Sikarugir installation guide": [
     "Panduan instalasi Sikarugir",
     "Sikarugir 安装指南",
     "Sikarugir 설치 안내",
-    "Sikarugir インストールガイド"
+    "Sikarugir インストールガイド",
+    "Pandhuan instalasi Sikarugir"
   ],
   "Launch Command": [
     "Perintah Peluncuran",
     "启动命令",
     "실행 명령",
-    "起動コマンド"
+    "起動コマンド",
+    "Prentah Peluncuran"
   ],
   "Game arguments, or a wrapper using %command%": [
     "Argumen game, atau wrapper menggunakan %command%",
     "游戏参数，或使用 %command% 的包装命令",
     "게임 인수 또는 %command%를 사용하는 래퍼 명령",
-    "ゲームの引数、または %command% を使うラッパー"
+    "ゲームの引数、または %command% を使うラッパー",
+    "Argumen game, utawi wrapper ingkang ngginakaken %command%"
   ],
   "Log Information": [
     "Informasi Log",
     "日志信息",
     "로그 정보",
-    "ログ情報"
+    "ログ情報",
+    "Informasi Log"
   ],
   "View Launcher Logs": [
     "Lihat Log Launcher",
     "查看启动器日志",
     "런처 로그 보기",
-    "ランチャーログを表示"
+    "ランチャーログを表示",
+    "Deleng Log Launcher"
   ],
   "Launcher Version": [
     "Versi Launcher",
     "启动器版本",
     "런처 버전",
-    "ランチャーのバージョン"
+    "ランチャーのバージョン",
+    "Versi Launcher"
   ],
   "Update available: v{version}": [
     "Pembaruan tersedia: v{version}",
     "有可用更新：v{version}",
     "업데이트 사용 가능: v{version}",
-    "更新があります：v{version}"
+    "更新があります：v{version}",
+    "Nganyari kasedhiya: v{version}"
   ],
   "Check failed: {error}": [
     "Pemeriksaan gagal: {error}",
     "检查失败：{error}",
     "확인 실패: {error}",
-    "確認失敗：{error}"
+    "確認失敗：{error}",
+    "Pemeriksaan boten kasil: {error}"
   ],
   "Game Version: {version}": [
     "Versi Game: {version}",
     "游戏版本：{version}",
     "게임 버전: {version}",
-    "ゲームのバージョン：{version}"
+    "ゲームのバージョン：{version}",
+    "Versi Game: {version}"
   ],
   "Verifying copied files: {processed} / {total}": [
     "Memverifikasi salinan file: {processed} / {total}",
     "正在验证已复制的文件：{processed} / {total}",
     "복사된 파일 검사 중: {processed} / {total}",
-    "コピーしたファイルを検証中：{processed} / {total}"
+    "コピーしたファイルを検証中：{processed} / {total}",
+    "Saweg verifikasi berkas ingkang dipunsalin: {processed} / {total}"
   ],
   "{corrupt} file(s) corrupt, {missing} file(s) missing.": [
     "{corrupt} file rusak, {missing} file hilang.",
     "{corrupt} 个文件损坏，{missing} 个文件缺失。",
     "손상된 파일 {corrupt}개, 누락된 파일 {missing}개.",
-    "破損ファイル {corrupt} 個、不足ファイル {missing} 個。"
+    "破損ファイル {corrupt} 個、不足ファイル {missing} 個。",
+    "Berkas rusak: {corrupt}, berkas ical: {missing}."
   ],
   "DWProton {version} installed.": [
     "DWProton {version} terpasang.",
     "已安装 DWProton {version}。",
     "DWProton {version} 설치됨.",
-    "DWProton {version} がインストールされています。"
+    "DWProton {version} がインストールされています。",
+    "DWProton {version} sampun dipuninstal."
   ],
   "Sikarugir wrapper selected: {path}.": [
     "Wrapper Sikarugir dipilih: {path}.",
     "已选择 Sikarugir 封装应用：{path}。",
     "선택한 Sikarugir 래퍼: {path}.",
-    "選択した Sikarugir ラッパー：{path}。"
+    "選択した Sikarugir ラッパー：{path}。",
+    "Wrapper Sikarugir ingkang kapilih: {path}."
   ],
   "Uninstall Launcher": [
     "Hapus Launcher",
     "卸载启动器",
     "런처 제거",
-    "ランチャーをアンインストール"
+    "ランチャーをアンインストール",
+    "Busak instalasi Launcher"
   ],
   "Uninstall Tia Launcher": [
     "Hapus Tia Launcher",
     "卸载 Tia Launcher",
     "Tia Launcher 제거",
-    "Tia Launcher をアンインストール"
+    "Tia Launcher をアンインストール",
+    "Busak instalasi Tia Launcher"
   ],
   "Removes the launcher only. Game files stay where they are -- use \"Uninstall game\" in Manage Games first if you want those gone too.": [
     "Hanya menghapus launcher. File game tetap ada. Gunakan \"Hapus game\" di Kelola Game terlebih dahulu jika ingin menghapusnya juga.",
     "仅卸载启动器，游戏文件将保留。如需同时删除游戏文件，请先在管理游戏中选择“卸载游戏”。",
     "런처만 제거합니다. 게임 파일도 삭제하려면 먼저 게임 관리에서 \"게임 제거\"를 사용하세요.",
-    "ランチャーのみを削除します。ゲームファイルも削除する場合は、先にゲーム管理の「ゲームをアンインストール」を使用してください。"
+    "ランチャーのみを削除します。ゲームファイルも削除する場合は、先にゲーム管理の「ゲームをアンインストール」を使用してください。",
+    "Namung launcher ingkang dipunbusak. Berkas game tetep wonten ing papanipun -- menawi panjenengan ugi badhe mbusak berkas game, mangga ngginakaken \"Busak instalasi game\" wonten ing menu \"Atur Game\" rumiyin."
   ],
   "Launcher Log": [
     "Log Launcher",
     "启动器日志",
     "런처 로그",
-    "ランチャーログ"
+    "ランチャーログ",
+    "Log Launcher"
   ],
   "View": [
     "Lihat",
     "查看",
     "보기",
-    "表示"
+    "表示",
+    "Deleng"
   ],
   "Submit Logs (Login Required)": [
     "Kirim Log (Perlu Login)",
     "提交日志（需登录）",
     "로그 제출 (로그인 필요)",
-    "ログを送信（ログインが必要）"
+    "ログを送信（ログインが必要）",
+    "Kirim Log (Mbetahaken Login)"
   ],
   "Launcher Service Agreements": [
     "Perjanjian Layanan Launcher",
     "启动器服务协议",
     "런처 서비스 약관",
-    "ランチャーのサービス規約"
+    "ランチャーのサービス規約",
+    "Prasetya Layanan Launcher"
   ],
   "Game Launcher Terms of Service": [
     "Ketentuan Layanan Launcher",
     "游戏启动器服务条款",
     "게임 런처 서비스 이용약관",
-    "ゲームランチャー利用規約"
+    "ゲームランチャー利用規約",
+    "Katemtuan Layanan Game Launcher"
   ],
   "Not yet available -- this launcher doesn't have a published Terms of Service yet.": [
     "Belum tersedia. Ketentuan layanan launcher belum diterbitkan.",
     "暂不可用。此启动器尚未发布服务条款。",
     "아직 제공되지 않습니다. 런처 서비스 이용약관이 아직 게시되지 않았습니다.",
-    "まだ利用できません。このランチャーの利用規約はまだ公開されていません。"
+    "まだ利用できません。このランチャーの利用規約はまだ公開されていません。",
+    "Dereng kasedhiya -- katemtuan layanan launcher menika dereng dipunterbitaken."
   ],
   "Game Launcher Privacy Policy": [
     "Kebijakan Privasi Launcher",
     "游戏启动器隐私政策",
     "게임 런처 개인정보 처리방침",
-    "ゲームランチャープライバシーポリシー"
+    "ゲームランチャープライバシーポリシー",
+    "Kawicaksanan Privasi Game Launcher"
   ],
   "Not yet available -- this launcher doesn't have a published Privacy Policy yet.": [
     "Belum tersedia. Kebijakan privasi launcher belum diterbitkan.",
     "暂不可用。此启动器尚未发布隐私政策。",
     "아직 제공되지 않습니다. 런처 개인정보 처리방침이 아직 게시되지 않았습니다.",
-    "まだ利用できません。このランチャーのプライバシーポリシーはまだ公開されていません。"
+    "まだ利用できません。このランチャーのプライバシーポリシーはまだ公開されていません。",
+    "Dereng kasedhiya -- kawicaksanan privasi launcher menika dereng dipunterbitaken."
   ],
   "Launcher data:": [
     "Data launcher:",
     "启动器数据：",
     "런처 데이터:",
-    "ランチャーデータ："
+    "ランチャーデータ：",
+    "Data launcher:"
   ],
   "Uninstall": [
     "Hapus",
     "卸载",
     "제거",
-    "アンインストール"
+    "アンインストール",
+    "Busak instalasi"
   ],
   "Starting uninstall… Approve the administrator prompt if shown.": [
     "Memulai penghapusan… Setujui permintaan administrator jika muncul.",
     "正在开始卸载…如出现管理员提示，请批准。",
     "제거 시작 중…관리자 권한 요청이 표시되면 승인하세요.",
-    "アンインストールを開始中…管理者権限の確認が表示された場合は許可してください。"
+    "アンインストールを開始中…管理者権限の確認が表示された場合は許可してください。",
+    "Saweg miwiti pambusakan instalasi… Mangga sarujukaken panyuwunan administrator menawi medal."
   ],
   "Could not uninstall the launcher.": [
     "Gagal menghapus launcher.",
     "无法卸载启动器。",
     "런처를 제거할 수 없습니다.",
-    "ランチャーをアンインストールできませんでした。"
+    "ランチャーをアンインストールできませんでした。",
+    "Launcher boten saged dipunbusak instalasinipun."
   ],
   "Are you sure you want to uninstall Tia Launcher? The game files are not removed.": [
     "Yakin ingin menghapus Tia Launcher? File game tidak akan dihapus.",
     "确定要卸载 Tia Launcher 吗？游戏文件不会被删除。",
     "Tia Launcher를 제거하시겠습니까? 게임 파일은 삭제되지 않습니다.",
-    "Tia Launcher をアンインストールしますか？ゲームファイルは削除されません。"
+    "Tia Launcher をアンインストールしますか？ゲームファイルは削除されません。",
+    "Menapa panjenengan yakin badhe mbusak instalasi Tia Launcher? Berkas game boten badhe dipunbusak."
   ],
   "Also delete launcher settings and logs": [
     "Hapus juga pengaturan dan log launcher",
     "同时删除启动器设置和日志",
     "런처 설정 및 로그도 삭제",
-    "ランチャーの設定とログも削除する"
+    "ランチャーの設定とログも削除する",
+    "Busak ugi pangaturan lan log launcher"
   ],
   "We're sorry to see you go! Are you sure you want to uninstall the game?": [
     "Yakin ingin menghapus game?",
     "确定要卸载游戏吗？",
     "게임을 제거하시겠습니까?",
-    "ゲームをアンインストールしますか？"
+    "ゲームをアンインストールしますか？",
+    "Sayang sanget menawi panjenengan badhe medal. Menapa panjenengan yakin badhe mbusak instalasi game?"
   ],
   "Cancel": [
     "Batal",
     "取消",
     "취소",
-    "キャンセル"
+    "キャンセル",
+    "Batal"
   ],
   "Could not restart to install the update.": [
     "Gagal memulai ulang untuk memasang pembaruan.",
     "无法重启以安装更新。",
     "업데이트 설치를 위해 다시 시작할 수 없습니다.",
-    "更新をインストールするために再起動できませんでした。"
+    "更新をインストールするために再起動できませんでした。",
+    "Boten saged miwiti malih kanggé masang nganyari."
   ],
   "Could not download the update.": [
     "Gagal mengunduh pembaruan.",
     "无法下载更新。",
     "업데이트를 다운로드할 수 없습니다.",
-    "更新をダウンロードできませんでした。"
+    "更新をダウンロードできませんでした。",
+    "Nganyari boten saged dipunundhuh."
   ],
   "Launcher update service unavailable. You can still play installed games.": [
     "Layanan pembaruan launcher tidak tersedia. Game terpasang tetap dapat dimainkan.",
     "启动器更新服务不可用。仍可游玩已安装的游戏。",
     "런처 업데이트 서비스를 사용할 수 없습니다. 설치된 게임은 계속 플레이할 수 있습니다.",
-    "ランチャー更新サービスを利用できません。インストール済みのゲームはプレイできます。"
+    "ランチャー更新サービスを利用できません。インストール済みのゲームはプレイできます。",
+    "Layanan nganyari launcher boten kasedhiya. Panjenengan taksih saged main game ingkang sampun dipuninstal."
   ],
   "Launcher version check": [
     "Pemeriksaan versi launcher",
     "启动器版本检查",
     "런처 버전 확인",
-    "ランチャーバージョンの確認"
+    "ランチャーバージョンの確認",
+    "Pemeriksaan versi launcher"
   ],
   "Version check failed": [
     "Pemeriksaan versi gagal",
     "版本检查失败",
     "버전 확인 실패",
-    "バージョンの確認に失敗しました"
+    "バージョンの確認に失敗しました",
+    "Pemeriksaan versi boten kasil"
   ],
   "Checking launcher version…": [
     "Memeriksa versi launcher…",
     "正在检查启动器版本…",
     "런처 버전 확인 중…",
-    "ランチャーのバージョンを確認中…"
+    "ランチャーのバージョンを確認中…",
+    "Saweg mriksa versi launcher…"
   ],
   "If the update service is unavailable, installed games remain playable.": [
     "Game terpasang tetap dapat dimainkan saat layanan pembaruan tidak tersedia.",
     "如果更新服务不可用，仍可游玩已安装的游戏。",
     "업데이트 서비스를 사용할 수 없어도 설치된 게임은 플레이할 수 있습니다.",
-    "更新サービスを利用できない場合でも、インストール済みのゲームはプレイできます。"
+    "更新サービスを利用できない場合でも、インストール済みのゲームはプレイできます。",
+    "Menawi layanan nganyari boten kasedhiya, game ingkang sampun dipuninstal taksih saged dipunmainaken."
   ],
   "Retry check": [
     "Ulangi pemeriksaan",
     "重新检查",
     "다시 확인",
-    "再確認"
+    "再確認",
+    "Baleni pemeriksaan"
   ],
   "Close launcher": [
     "Tutup launcher",
     "关闭启动器",
     "런처 닫기",
-    "ランチャーを閉じる"
+    "ランチャーを閉じる",
+    "Nutup launcher"
   ],
   "Launcher update required": [
     "Pembaruan launcher diperlukan",
     "需要更新启动器",
     "런처 업데이트 필요",
-    "ランチャーの更新が必要です"
+    "ランチャーの更新が必要です",
+    "Launcher kedah dipunanyaraken"
   ],
   "A new launcher version ({version}) is available.": [
     "Versi launcher baru ({version}) tersedia.",
     "有新的启动器版本（{version}）可用。",
     "새 런처 버전 ({version})을 사용할 수 있습니다.",
-    "新しいランチャーバージョン（{version}）があります。"
+    "新しいランチャーバージョン（{version}）があります。",
+    "Versi launcher enggal ({version}) sampun kasedhiya."
   ],
   "Preparing update…": [
     "Menyiapkan pembaruan…",
     "正在准备更新…",
     "업데이트 준비 중…",
-    "更新を準備中…"
+    "更新を準備中…",
+    "Saweg nyawisaken nganyari…"
   ],
   "Downloading… {percent}%": [
     "Mengunduh… {percent}%",
     "正在下载… {percent}%",
     "다운로드 중… {percent}%",
-    "ダウンロード中… {percent}%"
+    "ダウンロード中… {percent}%",
+    "Saweg ngundhuh… {percent}%"
   ],
   "Waiting for the network or processing local update files…": [
     "Menunggu jaringan atau memproses file pembaruan lokal…",
     "正在等待网络或处理本地更新文件…",
     "네트워크 대기 또는 로컬 업데이트 파일 처리 중…",
-    "ネットワークを待機中、またはローカル更新ファイルを処理中…"
+    "ネットワークを待機中、またはローカル更新ファイルを処理中…",
+    "Saweg ngentosi jaringan utawi ngolah berkas nganyari lokal…"
   ],
   "Retry download": [
     "Ulangi unduhan",
     "重新下载",
     "다운로드 다시 시도",
-    "ダウンロードを再試行"
+    "ダウンロードを再試行",
+    "Baleni undhuhan"
   ],
   "Update now": [
     "Perbarui sekarang",
     "立即更新",
     "지금 업데이트",
-    "今すぐ更新"
+    "今すぐ更新",
+    "Nganyari samenika"
   ],
   "Update downloaded.": [
     "Pembaruan telah diunduh.",
     "更新已下载。",
     "업데이트를 다운로드했습니다.",
-    "更新をダウンロードしました。"
+    "更新をダウンロードしました。",
+    "Nganyari sampun kasil dipunundhuh."
   ],
   "Restart & install": [
     "Mulai ulang & pasang",
     "重启并安装",
     "다시 시작 및 설치",
-    "再起動してインストール"
+    "再起動してインストール",
+    "Wiwiti malih & pasang"
   ],
   "({processed} / {total} files)": [
     "({processed} / {total} file)",
     "（{processed} / {total} 个文件）",
     "({processed} / {total} 파일)",
-    "（{processed} / {total} ファイル）"
+    "（{processed} / {total} ファイル）",
+    "({processed} / {total} berkas)"
   ],
   "Developer Settings": [
     "Pengaturan Developer",
     "开发者设置",
     "개발자 설정",
-    "開発者設定"
+    "開発者設定",
+    "Pangaturan Developer"
   ],
   "Skip API and integrity checks": [
     "Lewati pemeriksaan API dan integritas",
     "跳过 API 和完整性检查",
     "API 및 무결성 검사 건너뛰기",
-    "API と整合性の確認をスキップ"
+    "API と整合性の確認をスキップ",
+    "Langkungi pemeriksaan API lan integritas"
   ],
   "Developer Options": [
     "Opsi Developer",
     "开发者选项",
     "개발자 옵션",
-    "開発者オプション"
+    "開発者オプション",
+    "Pilihan Developer"
   ],
   "Check game API / integrity before Play": [
     "Periksa API / integritas game sebelum Mainkan",
     "开始游戏前检查 API / 完整性",
     "플레이 전 게임 API / 무결성 검사",
-    "プレイ前にゲーム API / 整合性を確認"
+    "プレイ前にゲーム API / 整合性を確認",
+    "Priksa API / integritas game sadèrèngipun dipunmainaken"
   ],
   "OFF launches the selected local client without game version or integrity checks. Language and Launch Command stay the same. Checks start OFF each time this dev launcher opens.": [
     "Saat NONAKTIF, klien lokal dijalankan tanpa memeriksa versi atau integritas game. Bahasa dan Perintah Peluncuran tetap sama. Pemeriksaan selalu NONAKTIF saat launcher dev dibuka.",
     "关闭时将直接启动所选本地客户端，不检查游戏版本或完整性。语言和启动命令保持不变。每次打开开发版启动器时，检查默认关闭。",
     "꺼짐 상태에서는 게임 버전이나 무결성 검사 없이 로컬 클라이언트를 실행합니다. 언어 및 실행 명령은 유지됩니다. 개발용 런처를 열 때마다 검사는 꺼진 상태로 시작합니다.",
-    "オフにすると、バージョンや整合性を確認せずに選択したローカルクライアントを起動します。言語と起動コマンドは変わりません。開発版ランチャーの起動時は毎回オフになります。"
+    "オフにすると、バージョンや整合性を確認せずに選択したローカルクライアントを起動します。言語と起動コマンドは変わりません。開発版ランチャーの起動時は毎回オフになります。",
+    "Menawi NONAKTIF, klien lokal ingkang kapilih badhe dipunwiwiti tanpa mriksa versi utawi integritas game. Basa lan Prentah Peluncuran tetep sami. Pemeriksaan tansah NONAKTIF saben launcher pangembangan menika dipunbikak."
   ],
   "Could not load developer settings.": [
     "Gagal memuat pengaturan developer.",
     "无法加载开发者设置。",
     "개발자 설정을 불러올 수 없습니다.",
-    "開発者設定を読み込めませんでした。"
+    "開発者設定を読み込めませんでした。",
+    "Pangaturan developer boten saged dipunmuat."
   ],
   "Developer builds are installed manually. Production auto-updates are disabled.": [
     "Build developer dipasang manual. Pembaruan otomatis versi produksi dinonaktifkan.",
     "开发版需手动安装，已禁用正式版的自动更新。",
     "개발용 빌드는 수동으로 설치합니다. 정식 버전 자동 업데이트는 비활성화되어 있습니다.",
-    "開発版は手動でインストールします。製品版への自動更新は無効です。"
+    "開発版は手動でインストールします。製品版への自動更新は無効です。",
+    "Build developer dipuninstal kanthi manual. Nganyari otomatis versi produksi dipunpateni."
   ]
 }
