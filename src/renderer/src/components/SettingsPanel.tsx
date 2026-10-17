@@ -843,6 +843,13 @@ export function SettingsPanel({
                 <Row label={t("Submit Logs (Login Required)")} disabled />
               </SectionCard>
 
+              <SectionCard title={t('Translation Credits')}>
+                <dl className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
+                  <dt>Bahasa Jawa</dt>
+                  <dd className="text-white/70">@Rafael-Andromeda</dd>
+                </dl>
+              </SectionCard>
+
               <SectionCard title={t("Launcher Service Agreements")}>
                 <div>
                   <Row

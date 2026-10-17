@@ -6,16 +6,16 @@ import { translate } from '../../src/renderer/src/i18n'
 afterEach(() => vi.unstubAllGlobals())
 
 describe('launcher translations', () => {
-  it('provides every translated message in all four additional languages without losing placeholders', () => {
+  it('provides every translated message in all additional languages without losing placeholders', () => {
     const placeholders = (value: string): string[] => [...value.matchAll(/\{\w+\}/g)].map(match => match[0]).sort()
     for (const [english, translations] of Object.entries(messages)) {
-      expect(translations, english).toHaveLength(4)
+      expect(translations, english).toHaveLength(LAUNCHER_LANGUAGES.length - 1)
       for (const translation of translations) {
         expect(translation.trim(), english).not.toBe('')
         expect(placeholders(translation), english).toEqual(placeholders(english))
       }
     }
-    expect(LAUNCHER_LANGUAGES.map(language => language.code)).toEqual(['en', 'id', 'zh-CN', 'ko', 'ja'])
+    expect(LAUNCHER_LANGUAGES.map(language => language.code)).toEqual(['en', 'id', 'zh-CN', 'ko', 'ja', 'jv'])
   })
 
   it('translates progress with values and preserves server text and unknown placeholders', () => {
@@ -23,6 +23,8 @@ describe('launcher translations', () => {
     expect(translate('Game Version: {version}', 'zh-CN', { version: '1.2.3' })).toBe('游戏版本：1.2.3')
     expect(translate('Play', 'ko')).toBe('플레이')
     expect(translate('Play', 'id')).toBe('Mainkan')
+    expect(translate('Play', 'jv')).toBe("Monggo main")
+    expect(translate('Launcher Language', 'jv')).toBe('Bahasa Jawa')
     expect(translate('Game Version: {version}', 'en')).toBe('Game Version: {version}')
     expect(translate('Server news title', 'id')).toBe('Server news title')
   })
