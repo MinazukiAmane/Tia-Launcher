@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import heroBackground from '../assets/hero-background.png'
 import { migrateLegacyPreferences } from '../persistence'
@@ -90,11 +91,11 @@ export function LauncherBackground({ customUrl, inactive }: { customUrl: string 
     {animatedFrames && <FrameAnimation active={active} />}
     {playVideo && <video ref={video} className="background-media" style={{ objectPosition: 'left center' }} src={videoUrl} muted loop playsInline preload="metadata" onError={() => setFailedVideo(videoUrl)} aria-hidden="true" />}
     <div className="background-switcher-zone" hidden={inactive}>
-      <div className="background-switcher" role="group" aria-label="Background mode">
-        <button type="button" aria-label="Video background" aria-pressed={mode === 'video'} disabled={!videoUrl} title={videoUrl ? 'Video background' : 'No built-in video available'} onClick={() => select('video')}>
+      <div className="background-switcher" role="group" aria-label={t("Background mode")}>
+        <button type="button" aria-label={t("Video background")} aria-pressed={mode === 'video'} disabled={!videoUrl} title={videoUrl ? t("Video background") : t("No built-in video available")} onClick={() => select('video')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>
         </button>
-        <button type="button" aria-label="Image background" aria-pressed={mode === 'image'} title="Image / GIF / frame animation" onClick={() => select('image')}>
+        <button type="button" aria-label={t("Image background")} aria-pressed={mode === 'image'} title={t("Image / GIF / frame animation")} onClick={() => select('image')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="1"/><path d="m5 18 5-5 3 3 3-4 4 6"/></svg>
         </button>
       </div>

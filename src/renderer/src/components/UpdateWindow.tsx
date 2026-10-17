@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useEffect, useState } from 'react'
 
 export function UpdateWindow(): React.JSX.Element | null {
@@ -16,7 +17,7 @@ export function UpdateWindow(): React.JSX.Element | null {
     try {
       await window.csore.quitAndInstallUpdate()
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Could not restart to install the update.')
+      setErrorMessage(err instanceof Error ? err.message : t("Could not restart to install the update."))
     }
   }
 
@@ -29,7 +30,7 @@ export function UpdateWindow(): React.JSX.Element | null {
     try {
       await window.csore.startUpdateDownload(retry)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Could not download the update.')
+      setErrorMessage(error instanceof Error ? error.message : t("Could not download the update."))
       setDownloading(false)
       setProgress(null)
       setDetail(null)
@@ -89,39 +90,39 @@ export function UpdateWindow(): React.JSX.Element | null {
   if (versionStatus === 'current' && !available) return null
   if (versionStatus === 'failed' && !available) return (
     <div role="status" className="service-status">
-      <span>Launcher update service unavailable. You can still play installed games.</span>
-      <button type="button" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>Retry</button>
+      <span>{t("Launcher update service unavailable. You can still play installed games.")}</span>
+      <button type="button" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>{t("Retry")}</button>
     </div>
   )
 
   if (!available) return (
-    <div role="dialog" aria-modal="true" aria-label="Launcher version check" className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950 text-white">
+    <div role="dialog" aria-modal="true" aria-label={t("Launcher version check")} className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950 text-white">
       <div className="w-96 rounded-lg border border-white/10 bg-zinc-900 p-6">
-        <p className="text-lg font-semibold">{versionStatus === 'failed' ? 'Version check failed' : 'Checking launcher version…'}</p>
-        <p className="mt-2 text-sm text-white/60">If the update service is unavailable, installed games remain playable.</p>
+        <p className="text-lg font-semibold">{versionStatus === 'failed' ? t("Version check failed") : t("Checking launcher version…")}</p>
+        <p className="mt-2 text-sm text-white/60">{t("If the update service is unavailable, installed games remain playable.")}</p>
         {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
-        {versionStatus === 'failed' && <button type="button" className="mt-4 rounded bg-yellow-400 px-3 py-2 text-black" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>Retry check</button>}
-        <button type="button" className="ml-3 mt-4 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>Close launcher</button>
+        {versionStatus === 'failed' && <button type="button" className="mt-4 rounded bg-yellow-400 px-3 py-2 text-black" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>{t("Retry check")}</button>}
+        <button type="button" className="ml-3 mt-4 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>{t("Close launcher")}</button>
       </div>
     </div>
   )
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Launcher update required" className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/95 text-white"><div className="w-96 rounded-lg border border-white/10 bg-zinc-900 p-6 shadow-xl">
-      <p className="mb-3 text-lg font-semibold">Launcher update required</p>
+    <div role="dialog" aria-modal="true" aria-label={t("Launcher update required")} className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/95 text-white"><div className="w-96 rounded-lg border border-white/10 bg-zinc-900 p-6 shadow-xl">
+      <p className="mb-3 text-lg font-semibold">{t("Launcher update required")}</p>
       {!downloaded ? (
         <>
-          <p className="text-sm">A new launcher version ({available.version}) is available.</p>
+          <p className="text-sm">{t('A new launcher version ({version}) is available.', { version: available.version })}</p>
           {downloading ? (
             <div role="status" className="mt-2 text-xs text-white/60">
-              <p>{progress !== null && progress >= 100 ? 'Preparing update…' : `Downloading… ${Math.round(progress ?? 0)}%`}</p>
+              <p>{progress !== null && progress >= 100 ? t("Preparing update…") : t('Downloading… {percent}%', { percent: Math.round(progress ?? 0) })}</p>
               {detail && detail.total > 0 && <p className="mt-1">
                 {(detail.transferred / 1048576).toFixed(1)} / {(detail.total / 1048576).toFixed(1)} MB
                 {' · '}{now - detail.updatedAt > 5000 ? '—' : (detail.bytesPerSecond / 1048576).toFixed(1)} MB/s
               </p>}
               {detail && now - detail.updatedAt >= 30000 && <p className="mt-1">
-                Waiting for the network or processing local update files…
-              </p>}
+                {t("Waiting for the network or processing local update files…")}
+                </p>}
             </div>
           ) : (
             <button
@@ -129,13 +130,13 @@ export function UpdateWindow(): React.JSX.Element | null {
               onClick={() => { void onStartDownload() }}
               className="mt-2 rounded bg-yellow-400 px-3 py-1 text-sm font-medium text-black hover:bg-yellow-300"
             >
-              {errorMessage ? 'Retry download' : 'Update now'}
+              {errorMessage ? t("Retry download") : t("Update now")}
             </button>
           )}
         </>
       ) : (
         <>
-          <p className="text-sm">Update downloaded.</p>
+          <p className="text-sm">{t("Update downloaded.")}</p>
           <button
             type="button"
             onClick={() => {
@@ -143,12 +144,12 @@ export function UpdateWindow(): React.JSX.Element | null {
             }}
             className="mt-2 rounded bg-yellow-400 px-3 py-1 text-sm font-medium text-black hover:bg-yellow-300"
           >
-            Restart &amp; install
-          </button>
+            {t("Restart & install")}
+            </button>
         </>
       )}
       {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
-      <button type="button" className="mt-3 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>Close launcher</button>
+      <button type="button" className="mt-3 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>{t("Close launcher")}</button>
       </div>
     </div>
   )

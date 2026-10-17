@@ -2,6 +2,7 @@
 const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
+const zlib = require('zlib')
 const JavaScriptObfuscator = require('javascript-obfuscator')
 
 const ALGO = 'aes-256-gcm'
@@ -25,10 +26,11 @@ exports.default = async function afterPack(context) {
   const appDir = path.join(resourcesDir, 'app')
 
   const asarBuf = fs.readFileSync(asarPath)
+  const compressed = zlib.brotliCompressSync(asarBuf, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 6 } })
 
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv(ALGO, key, iv)
-  const ciphertext = Buffer.concat([cipher.update(asarBuf), cipher.final()])
+  const ciphertext = Buffer.concat([cipher.update(compressed), cipher.final()])
   const authTag = cipher.getAuthTag()
 
   fs.writeFileSync(encPath, Buffer.concat([iv, authTag, ciphertext]))
@@ -36,7 +38,10 @@ exports.default = async function afterPack(context) {
 
   const unpackedSrc = path.join(resourcesDir, 'app.asar.unpacked')
   const unpackedDst = path.join(resourcesDir, RUNTIME_DIR_NAME)
-  if (fs.existsSync(unpackedSrc)) fs.renameSync(unpackedSrc, unpackedDst)
+  if (fs.existsSync(unpackedSrc)) {
+    pruneNativeBindings(unpackedSrc, context.electronPlatformName, context.arch)
+    fs.renameSync(unpackedSrc, unpackedDst)
+  }
 
   fs.mkdirSync(appDir, { recursive: true })
   fs.writeFileSync(
@@ -52,7 +57,7 @@ exports.default = async function afterPack(context) {
     )
   )
 
-  const source = bootstrapSource(keyHex)
+  const source = bootstrapSource(keyHex, asarBuf.length)
   const obfuscated = JavaScriptObfuscator.obfuscate(source, {
     compact: true,
     controlFlowFlattening: true,
@@ -71,7 +76,21 @@ exports.default = async function afterPack(context) {
   fs.writeFileSync(path.join(appDir, 'bootstrap.js'), obfuscated)
 }
 
-function bootstrapSource(keyHex) {
+function pruneNativeBindings(unpacked, platform, targetArch) {
+  const arch = require('builder-util').Arch[targetArch]
+  const targets = platform === 'darwin' && arch === 'universal' ? ['darwin-x64', 'darwin-arm64'] :
+    [platform === 'win32' ? `win32-${arch}-msvc` : platform === 'linux' ? `linux-${arch}-gnu` : `darwin-${arch}`]
+  const directory = path.join(unpacked, 'node_modules', '@bsdiff-rust')
+  if (!arch || !['win32', 'linux', 'darwin'].includes(platform)) throw new Error('Unsupported native patch target.')
+  if (!fs.existsSync(directory)) return
+  for (const name of fs.readdirSync(directory)) {
+    if (name.startsWith('node-') && !targets.some(target => name === 'node-' + target)) {
+      fs.rmSync(path.join(directory, name), { recursive: true, force: true })
+    }
+  }
+}
+
+function bootstrapSource(keyHex, archiveSize) {
   const keyBytes = Buffer.from(keyHex, 'hex')
   const CHUNKS = 4
   const chunkSize = Math.ceil(keyBytes.length / CHUNKS)
@@ -94,6 +113,7 @@ const fs = require("original-fs");
 const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
+const zlib = require("zlib");
 
 const KEY_PARTS = [${partsLiteral}];
 const KEY = Buffer.concat(
@@ -108,7 +128,7 @@ const ciphertext = raw.subarray(28);
 
 const decipher = crypto.createDecipheriv("aes-256-gcm", KEY, iv);
 decipher.setAuthTag(authTag);
-const asarBuf = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+const asarBuf = zlib.brotliDecompressSync(Buffer.concat([decipher.update(ciphertext), decipher.final()]), { maxOutputLength: ${archiveSize} });
 
 // Use a private temporary directory and exclusive writes to prevent symlink races.
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tia-"));

@@ -1,3 +1,4 @@
+import { resolveInstallLocation } from './installLocation'
 import { readPreferences, writePreferences } from './preferences'
 import { assertLauncherCurrent } from './launcherVersionGate'
 import { importExistingInstall } from './existingInstall'
@@ -61,23 +62,27 @@ export async function handleGetInstallState(
   return { ...state, pendingAudioPatch: pending !== null }
 }
 
+function installFolderWriteError(directory: string): Error {
+  const protectedWindowsPath = process.platform === 'win32' && /^[A-Za-z]:\\(Program Files( \(x86\))?|Windows)(\\|$)/i.test(directory)
+  return new Error(protectedWindowsPath
+    ? `"${directory}" can't be used -- Windows blocks regular apps from writing inside "Program Files" or "Windows" without administrator rights. Choose a folder like "C:\\Games" instead, or a folder in your user directory.`
+    : `"${directory}" is not writable. Choose a different folder.`)
+}
+
 export async function handleChooseInstallFolder(): Promise<string | null> {
   const result = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
   if (result.canceled || result.filePaths.length === 0) return null
-  const chosen = result.filePaths[0]
-  if (!(await checkDirWritable(chosen))) {
-    const isWindowsProtected =
-      process.platform === 'win32' && /^[A-Za-z]:\\(Program Files( \(x86\))?|Windows)(\\|$)/i.test(chosen)
-    throw new Error(
-      isWindowsProtected
-        ? `"${chosen}" can't be used -- Windows blocks regular apps from writing inside "Program Files" or "Windows" without administrator rights. Choose a folder like "C:\\Games" instead, or a folder in your user directory.`
-        : `"${chosen}" is not writable. Choose a different folder.`
-    )
-  }
   if (isOperationInProgress()) throw new Error('Wait for the install or repair to finish before choosing a folder.')
-  await importExistingInstall(chosen)
-  await setApprovedInstallDir(chosen)
-  return chosen
+  const chosen = result.filePaths[0]
+  let installDir: string
+  try { installDir = await resolveInstallLocation(chosen) } catch (error) {
+    if (['ENOENT', 'EACCES', 'EPERM'].includes((error as NodeJS.ErrnoException).code ?? '')) throw installFolderWriteError(chosen)
+    throw error
+  }
+  if (!(await checkDirWritable(installDir))) throw installFolderWriteError(installDir)
+  await importExistingInstall(installDir)
+  await setApprovedInstallDir(installDir)
+  return installDir
 }
 
 export async function handleChooseBackground(): Promise<string | null> {

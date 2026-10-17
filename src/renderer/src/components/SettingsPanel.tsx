@@ -1,3 +1,5 @@
+import { t, changeLauncherLanguage, useLauncherLanguage } from '../i18n'
+import { LAUNCHER_LANGUAGES, type LauncherLanguage } from '../launcherLanguages'
 import { saveBackgroundMode } from '../backgroundFrames'
 import { useEffect, useState } from 'react'
 import { ProgressBar } from './ProgressBar'
@@ -138,7 +140,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
     >
-      {checked ? 'ON' : 'OFF'}
+      {checked ? t("ON") : t("OFF")}
     </button>
   )
 }
@@ -154,6 +156,9 @@ export function SettingsPanel({
   onUninstalled,
   onBackgroundChanged
 }: SettingsPanelProps): React.JSX.Element {
+  const launcherLanguage = useLauncherLanguage()
+  const [languageBusy, setLanguageBusy] = useState(false)
+  const [languageError, setLanguageError] = useState<string | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [backgroundError, setBackgroundError] = useState<string | null>(null)
   const [backgroundBusy, setBackgroundBusy] = useState(false)
@@ -162,7 +167,7 @@ export function SettingsPanel({
   )
   const [selectedTab, setActiveTab] = useState<NavTab>(scope === 'launcher' ? 'launcher' : 'manage')
   const activeTab = navItems.some(({ key }) => key === selectedTab) ? selectedTab : navItems[0].key
-  const panelTitle = scope === 'launcher' ? 'Launcher Settings' : 'Game Settings'
+  const panelTitle = scope === 'launcher' ? t("Launcher Settings") : t("Game Settings")
 
   const [moving, setMoving] = useState(false)
   const [moveError, setMoveError] = useState<string | null>(null)
@@ -181,10 +186,10 @@ export function SettingsPanel({
       const result = await window.csore.moveInstallation(installDir)
       if (result) {
         onInstallationMoved(result.installDir)
-        setMoveMessage(result.warning ?? 'Installation moved successfully.')
+        setMoveMessage(result.warning ?? t("Installation moved successfully."))
       }
     } catch (error) {
-      setMoveError(error instanceof Error ? error.message : 'Could not move the installation.')
+      setMoveError(error instanceof Error ? error.message : t("Could not move the installation."))
     } finally {
       unsubscribe()
       setMoving(false)
@@ -230,7 +235,7 @@ export function SettingsPanel({
       const selected = await window.csore.chooseSikarugirWrapper()
       if (selected) setSikarugirStatus(selected)
     } catch (err) {
-      setSikarugirError(err instanceof Error ? err.message : 'Could not select the Sikarugir wrapper.')
+      setSikarugirError(err instanceof Error ? err.message : t("Could not select the Sikarugir wrapper."))
     } finally { setChoosingSikarugir(false) }
   }
 
@@ -313,7 +318,7 @@ export function SettingsPanel({
       setVerifyResult(result)
       if (!result.ok) setConfirmingRepair(true)
     } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : 'Could not verify the install.')
+      setVerifyError(err instanceof Error ? err.message : t("Could not verify the install."))
     } finally {
       setVerifying(false)
     }
@@ -337,7 +342,7 @@ export function SettingsPanel({
       setRepairDone(true)
       setVerifyResult(null)
     } catch (err) {
-      setRepairError(err instanceof Error ? err.message : 'Repair failed.')
+      setRepairError(err instanceof Error ? err.message : t("Repair failed."))
     } finally {
       unsubscribe()
       setRepairing(false)
@@ -354,7 +359,7 @@ export function SettingsPanel({
       onUninstalled()
       onClose()
     } catch (err) {
-      setUninstallError(err instanceof Error ? err.message : 'Uninstall failed.')
+      setUninstallError(err instanceof Error ? err.message : t("Uninstall failed."))
       setUninstalling(false)
       setConfirmingUninstall(false)
     }
@@ -370,7 +375,7 @@ export function SettingsPanel({
       const status = await window.csore.getDWProtonStatus()
       setDwprotonStatus(status)
     } catch (err) {
-      setRedownloadError(err instanceof Error ? err.message : 'Could not re-download DWProton.')
+      setRedownloadError(err instanceof Error ? err.message : t("Could not re-download DWProton."))
     } finally {
       unsubscribe()
       setRedownloading(false)
@@ -404,8 +409,7 @@ export function SettingsPanel({
         <div className="settings-sidebar">
           <div className="settings-sidebar-title">
             <GearIcon />
-            Settings
-          </div>
+            {t("Settings")}</div>
           <nav className="settings-nav" aria-label={panelTitle}>
             {navItems.map((item) => (
               <button
@@ -416,7 +420,7 @@ export function SettingsPanel({
                 aria-current={activeTab === item.key ? 'page' : undefined}
                 className="settings-nav-item"
               >
-                {item.label}
+                {t(item.label)}
               </button>
             ))}
           </nav>
@@ -427,22 +431,40 @@ export function SettingsPanel({
             type="button"
             disabled={moving}
             onClick={onClose}
-            title="Close"
+            title={t("Close")}
             className="settings-close"
           >
             <CloseIcon />
           </button>
         <div className="settings-content">
 
-          {!settings && <div className="text-white/60">Loading…</div>}
+          {!settings && <div className="text-white/60">{t("Loading…")}</div>}
 
           {settings && activeTab === 'launcher' && (
             <div className="settings-sections">
+              <SectionCard title={t('Launcher Language')}>
+                <label className="flex items-center justify-between gap-3 text-sm">
+                  <span>{t('Launcher Language')}</span>
+                  <select aria-label={t('Launcher Language')} value={launcherLanguage} disabled={languageBusy}
+                    className="rounded bg-zinc-800 px-2 py-1 disabled:opacity-50"
+                    onChange={async (event) => {
+                      const value = event.target.value as LauncherLanguage
+                      setLanguageBusy(true)
+                      setLanguageError(null)
+                      try { await changeLauncherLanguage(value) }
+                      catch (error) { setLanguageError(error instanceof Error ? error.message : String(error)) }
+                      finally { setLanguageBusy(false) }
+                    }}>
+                    {LAUNCHER_LANGUAGES.map(language => <option key={language.code} value={language.code}>{language.label}</option>)}
+                  </select>
+                </label>
+                {languageError && <p role="alert" className="text-xs text-red-400">{languageError}</p>}
+              </SectionCard>
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
-              <SectionCard title="Launcher Background">
+              <SectionCard title={t("Launcher Background")}>
                 <p className="text-xs text-white/40">
-                  Choose an image or animated GIF (max 25 MB). Video mode always uses the built-in background.
-                </p>
+                  {t("Choose an image or animated GIF (max 25 MB). Video mode always uses the built-in background.")}
+                  </p>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -457,15 +479,15 @@ export function SettingsPanel({
                           onBackgroundChanged(url)
                         }
                       } catch (err) {
-                        setBackgroundError(err instanceof Error ? err.message : 'Could not use that background.')
+                        setBackgroundError(err instanceof Error ? err.message : t("Could not use that background."))
                       } finally {
                         setBackgroundBusy(false)
                       }
                     }}
                     className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
                   >
-                    Choose image…
-                  </button>
+                    {t("Choose image…")}
+                    </button>
                   <button
                     type="button"
                     disabled={backgroundBusy}
@@ -477,22 +499,22 @@ export function SettingsPanel({
                     }}
                     className="rounded bg-white/5 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 disabled:opacity-60"
                   >
-                    Reset to default
-                  </button>
+                    {t("Reset to default")}
+                    </button>
                 </div>
                 {backgroundError && <p className="text-xs text-red-400">{backgroundError}</p>}
               </SectionCard>
 
-              <SectionCard title="Update Settings">
+              <SectionCard title={t("Update Settings")}>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-white/70">
                     {updateState?.downloaded
-                      ? 'Update downloaded -- restart to install.'
+                      ? t("Update downloaded -- restart to install.")
                       : updateState?.available
-                        ? `Update available: v${updateState.available.version}`
+                        ? t('Update available: v{version}', { version: updateState.available.version })
                         : updateState?.error
-                          ? `Check failed: ${updateState.error}`
-                          : 'Launcher updates are checked manually -- they never auto-download or auto-install.'}
+                          ? t('Check failed: {error}', { error: updateState.error })
+                          : t("Launcher updates are checked manually -- they never auto-download or auto-install.")}
                   </span>
                   <button
                     type="button"
@@ -500,12 +522,12 @@ export function SettingsPanel({
                     disabled={checkingUpdate}
                     className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60 flex-shrink-0"
                   >
-                    {checkingUpdate ? 'Checking…' : 'Check for updates'}
+                    {checkingUpdate ? t("Checking…") : t("Check for updates")}
                   </button>
                 </div>
               </SectionCard>
 
-              <SectionCard title="When Closing Window">
+              <SectionCard title={t("When Closing Window")}>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm">
                     <input
@@ -514,8 +536,8 @@ export function SettingsPanel({
                       checked={settings.windowCloseBehavior === 'minimize_to_tray'}
                       onChange={() => update({ windowCloseBehavior: 'minimize_to_tray' })}
                     />
-                    Minimize to tray
-                  </label>
+                    {t("Minimize to tray")}
+                    </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="radio"
@@ -523,18 +545,17 @@ export function SettingsPanel({
                       checked={settings.windowCloseBehavior === 'exit'}
                       onChange={() => update({ windowCloseBehavior: 'exit' })}
                     />
-                    Exit launcher
-                  </label>
+                    {t("Exit launcher")}
+                    </label>
                 </div>
               </SectionCard>
 
-              <SectionCard title="Troubleshooting">
+              <SectionCard title={t("Troubleshooting")}>
                 <label className="flex items-center justify-between text-sm">
                   <span>
-                    Troubleshooting Mode
-                    <span className="block text-xs text-white/40">
-                      Enable this to generate logs for customer support if you have trouble using the launcher or running the game.
-                    </span>
+                    {t("Troubleshooting Mode")}<span className="block text-xs text-white/40">
+                      {t("Enable this to generate logs for customer support if you have trouble using the launcher or running the game.")}
+                      </span>
                   </span>
                   <Toggle
                     checked={settings.troubleshootingMode}
@@ -543,7 +564,7 @@ export function SettingsPanel({
                 </label>
               </SectionCard>
 
-              <SectionCard title="Download Speed Limit">
+              <SectionCard title={t("Download Speed Limit")}>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm">
                     <input
@@ -555,8 +576,8 @@ export function SettingsPanel({
                         update({ downloadSpeedLimitKbps: null })
                       }}
                     />
-                    No limit
-                  </label>
+                    {t("No limit")}
+                    </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input
                       type="radio"
@@ -600,8 +621,8 @@ export function SettingsPanel({
                       className="flex items-center gap-1.5 text-xs font-normal text-white/50 hover:text-red-400"
                     >
                       <TrashIcon />
-                      Uninstall game
-                    </button>
+                      {t("Uninstall game")}
+                      </button>
                   )
                 }
               >
@@ -610,33 +631,32 @@ export function SettingsPanel({
                   <div>
                     <p className="text-sm text-white">CSO: Re-Server Edition</p>
                     <p className="text-xs text-white/40">
-                      {installedVersion ? `Game Version: ${installedVersion}` : 'Not installed'}
+                      {installedVersion ? t('Game Version: {version}', { version: installedVersion }) : t("Not installed")}
                     </p>
                   </div>
                 </div>
               </SectionCard>
 
-              <SectionCard title="Game Install Path">
-                <p className="truncate text-xs text-white/50">{installDir ?? 'Not installed yet'}</p>
-                <Row label="Select another game folder" onClick={onChangeInstallDir} disabled={moving} />
-                <Row label={moving ? 'Moving installation…' : 'Move installation with all files…'} onClick={handleMoveInstallation} disabled={!installDir || moving || verifying || repairing} />
-                <p className="text-xs text-white/40">To move this game, choose an empty destination folder. All files move with it.</p>
+              <SectionCard title={t("Game Install Path")}>
+                <p className="truncate text-xs text-white/50">{installDir ?? t("Not installed yet")}</p>
+                <Row label={t("Select another game folder")} onClick={onChangeInstallDir} disabled={moving} />
+                <Row label={moving ? t("Moving installation…") : t("Move installation with all files…")} onClick={handleMoveInstallation} disabled={!installDir || moving || verifying || repairing} />
+                <p className="text-xs text-white/40">{t("To move this game, choose an empty destination folder. All files move with it.")}</p>
                 {moving && moveProgress && (
                   <p role="status" className="text-xs text-white/60">
-                    {moveProgress.phase === 'copying' ? 'Copying files…' : moveProgress.phase === 'verifying'
-                      ? `Verifying copied files: ${moveProgress.processed} / ${moveProgress.total}` : 'Moving files…'}
+                    {moveProgress.phase === 'copying' ? t("Copying files…") : moveProgress.phase === 'verifying'
+                      ? t('Verifying copied files: {processed} / {total}', { processed: moveProgress.processed, total: moveProgress.total }) : t("Moving files…")}
                   </p>
                 )}
                 {moveError && <p className="text-xs text-red-400">{moveError}</p>}
                 {moveMessage && <p className="text-xs text-white/70">{moveMessage}</p>}
-                <Row label="Open file directory" onClick={handleOpenInstallDir} disabled={!installDir} />
+                <Row label={t("Open file directory")} onClick={handleOpenInstallDir} disabled={!installDir} />
               </SectionCard>
 
               {}
-              <SectionCard title="Game Launch Options">
+              <SectionCard title={t("Game Launch Options")}>
                 <label className="flex items-center justify-between text-sm">
-                  Language
-                  <select
+                  {t("Language")}<select
                     value={settings.lang}
                     onChange={(e) => update({ lang: e.target.value as Settings['lang'] })}
                     className="rounded bg-white/10 px-2 py-1"
@@ -648,8 +668,8 @@ export function SettingsPanel({
 
                 <label className="flex items-center justify-between text-sm">
                   <span>
-                    Use classic UI inside the game
-                    <span className="block text-xs text-white/40">Switches the in-game interface to the classic layout.</span>
+                    {t("Use classic UI inside the game")}<span className="block text-xs text-white/40">{t("Switches the in-game interface to the classic layout.")}
+                    </span>
                   </span>
                   <input
                     type="checkbox"
@@ -661,14 +681,13 @@ export function SettingsPanel({
                 <label className="flex items-center justify-between text-sm">
                   <span>
                     <span className="flex items-center gap-2">
-                      Try new graphics renderer in-game
-                      <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-300">
-                        Beta
-                      </span>
+                      {t("Try new graphics renderer in-game")}<span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-yellow-300">
+                        {t("Beta")}
+                        </span>
                     </span>
                     <span className="block text-xs text-white/40">
-                      Experimental in-game renderer. Switch back if the game has issues launching.
-                    </span>
+                      {t("Experimental in-game renderer. Switch back if the game has issues launching.")}
+                      </span>
                   </span>
                   <input
                     type="checkbox"
@@ -679,33 +698,33 @@ export function SettingsPanel({
               </SectionCard>
 
               {installDir && (
-                <SectionCard title="Verify / Repair Files">
+                <SectionCard title={t("Verify / Repair Files")}>
                   <button
                     type="button"
                     onClick={handleVerify}
                     disabled={moving || verifying || repairing}
                     className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
                   >
-                    {verifying ? 'Verifying…' : 'Check Game Integrity'}
+                    {verifying ? t("Verifying…") : t("Check Game Integrity")}
                   </button>
 
                   {verifyError && <p className="text-xs text-red-400">{verifyError}</p>}
                   {verifyResult && (
                     <p className="text-xs text-white/70">
                       {verifyResult.ok
-                        ? 'All files verified OK.'
-                        : `${verifyResult.corruptFiles.length} file(s) corrupt, ${verifyResult.missingFiles.length} file(s) missing.`}
+                        ? t("All files verified OK.")
+                        : t('{corrupt} file(s) corrupt, {missing} file(s) missing.', { corrupt: verifyResult.corruptFiles.length, missing: verifyResult.missingFiles.length })}
                     </p>
                   )}
                   {repairing && repairProgress && (
                     <ProgressBar
                       processed={repairProgress.processed}
                       total={repairProgress.total}
-                      label="Repairing…"
+                      label={t("Repairing…")}
                     />
                   )}
                   {repairError && <p className="text-xs text-red-400">{repairError}</p>}
-                  {repairDone && <p className="text-xs text-white/70">Repair complete.</p>}
+                  {repairDone && <p className="text-xs text-white/70">{t("Repair complete.")}</p>}
                 </SectionCard>
               )}
 
@@ -713,10 +732,10 @@ export function SettingsPanel({
                 <SectionCard title="DWProton (Linux)">
                   <p className="text-xs text-white/50">
                     {dwprotonStatus === null
-                      ? 'Checking…'
+                      ? t("Checking…")
                       : dwprotonStatus.installed
-                        ? `DWProton ${dwprotonStatus.version} installed.`
-                        : 'Not installed yet -- installs automatically on first Play.'}
+                        ? t('DWProton {version} installed.', { version: dwprotonStatus.version ?? '' })
+                        : t("Not installed yet -- installs automatically on first Play.")}
                   </p>
                   <button
                     type="button"
@@ -724,13 +743,13 @@ export function SettingsPanel({
                     disabled={redownloading}
                     className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
                   >
-                    {redownloading ? 'Re-downloading…' : 'Re-download DWProton'}
+                    {redownloading ? t("Re-downloading…") : t("Re-download DWProton")}
                   </button>
                   {redownloading && redownloadProgress && (
                     <ProgressBar
                       processed={redownloadProgress.processed}
                       total={redownloadProgress.total}
-                      label="Downloading…"
+                      label={t("Downloading…")}
                     />
                   )}
                   {redownloadError && <p className="text-xs text-red-400">{redownloadError}</p>}
@@ -741,19 +760,19 @@ export function SettingsPanel({
                 <SectionCard title="Sikarugir (macOS)">
                   <p className="text-xs text-white/50">
                     {sikarugirStatus === null
-                      ? 'Checking…'
+                      ? t("Checking…")
                       : sikarugirStatus.found
-                        ? `Sikarugir wrapper selected: ${sikarugirStatus.wrapperPath}.`
-                        : 'Create a game wrapper in Sikarugir Creator, initialize its Wine engine, then select the wrapper .app below.'}
+                        ? t('Sikarugir wrapper selected: {path}.', { path: sikarugirStatus.wrapperPath ?? '' })
+                        : t("Create a game wrapper in Sikarugir Creator, initialize its Wine engine, then select the wrapper .app below.")}
                   </p>
                   <button type="button" disabled={choosingSikarugir} onClick={chooseSikarugirWrapper}
                     className="rounded-lg bg-white/10 px-3 py-2 text-xs hover:bg-white/20 disabled:opacity-50">
-                    {choosingSikarugir ? 'Selecting…' : 'Select Sikarugir wrapper'}
+                    {choosingSikarugir ? t("Selecting…") : t("Select Sikarugir wrapper")}
                   </button>
-                  <p className="text-xs text-white/50">macOS 14.6 or later. Apple Silicon requires Rosetta 2.</p>
+                  <p className="text-xs text-white/50">{t("macOS 14.6 or later. Apple Silicon requires Rosetta 2.")}</p>
                   <button type="button" className="text-xs text-white/70 underline" onClick={() => window.csore.openExternal('https://github.com/Sikarugir-App/Sikarugir')}>
-                    Sikarugir installation guide
-                  </button>
+                    {t("Sikarugir installation guide")}
+                    </button>
                   {sikarugirError && <p className="text-xs text-red-400">{sikarugirError}</p>}
                 </SectionCard>
               )}
@@ -764,7 +783,7 @@ export function SettingsPanel({
 
           {settings && activeTab === 'advanced' && (
             <div className="settings-sections">
-              <SectionCard title="Launch Command">
+              <SectionCard title={t("Launch Command")}>
                 <textarea
                   value={settings.launchCommand ?? ''}
                   maxLength={MAX_LAUNCH_COMMAND_LENGTH}
@@ -773,7 +792,7 @@ export function SettingsPanel({
                   className="settings-command"
                 />
                 <div className="flex items-center justify-between text-xs text-white/40">
-                  <span>Game arguments, or a wrapper using %command%</span>
+                  <span>{t("Game arguments, or a wrapper using %command%")}</span>
                   <span>
                     {(settings.launchCommand ?? '').length}/{MAX_LAUNCH_COMMAND_LENGTH}
                   </span>
@@ -786,72 +805,71 @@ export function SettingsPanel({
 
           {settings && activeTab === 'logs' && (
             <div className="settings-sections">
-              <SectionCard title="Log Information">
-                <Row label="View Launcher Logs" sublabel={logPath ?? undefined} onClick={handleViewLogs} />
+              <SectionCard title={t("Log Information")}>
+                <Row label={t("View Launcher Logs")} sublabel={logPath ?? undefined} onClick={handleViewLogs} />
               </SectionCard>
             </div>
           )}
 
           {settings && activeTab === 'about' && (
             <div className="settings-sections">
-              <SectionCard title="Launcher Version" right={<span className="text-xs text-white/40">v{appVersion ?? '…'}</span>}>
+              <SectionCard title={t("Launcher Version")} right={<span className="text-xs text-white/40">v{appVersion ?? '…'}</span>}>
                 <Row
-                  label={checkingUpdate ? 'Checking…' : 'Check for updates'}
+                  label={checkingUpdate ? t("Checking…") : t("Check for updates")}
                   onClick={handleCheckForUpdate}
                 />
                 {updateState?.available && (
-                  <p className="text-xs text-white/50">Update available: v{updateState.available.version}</p>
+                  <p className="text-xs text-white/50">{t('Update available: v{version}', { version: updateState.available.version })}</p>
                 )}
                 {updateState?.downloaded && (
-                  <p className="text-xs text-white/50">Update downloaded -- restart to install.</p>
+                  <p className="text-xs text-white/50">{t("Update downloaded -- restart to install.")}</p>
                 )}
                 {updateState?.error && <p className="text-xs text-red-400">{updateState.error}</p>}
               </SectionCard>
 
-              <SectionCard title="Uninstall Launcher">
-                <Row label="Uninstall Tia Launcher" onClick={() => { if (!uninstallingLauncher) setConfirmingLauncherUninstall(true) }} />
+              <SectionCard title={t("Uninstall Launcher")}>
+                <Row label={t("Uninstall Tia Launcher")} onClick={() => { if (!uninstallingLauncher) setConfirmingLauncherUninstall(true) }} />
                 <p className="text-xs text-white/40">
-                  Removes the launcher only. Game files stay where they are -- use &quot;Uninstall game&quot; in
-                  Manage Games first if you want those gone too.
-                </p>
+                  {t("Removes the launcher only. Game files stay where they are -- use \"Uninstall game\" in Manage Games first if you want those gone too.")}
+                  </p>
                 {launcherUninstallMessage && (
                   <p className="whitespace-pre-line text-xs text-white/60">{launcherUninstallMessage}</p>
                 )}
               </SectionCard>
 
-              <SectionCard title="Launcher Log">
-                <Row label="View" onClick={handleViewLogs} />
+              <SectionCard title={t("Launcher Log")}>
+                <Row label={t("View")} onClick={handleViewLogs} />
                 {}
-                <Row label="Submit Logs (Login Required)" disabled />
+                <Row label={t("Submit Logs (Login Required)")} disabled />
               </SectionCard>
 
-              <SectionCard title="Launcher Service Agreements">
+              <SectionCard title={t("Launcher Service Agreements")}>
                 <div>
                   <Row
-                    label="Game Launcher Terms of Service"
+                    label={t("Game Launcher Terms of Service")}
                     onClick={() => setExpandedAgreement((v) => (v === 'tos' ? null : 'tos'))}
                   />
                   {expandedAgreement === 'tos' && (
                     <p className="mt-1 text-xs text-white/40">
-                      Not yet available -- this launcher doesn't have a published Terms of Service yet.
-                    </p>
+                      {t("Not yet available -- this launcher doesn't have a published Terms of Service yet.")}
+                      </p>
                   )}
                 </div>
                 <div>
                   <Row
-                    label="Game Launcher Privacy Policy"
+                    label={t("Game Launcher Privacy Policy")}
                     onClick={() => setExpandedAgreement((v) => (v === 'privacy' ? null : 'privacy'))}
                   />
                   {expandedAgreement === 'privacy' && (
                     <p className="mt-1 text-xs text-white/40">
-                      Not yet available -- this launcher doesn't have a published Privacy Policy yet.
-                    </p>
+                      {t("Not yet available -- this launcher doesn't have a published Privacy Policy yet.")}
+                      </p>
                   )}
                 </div>
               </SectionCard>
 
               <div className="rounded-lg bg-white/[0.04] border border-white/5 p-5 space-y-2 text-xs">
-                <p className="truncate text-white/40">Launcher data: {userDataDir}</p>
+                <p className="truncate text-white/40">{t("Launcher data:")} {userDataDir}</p>
               </div>
             </div>
           )}
@@ -860,58 +878,55 @@ export function SettingsPanel({
 
       {confirmingLauncherUninstall && (
         <SystemNotificationModal
-          title="System Notification"
-          confirmLabel="Uninstall"
+          title={t("System Notification")}
+          confirmLabel={t("Uninstall")}
           onCancel={() => setConfirmingLauncherUninstall(false)}
           onConfirm={async () => {
             if (uninstallingLauncher) return
             setConfirmingLauncherUninstall(false)
             setUninstallingLauncher(true)
-            setLauncherUninstallMessage('Starting uninstall… Approve the administrator prompt if shown.')
+            setLauncherUninstallMessage(t("Starting uninstall… Approve the administrator prompt if shown."))
             try {
               const result = await window.csore.uninstallLauncher(removeLauncherData)
               setLauncherUninstallMessage(result.message)
             } catch (err) {
-              setLauncherUninstallMessage(err instanceof Error ? err.message : 'Could not uninstall the launcher.')
+              setLauncherUninstallMessage(err instanceof Error ? err.message : t("Could not uninstall the launcher."))
             } finally { setUninstallingLauncher(false) }
           }}
         >
           <div className="space-y-3">
-            <p>Are you sure you want to uninstall Tia Launcher? The game files are not removed.</p>
+            <p>{t("Are you sure you want to uninstall Tia Launcher? The game files are not removed.")}</p>
             <label className="notice-check-row">
               <input
                 type="checkbox"
                 checked={removeLauncherData}
                 onChange={(e) => setRemoveLauncherData(e.target.checked)}
               />
-              Also delete launcher settings and logs
-            </label>
+              {t("Also delete launcher settings and logs")}
+              </label>
           </div>
         </SystemNotificationModal>
       )}
 
       {confirmingUninstall && (
         <SystemNotificationModal
-          title="System Notification"
-          confirmLabel="Confirm"
+          title={t("System Notification")}
+          confirmLabel={t("Confirm")}
           confirmBusy={uninstalling}
           onCancel={() => setConfirmingUninstall(false)}
           onConfirm={handleUninstallConfirmed}
         >
-          We&apos;re sorry to see you go! Are you sure you want to uninstall the game?
-        </SystemNotificationModal>
+          {t("We're sorry to see you go! Are you sure you want to uninstall the game?")}</SystemNotificationModal>
       )}
 
       {confirmingRepair && (
         <SystemNotificationModal
-          title="Quick Repair Notice"
-          confirmLabel="Start Checking"
+          title={t("Quick Repair Notice")}
+          confirmLabel={t("Start Checking")}
           onCancel={() => setConfirmingRepair(false)}
           onConfirm={handleRepair}
         >
-          Your game installation will be scanned for missing and corrupted files. This repair process may take
-          some time. Interrupting the process may cause file loss or corruption.
-        </SystemNotificationModal>
+          {t("Your game installation will be scanned for missing and corrupted files. This repair process may take some time. Interrupting the process may cause file loss or corruption.")}</SystemNotificationModal>
       )}
     </div>
   )

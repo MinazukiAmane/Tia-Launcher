@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { migrateLegacyPreferences } from '../persistence'
 import { useEffect, useRef, useState } from 'react'
 import { LauncherBackground } from './LauncherBackground'
@@ -179,7 +180,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     try {
       localState = await window.csore.getInstallState(installDir)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Could not read the installation.')
+      setErrorMessage(err instanceof Error ? err.message : t("Could not read the installation."))
       setState('error')
       return
     }
@@ -198,7 +199,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
         setErrorMessage(null)
         setState(lastKnownGameVersionRef.current && localState.version !== lastKnownGameVersionRef.current ? 'apply_patch' : 'up_to_date')
       } else {
-        setErrorMessage(err instanceof Error ? err.message : 'Could not reach the server.')
+        setErrorMessage(err instanceof Error ? err.message : t("Could not reach the server."))
         setState(localState?.needsRepair ? 'needs_repair' : localState?.pendingAudioPatch ? 'apply_patch' : 'error')
       }
     }
@@ -229,7 +230,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       }
     } catch (err) {
       pausedOperationRef.current = null
-      setErrorMessage(err instanceof Error ? err.message : 'Install/update failed.')
+      setErrorMessage(err instanceof Error ? err.message : t("Install/update failed."))
       setState('error')
     } finally {
       actionInFlightRef.current = false
@@ -256,7 +257,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
           setConfirmingRepair(true)
         }
       } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : 'Could not launch the game.')
+        setErrorMessage(err instanceof Error ? err.message : t("Could not launch the game."))
       } finally {
         actionInFlightRef.current = false
         setVerifying(false)
@@ -317,14 +318,14 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     try {
       const result = await window.csore.verifyInstall(installDir)
       if (result.ok) {
-        setVerifyMessage('All files verified OK.')
+        setVerifyMessage(t("All files verified OK."))
         await refreshState()
         setTimeout(() => setVerifyMessage(null), 4000)
       } else {
         setConfirmingRepair(true)
       }
     } catch (err) {
-      setVerifyMessage(err instanceof Error ? err.message : 'Could not verify the install.')
+      setVerifyMessage(err instanceof Error ? err.message : t("Could not verify the install."))
     } finally {
       actionInFlightRef.current = false
       setVerifying(false)
@@ -351,7 +352,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       }
     } catch (err) {
       pausedOperationRef.current = null
-      setErrorMessage(err instanceof Error ? err.message : 'Repair failed.')
+      setErrorMessage(err instanceof Error ? err.message : t("Repair failed."))
       setState('error')
     } finally {
       actionInFlightRef.current = false
@@ -365,9 +366,9 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     if (!installDir) return
     try {
       await window.csore.clearDownloadCache(installDir)
-      setToast('Download cache cleared.')
+      setToast(t("Download cache cleared."))
     } catch {
-      setToast('Could not clear the download cache.')
+      setToast(t("Could not clear the download cache."))
     } finally {
       setTimeout(() => setToast(null), 3000)
     }
@@ -376,7 +377,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   function handleCreateShortcutClick(): void {
     setMenuOpen(false)
 
-    setToast('Desktop shortcuts are not available yet.')
+    setToast(t("Desktop shortcuts are not available yet."))
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -386,27 +387,27 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   const hasRealTotal = isDownloadingPhase || isAssemblingPhase || isExtractingPhase
 
   const idleLabel: Record<ActionState, string> = {
-    loading: 'Loading…',
-    fresh_install: 'Download',
-    needs_repair: 'Verify / Repair',
-    up_to_date: 'Play',
-    apply_patch: 'Update',
-    working: 'Downloading',
-    paused: 'Paused',
-    error: 'Retry'
+    loading: t("Loading…"),
+    fresh_install: t("Download"),
+    needs_repair: t("Verify / Repair"),
+    up_to_date: t("Play"),
+    apply_patch: t("Update"),
+    working: t("Downloading"),
+    paused: t("Paused"),
+    error: t("Retry")
   }
 
   const hoverLabel: Record<ActionState, string> = {
     ...idleLabel,
-    working: 'Pause',
-    paused: 'Resume'
+    working: t("Pause"),
+    paused: t("Resume")
   }
 
   const primaryDisabled = operationBusy || state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
   const label = verifying
-    ? 'Checking Integrity'
+    ? t("Checking Integrity")
     : primaryDisabled && state === 'working'
-      ? (progress ? PHASE_LABEL[progress.phase] ?? progress.phase : 'Working…')
+      ? (progress ? t(PHASE_LABEL[progress.phase] ?? progress.phase) : t("Working…"))
       : isHovering ? hoverLabel[state] : idleLabel[state]
 
   function renderIcon(): React.JSX.Element {
@@ -447,7 +448,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     <div className="home-screen">
       <LauncherBackground customUrl={backgroundUrl} inactive={settingsOpen} />
       <div className="home-shade" />
-      <nav className="community-rail" aria-label="Community"><CommunityLink /></nav>
+      <nav className="community-rail" aria-label={t("Community")}><CommunityLink /></nav>
 
       <div className="home-news">
         <NoticesPanel />
@@ -456,11 +457,11 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       <div className="home-actions">
         {isMac && (
           <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-xs font-semibold tracking-wide text-yellow-300">
-            Experimental (macOS)
-          </span>
+            {t("Experimental (macOS)")}
+            </span>
         )}
 
-        {apiUnavailable && <p role="status" className="home-toast">Game update service unavailable. Play will check your installed files locally.</p>}
+        {apiUnavailable && <p role="status" className="home-toast">{t("Game update service unavailable. Play will check your installed files locally.")}</p>}
         {toast && (
           <p role="status" className="home-toast">{toast}</p>
         )}
@@ -469,18 +470,18 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
 
         {/* Detailed hover popup (ref/launcher-cursor-hover-ondownloading- button-change.png): phase, percent + byte counts, speed, ETA. */}
         {isHovering && verifying && !progress && (
-          <div role="status" className="action-progress"><p className="progress-title">Checking integrity</p><p className="text-xs text-white/60">Verifying installed game files…</p></div>
+          <div role="status" className="action-progress"><p className="progress-title">{t("Checking integrity")}</p><p className="text-xs text-white/60">{t("Verifying installed game files…")}</p></div>
         )}
         {isHovering && (state === 'working' || state === 'paused' || repairing || verifying) && progress && (
           <div role="status" className="action-progress">
-            <p className="progress-title">{state === 'paused' ? 'Paused' : PHASE_LABEL[progress.phase] ?? progress.phase}</p>
+            <p className="progress-title">{state === 'paused' ? t("Paused") : t(PHASE_LABEL[progress.phase] ?? progress.phase)}</p>
             {hasRealTotal ? (
               <>
                 <p className="progress-amount">
                   {progress.total > 0 ? Math.round((progress.processed / progress.total) * 100) : 0}%{' '}
                   <span className="text-white/50">
                     {isExtractingPhase
-                      ? `(${progress.processed} / ${progress.total} files)`
+                      ? t('({processed} / {total} files)', { processed: progress.processed, total: progress.total })
                       : `(${formatBytes(progress.processed)} / ${formatBytes(progress.total)})`}
                   </span>
                 </p>
@@ -502,7 +503,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
                 )}
               </>
             ) : (
-              <p className="mt-2 text-xs text-white/50">Working…</p>
+              <p className="mt-2 text-xs text-white/50">{t("Working…")}</p>
             )}
           </div>
         )}
@@ -525,7 +526,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              title="More options"
+              title={t("More options")}
               aria-expanded={menuOpen}
               aria-controls="game-options-menu"
               className="action-menu-toggle"
@@ -545,30 +546,30 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
                     }}
                     className="block w-full px-4 py-2.5 text-left text-sm text-white hover:bg-white/10"
                   >
-                    Game Settings
-                  </button>
+                    {t("Game Settings")}
+                    </button>
                   <button
                     type="button"
                     onClick={handleCreateShortcutClick}
                     className="block w-full px-4 py-2.5 text-left text-sm text-white hover:bg-white/10"
                   >
-                    Create Desktop Shortcut
-                  </button>
+                    {t("Create Desktop Shortcut")}
+                    </button>
                   <button
                     type="button"
                     disabled={!installDir || verifying}
                     onClick={handleCheckIntegrity}
                     className="block w-full px-4 py-2.5 text-left text-sm text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:text-white/30 disabled:hover:bg-transparent"
                   >
-                    Check Game Integrity
-                  </button>
+                    {t("Check Game Integrity")}
+                    </button>
                   <button
                     type="button"
                     onClick={handleClearCache}
                     className="block w-full px-4 py-2.5 text-left text-sm text-white hover:bg-white/10"
                   >
-                    Clear Download Cache
-                  </button>
+                    {t("Clear Download Cache")}
+                    </button>
                 </div>
               </>
             )}
@@ -582,27 +583,27 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
               checked={settings.alternateRenderer}
               onChange={(e) => toggleAlternateRenderer(e.target.checked)}
             />
-            Try new graphics renderer in-game (Beta)
-          </label>
+            {t("Try new graphics renderer in-game (Beta)")}
+            </label>
         )}
       </div>
 
       {confirmingInstall && installDir && (
         <SystemNotificationModal
-          title="System Notification"
+          title={t("System Notification")}
           layout="form"
-          confirmLabel="Confirm"
+          confirmLabel={t("Confirm")}
           onCancel={() => setConfirmingInstall(false)}
           onConfirm={handleConfirmInstall}
         >
           <div className="space-y-3">
             <div>
-              <p className="notice-field-label">Game Install Path</p>
+              <p className="notice-field-label">{t("Game Install Path")}</p>
               <div className="notice-path">
                 <span className="flex-1 truncate">{installDir}</span>
                 <button
                   type="button"
-                  title="Choose a different folder"
+                  title={t("Choose a different folder")}
                   onClick={() => onNeedInstallDir()}
                   className="notice-folder-button"
                 >
@@ -617,22 +618,20 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
                 checked={createShortcut}
                 onChange={(e) => setCreateShortcut(e.target.checked)}
               />
-              Create desktop shortcut
-            </label>
+              {t("Create desktop shortcut")}
+              </label>
           </div>
         </SystemNotificationModal>
       )}
 
       {confirmingRepair && (
         <SystemNotificationModal
-          title="Quick Repair Notice"
-          confirmLabel="Start Checking"
+          title={t("Quick Repair Notice")}
+          confirmLabel={t("Start Checking")}
           onCancel={() => setConfirmingRepair(false)}
           onConfirm={handleConfirmRepair}
         >
-          Your game installation will be scanned for missing and corrupted files. This repair process may take
-          some time. Interrupting the process may cause file loss or corruption.
-        </SystemNotificationModal>
+          {t("Your game installation will be scanned for missing and corrupted files. This repair process may take some time. Interrupting the process may cause file loss or corruption.")}</SystemNotificationModal>
       )}
     </div>
   )

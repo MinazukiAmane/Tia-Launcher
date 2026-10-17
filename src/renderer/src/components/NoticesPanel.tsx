@@ -1,3 +1,4 @@
+import { t, useLauncherLanguage } from '../i18n'
 import { useEffect, useMemo, useState } from 'react'
 
 interface NewsItem {
@@ -35,6 +36,7 @@ function DiscordIcon(): React.JSX.Element {
 }
 
 export function NoticesPanel(): React.JSX.Element | null {
+  const language = useLauncherLanguage()
   const [news, setNews] = useState<NewsItem[]>([])
   const [activeTab, setActiveTab] = useState<TabKey>('notices')
   const [carouselIndex, setCarouselIndex] = useState(0)
@@ -64,7 +66,7 @@ export function NoticesPanel(): React.JSX.Element | null {
   const current = filtered[Math.min(carouselIndex, Math.max(filtered.length - 1, 0))]
 
   return (
-    <section aria-label="Game news" className="notices-panel">
+    <section aria-label={t("Game news")} className="notices-panel">
       <div className="notices-card">
         {/* Carousel */}
         <div className="notices-art">
@@ -100,14 +102,13 @@ export function NoticesPanel(): React.JSX.Element | null {
             </>
           ) : (
             <div className="flex h-full items-center justify-center px-3 text-center text-xs text-white/40">
-              No items in this category.
-            </div>
+              {t("No items in this category.")}</div>
           )}
         </div>
 
         {/* Tabbed list */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="notices-tabs" role="tablist" aria-label="News category">
+          <div className="notices-tabs" role="tablist" aria-label={t("News category")}>
             {TABS.map((tab) => (
               <button
                 key={tab.key}
@@ -119,13 +120,13 @@ export function NoticesPanel(): React.JSX.Element | null {
                 onClick={() => setActiveTab(tab.key)}
                 className={activeTab === tab.key ? 'notice-tab is-active' : 'notice-tab'}
               >
-                {tab.label}
+                {t(tab.label)}
               </button>
             ))}
           </div>
           <ul id="news-items" role="tabpanel" aria-labelledby={`news-tab-${activeTab}`} className="notices-list">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-xs text-white/40">Nothing here yet.</li>
+              <li className="px-4 py-3 text-xs text-white/40">{t("Nothing here yet.")}</li>
             ) : (
               filtered.map((item) => (
                 <li key={item.id}>
@@ -137,7 +138,7 @@ export function NoticesPanel(): React.JSX.Element | null {
                   >
                     <span className="notice-title">{item.title}</span>
                     <time className="notice-date" dateTime={item.created_at}>
-                      {new Date(item.created_at).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' })}
+                      {new Date(item.created_at).toLocaleDateString(language, { month: '2-digit', day: '2-digit' })}
                     </time>
                   </button>
                 </li>
@@ -152,5 +153,5 @@ export function NoticesPanel(): React.JSX.Element | null {
 }
 
 export function CommunityLink(): React.JSX.Element {
-  return <button type="button" onClick={() => window.csore.openExternal(DISCORD_INVITE_URL)} title="Join our Discord" aria-label="Join our Discord"><DiscordIcon /></button>
+  return <button type="button" onClick={() => window.csore.openExternal(DISCORD_INVITE_URL)} title={t("Join our Discord")} aria-label={t("Join our Discord")}><DiscordIcon /></button>
 }

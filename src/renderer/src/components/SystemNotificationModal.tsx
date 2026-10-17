@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { useId } from 'react'
 
 
@@ -17,8 +18,8 @@ export function SystemNotificationModal({
   title,
   layout = 'message',
   children,
-  cancelLabel = 'Cancel',
-  confirmLabel = 'Confirm',
+  cancelLabel = t("Cancel"),
+  confirmLabel = t("Confirm"),
   onCancel,
   onConfirm,
   confirmDisabled = false,
@@ -44,7 +45,7 @@ export function SystemNotificationModal({
             disabled={confirmDisabled || confirmBusy}
             className="notice-confirm"
           >
-            {confirmBusy ? 'Working…' : confirmLabel}
+            {confirmBusy ? t("Working…") : confirmLabel}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@ productName: Tia Launcher
 directories:
   output: release
   buildResources: build
+electronLanguages: [en-US, id, zh-CN, ko, ja]
 files:
   - out/**/*
   - package.json

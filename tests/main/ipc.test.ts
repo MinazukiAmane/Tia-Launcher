@@ -171,17 +171,19 @@ describe('handleLaunchGame', () => {
 
   describe('pre-launch verification', () => {
     let dir: string
+    let pickedParent: string
     let originalFetch: typeof fetch
 
     beforeEach(async () => {
       const { dialog } = await import('electron')
       const { handleChooseInstallFolder } = await import('../../src/main/ipc')
-      dir = await mkdtemp(join(tmpdir(), 'csore-launch-verify-'))
+      pickedParent = await mkdtemp(join(tmpdir(), 'csore-launch-verify-'))
+      dir = pickedParent
       vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
         canceled: false,
         filePaths: [dir]
       } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
-      await handleChooseInstallFolder()
+      dir = (await handleChooseInstallFolder())!
 
       originalFetch = global.fetch
       global.fetch = (async () => {
@@ -191,7 +193,7 @@ describe('handleLaunchGame', () => {
 
     afterEach(async () => {
       global.fetch = originalFetch
-      await rm(dir, { recursive: true, force: true })
+      await rm(pickedParent, { recursive: true, force: true })
     })
 
     it('proceeds to launch (does not block) when every recorded file matches', async () => {
@@ -233,11 +235,11 @@ describe('handleShowInstallDirInFolder', () => {
       canceled: false,
       filePaths: [dir]
     } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
-    await handleChooseInstallFolder()
+    const selectedDir = (await handleChooseInstallFolder())!
 
     const calls: string[] = []
-    await handleShowInstallDirInFolder(undefined, dir, (p) => calls.push(p))
-    expect(calls).toEqual([dir])
+    await handleShowInstallDirInFolder(undefined, selectedDir, (p) => calls.push(p))
+    expect(calls).toEqual([selectedDir])
     await rm(dir, { recursive: true, force: true })
   })
 })
@@ -393,9 +395,9 @@ describe('handleClearDownloadCache', () => {
       canceled: false,
       filePaths: [dir]
     } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
-    await handleChooseInstallFolder()
+    const selectedDir = (await handleChooseInstallFolder())!
 
-    await expect(handleClearDownloadCache(undefined, dir)).resolves.toBeUndefined()
+    await expect(handleClearDownloadCache(undefined, selectedDir)).resolves.toBeUndefined()
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -407,15 +409,15 @@ describe('handleClearDownloadCache', () => {
       canceled: false,
       filePaths: [dir]
     } as Awaited<ReturnType<typeof dialog.showOpenDialog>>)
-    await handleChooseInstallFolder()
+    const selectedDir = (await handleChooseInstallFolder())!
 
     const { mkdir, writeFile, access } = await import('fs/promises')
-    const stagingDir = join(dir, '.csore_download_tmp')
+    const stagingDir = join(selectedDir, '.csore_download_tmp')
     await mkdir(join(stagingDir, 'parts'), { recursive: true })
     await writeFile(join(stagingDir, 'parts', 'part-0'), 'leftover')
     await writeFile(join(stagingDir, 'download.zip'), 'leftover zip')
 
-    await handleClearDownloadCache(undefined, dir)
+    await handleClearDownloadCache(undefined, selectedDir)
 
     await expect(access(stagingDir)).rejects.toThrow()
     await rm(dir, { recursive: true, force: true })

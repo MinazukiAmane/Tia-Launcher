@@ -1,3 +1,4 @@
+import { t, loadLauncherLanguage, useLauncherLanguage } from './i18n'
 import { useEffect, useState } from 'react'
 import { migrateLegacyPreferences } from './persistence'
 import { HomeScreen } from './components/HomeScreen'
@@ -47,6 +48,7 @@ function CloseIcon(): React.JSX.Element {
 }
 
 export default function App(): React.JSX.Element {
+  useLauncherLanguage()
   const [installDir, setInstallDir] = useState<string | null>(null)
   const [settingsScope, setSettingsScope] = useState<SettingsScope | null>(null)
   const [movingInstallation, setMovingInstallation] = useState(false)
@@ -61,6 +63,7 @@ export default function App(): React.JSX.Element {
     setStorageError(null)
     try {
       await migrateLegacyPreferences()
+      await loadLauncherLanguage()
       setInstallDir(await window.csore.getSelectedInstallDir())
       setStorageReady(true)
     } catch (error) {
@@ -90,7 +93,7 @@ export default function App(): React.JSX.Element {
       if (!chosen) return
       setInstallDir(chosen)
     } catch (err) {
-      setPickError(err instanceof Error ? err.message : 'Could not use that folder.')
+      setPickError(err instanceof Error ? err.message : t("Could not use that folder."))
     }
   }
 
@@ -100,13 +103,13 @@ export default function App(): React.JSX.Element {
 
   return (
     <div className="launcher-shell">
-      <aside className="launcher-sidebar" aria-label="Launcher navigation">
+      <aside className="launcher-sidebar" aria-label={t("Launcher navigation")}>
         <img className="launcher-brand" src={launcherIcon} alt="Tia Launcher" draggable={false} />
-        <button type="button" className="sidebar-game" disabled={movingInstallation} aria-label="CSO: Re-Server Edition home" aria-current={settingsScope ? undefined : 'page'} title="CSO: Re-Server Edition" onClick={() => setSettingsScope(null)}>
+        <button type="button" className="sidebar-game" disabled={movingInstallation} aria-label={t("CSO: Re-Server Edition home")} aria-current={settingsScope ? undefined : 'page'} title="CSO: Re-Server Edition" onClick={() => setSettingsScope(null)}>
           <img src={heroBackground} alt="" draggable={false} />
           <span>CSO<span>RSE</span></span>
         </button>
-        <button type="button" className="sidebar-library" title="Launcher Settings" aria-label="Open launcher settings" disabled={movingInstallation} onClick={() => openSettings('launcher')}>
+        <button type="button" className="sidebar-library" title={t("Launcher Settings")} aria-label={t("Open launcher settings")} disabled={movingInstallation} onClick={() => openSettings('launcher')}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z" /></svg>
         </button>
       </aside>
@@ -128,7 +131,7 @@ export default function App(): React.JSX.Element {
         <button
           type="button"
           onClick={() => window.csore.openExternal(DONATE_URL)}
-          title="Donate"
+          title={t("Donate")}
           className="window-control"
         >
           <WalletIcon />
@@ -137,7 +140,7 @@ export default function App(): React.JSX.Element {
           type="button"
           disabled={movingInstallation}
           onClick={() => openSettings('launcher')}
-          title="Launcher Settings"
+          title={t("Launcher Settings")}
           className="window-control"
         >
           <GearIcon />
@@ -146,7 +149,7 @@ export default function App(): React.JSX.Element {
         <button
           type="button"
           onClick={() => window.csore.minimizeWindow()}
-          title="Minimize"
+          title={t("Minimize")}
           className="window-control"
         >
           <MinimizeIcon />
@@ -155,7 +158,7 @@ export default function App(): React.JSX.Element {
           type="button"
           disabled={movingInstallation}
           onClick={() => window.csore.closeWindow()}
-          title="Close"
+          title={t("Close")}
           className="window-control window-control-close"
         >
           <CloseIcon />
@@ -165,9 +168,9 @@ export default function App(): React.JSX.Element {
       <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || !storageReady} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
       {storageError && (
         <div role="alert" className="absolute top-14 right-3 z-50 max-w-sm rounded bg-red-950 px-4 py-3 text-sm text-red-100">
-          <p>Could not load saved launcher data.</p>
+          <p>{t("Could not load saved launcher data.")}</p>
           <p className="mt-2 text-xs">{storageError}</p>
-          <button type="button" className="mt-3 rounded bg-white/15 px-3 py-1" onClick={() => void loadSavedData()}>Retry</button>
+          <button type="button" className="mt-3 rounded bg-white/15 px-3 py-1" onClick={() => void loadSavedData()}>{t("Retry")}</button>
         </div>
       )}
       {pickError && (

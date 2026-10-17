@@ -1,3 +1,4 @@
+import { isFilesystemRoot } from './installLocation'
 import { migrateRecord, writeRecords, forgetGameRecords, gameScope } from './localDatabase'
 import { moveInstallDirectory, type MoveProgress, type MoveResult } from './moveInstallation'
 
@@ -660,6 +661,7 @@ export async function moveInstallation(
 }
 
 export async function uninstallGame(installDir: string): Promise<void> {
+  if (isFilesystemRoot(installDir)) throw new Error('Cannot uninstall an entire drive. Move the game into a dedicated folder first.')
   if (operationInProgress) {
     throw new Error('another operation (install/update/repair) is already in progress -- cannot uninstall now')
   }

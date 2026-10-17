@@ -1,3 +1,4 @@
+import { isFilesystemRoot } from './installLocation'
 import { moveGameRecords } from './localDatabase'
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
@@ -39,6 +40,7 @@ export async function moveInstallDirectory(
 ): Promise<MoveResult> {
   const source = await realpath(sourcePath)
   const destination = join(await realpath(dirname(resolve(destinationPath))), basename(resolve(destinationPath)))
+  if (isFilesystemRoot(source) || isFilesystemRoot(destination)) throw new Error('Cannot move an entire drive. Select a dedicated game folder.')
   const nested = (parent: string, child: string): boolean => {
     const path = relative(parent, child)
     return path === '' || (!path.startsWith('..' + sep) && path !== '..' && !isAbsolute(path))
