@@ -1,3 +1,4 @@
+import { userError } from '../userErrors'
 import { t } from '../i18n'
 import { useEffect, useState } from 'react'
 
@@ -17,7 +18,7 @@ export function UpdateWindow(): React.JSX.Element | null {
     try {
       await window.csore.quitAndInstallUpdate()
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : t("Could not restart to install the update."))
+      setErrorMessage(userError(err, 'update'))
     }
   }
 
@@ -30,7 +31,7 @@ export function UpdateWindow(): React.JSX.Element | null {
     try {
       await window.csore.startUpdateDownload(retry)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : t("Could not download the update."))
+      setErrorMessage(userError(error, 'update'))
       setDownloading(false)
       setProgress(null)
       setDetail(null)
@@ -52,7 +53,7 @@ export function UpdateWindow(): React.JSX.Element | null {
       setDownloaded(state.downloaded)
       setDownloading(state.downloading)
       setDetail(state.downloadProgress)
-      setErrorMessage(state.error)
+      setErrorMessage(state.error ? userError(state.error, 'update') : null)
     }
     window.csore.getUpdateState().then(applyState).catch(() => {})
 
@@ -73,7 +74,7 @@ export function UpdateWindow(): React.JSX.Element | null {
       setErrorMessage(null)
     })
     const unsubError = window.csore.onUpdateError((message) => {
-      setErrorMessage(message)
+      setErrorMessage(userError(message, 'update'))
       setDownloading(false)
       setProgress(null)
       setDetail(null)
@@ -100,7 +101,7 @@ export function UpdateWindow(): React.JSX.Element | null {
       <div className="w-96 rounded-lg border border-white/10 bg-zinc-900 p-6">
         <p className="text-lg font-semibold">{versionStatus === 'failed' ? t("Version check failed") : t("Checking launcher version…")}</p>
         <p className="mt-2 text-sm text-white/60">{t("If the update service is unavailable, installed games remain playable.")}</p>
-        {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
+        {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{t(errorMessage)}</p>}
         {versionStatus === 'failed' && <button type="button" className="mt-4 rounded bg-yellow-400 px-3 py-2 text-black" onClick={() => { void window.csore.checkForUpdate().catch(() => {}) }}>{t("Retry check")}</button>}
         <button type="button" className="ml-3 mt-4 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>{t("Close launcher")}</button>
       </div>
@@ -148,7 +149,7 @@ export function UpdateWindow(): React.JSX.Element | null {
             </button>
         </>
       )}
-      {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{errorMessage}</p>}
+      {errorMessage && <p role="alert" className="mt-2 text-xs text-red-400">{t(errorMessage)}</p>}
       <button type="button" className="mt-3 text-sm text-white/60" onClick={() => { void window.csore.closeWindow() }}>{t("Close launcher")}</button>
       </div>
     </div>

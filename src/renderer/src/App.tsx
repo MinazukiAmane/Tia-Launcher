@@ -1,3 +1,4 @@
+import { userError } from './userErrors'
 import { t, loadLauncherLanguage, useLauncherLanguage } from './i18n'
 import { useEffect, useState } from 'react'
 import { migrateLegacyPreferences } from './persistence'
@@ -67,13 +68,13 @@ export default function App(): React.JSX.Element {
       setInstallDir(await window.csore.getSelectedInstallDir())
       setStorageReady(true)
     } catch (error) {
-      setStorageError(error instanceof Error ? error.message : String(error))
+      setStorageError(userError(error, 'storage'))
     }
   }
 
   useEffect(() => {
     void loadSavedData()
-    window.csore.getUserDataDir().then(setUserDataDir)
+    window.csore.getUserDataDir().then(setUserDataDir).catch(() => {})
     window.csore.getBackground().then(setBackgroundUrl).catch(() => setBackgroundUrl(null))
   }, [])
 
@@ -93,7 +94,7 @@ export default function App(): React.JSX.Element {
       if (!chosen) return
       setInstallDir(chosen)
     } catch (err) {
-      setPickError(err instanceof Error ? err.message : t("Could not use that folder."))
+      setPickError(userError(err, 'folder'))
     }
   }
 
@@ -169,13 +170,13 @@ export default function App(): React.JSX.Element {
       {storageError && (
         <div role="alert" className="absolute top-14 right-3 z-50 max-w-sm rounded bg-red-950 px-4 py-3 text-sm text-red-100">
           <p>{t("Could not load saved launcher data.")}</p>
-          <p className="mt-2 text-xs">{storageError}</p>
+          <p className="mt-2 text-xs">{t(storageError)}</p>
           <button type="button" className="mt-3 rounded bg-white/15 px-3 py-1" onClick={() => void loadSavedData()}>{t("Retry")}</button>
         </div>
       )}
       {pickError && (
         <p className="absolute top-14 right-3 z-30 max-w-xs rounded bg-red-950/80 px-3 py-2 text-xs text-red-300">
-          {pickError}
+          {t(pickError)}
         </p>
       )}
 

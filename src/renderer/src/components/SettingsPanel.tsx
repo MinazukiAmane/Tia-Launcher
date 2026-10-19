@@ -1,3 +1,4 @@
+import { userError } from '../userErrors'
 import { t, changeLauncherLanguage, useLauncherLanguage } from '../i18n'
 import { LAUNCHER_LANGUAGES, type LauncherLanguage } from '../launcherLanguages'
 import { saveBackgroundMode } from '../backgroundFrames'
@@ -159,6 +160,7 @@ export function SettingsPanel({
   const launcherLanguage = useLauncherLanguage()
   const [languageBusy, setLanguageBusy] = useState(false)
   const [languageError, setLanguageError] = useState<string | null>(null)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
   const [settings, setSettings] = useState<Settings | null>(null)
   const [backgroundError, setBackgroundError] = useState<string | null>(null)
   const [backgroundBusy, setBackgroundBusy] = useState(false)
@@ -186,10 +188,10 @@ export function SettingsPanel({
       const result = await window.csore.moveInstallation(installDir)
       if (result) {
         onInstallationMoved(result.installDir)
-        setMoveMessage(result.warning ?? t("Installation moved successfully."))
+        setMoveMessage(result.warning ? 'The game has moved, but some files remain in the old folder. Check the new installation before removing old files.' : 'Installation moved successfully.')
       }
     } catch (error) {
-      setMoveError(error instanceof Error ? error.message : t("Could not move the installation."))
+      setMoveError(userError(error, 'move'))
     } finally {
       unsubscribe()
       setMoving(false)
@@ -235,7 +237,7 @@ export function SettingsPanel({
       const selected = await window.csore.chooseSikarugirWrapper()
       if (selected) setSikarugirStatus(selected)
     } catch (err) {
-      setSikarugirError(err instanceof Error ? err.message : t("Could not select the Sikarugir wrapper."))
+      setSikarugirError(userError(err, 'runtime'))
     } finally { setChoosingSikarugir(false) }
   }
 
@@ -258,26 +260,26 @@ export function SettingsPanel({
     window.csore.getSettings().then((s) => {
       setSettings(s)
       setSpeedLimitInput(s.downloadSpeedLimitKbps == null ? '' : String(s.downloadSpeedLimitKbps))
-    })
+    }).catch(error => setSettingsError(userError(error, 'settings')))
   }, [])
 
   useEffect(() => {
 
-    window.csore.getPlatform().then(setPlatform)
+    window.csore.getPlatform().then(setPlatform).catch(error => setSettingsError(userError(error, 'settings')))
   }, [])
 
   useEffect(() => {
     if (platform === 'linux') {
-      window.csore.getDWProtonStatus().then(setDwprotonStatus)
+      window.csore.getDWProtonStatus().then(setDwprotonStatus).catch(error => setSettingsError(userError(error, 'settings')))
     } else if (platform === 'darwin') {
-      window.csore.getSikarugirStatus().then(setSikarugirStatus)
+      window.csore.getSikarugirStatus().then(setSikarugirStatus).catch(error => setSettingsError(userError(error, 'settings')))
     }
   }, [platform])
 
   useEffect(() => {
-    window.csore.getUpdateState().then(setUpdateState)
-    window.csore.getAppVersion().then(setAppVersion)
-    window.csore.getLogFilePath().then(setLogPath)
+    window.csore.getUpdateState().then(setUpdateState).catch(error => setSettingsError(userError(error, 'settings')))
+    window.csore.getAppVersion().then(setAppVersion).catch(error => setSettingsError(userError(error, 'settings')))
+    window.csore.getLogFilePath().then(setLogPath).catch(error => setSettingsError(userError(error, 'settings')))
   }, [])
 
   useEffect(() => {
@@ -285,14 +287,16 @@ export function SettingsPanel({
       setInstalledVersion(null)
       return
     }
-    window.csore.getInstallState(installDir).then((s) => setInstalledVersion(s?.version ?? null))
+    window.csore.getInstallState(installDir).then((s) => setInstalledVersion(s?.version ?? null)).catch(error => setSettingsError(userError(error, 'storage')))
   }, [installDir])
 
   async function update(patch: Partial<Settings>): Promise<void> {
     if (!settings) return
     const next = { ...settings, ...patch }
     setSettings(next)
-    await window.csore.setSettings(next)
+    setSettingsError(null)
+    try { await window.csore.setSettings(next) }
+    catch (error) { setSettings(settings); setSettingsError(userError(error, 'settings')) }
   }
 
   function commitSpeedLimit(raw: string): void {
@@ -318,7 +322,7 @@ export function SettingsPanel({
       setVerifyResult(result)
       if (!result.ok) setConfirmingRepair(true)
     } catch (err) {
-      setVerifyError(err instanceof Error ? err.message : t("Could not verify the install."))
+      setVerifyError(userError(err, 'verify'))
     } finally {
       setVerifying(false)
     }
@@ -342,7 +346,7 @@ export function SettingsPanel({
       setRepairDone(true)
       setVerifyResult(null)
     } catch (err) {
-      setRepairError(err instanceof Error ? err.message : t("Repair failed."))
+      setRepairError(userError(err, 'repair'))
     } finally {
       unsubscribe()
       setRepairing(false)
@@ -359,7 +363,7 @@ export function SettingsPanel({
       onUninstalled()
       onClose()
     } catch (err) {
-      setUninstallError(err instanceof Error ? err.message : t("Uninstall failed."))
+      setUninstallError(userError(err, 'uninstall'))
       setUninstalling(false)
       setConfirmingUninstall(false)
     }
@@ -375,7 +379,7 @@ export function SettingsPanel({
       const status = await window.csore.getDWProtonStatus()
       setDwprotonStatus(status)
     } catch (err) {
-      setRedownloadError(err instanceof Error ? err.message : t("Could not re-download DWProton."))
+      setRedownloadError(userError(err, 'runtime'))
     } finally {
       unsubscribe()
       setRedownloading(false)
@@ -388,18 +392,20 @@ export function SettingsPanel({
     try {
       await window.csore.checkForUpdate()
       setUpdateState(await window.csore.getUpdateState())
-    } finally {
+    } catch (error) { setSettingsError(userError(error, 'update')) } finally {
       setCheckingUpdate(false)
     }
   }
 
   async function handleViewLogs(): Promise<void> {
-    await window.csore.showLogFileInFolder()
+    try { await window.csore.showLogFileInFolder() }
+    catch (error) { setSettingsError(userError(error, 'logs')) }
   }
 
   async function handleOpenInstallDir(): Promise<void> {
     if (!installDir) return
-    await window.csore.showInstallDirInFolder(installDir)
+    try { await window.csore.showInstallDirInFolder(installDir) }
+    catch (error) { setSettingsError(userError(error, 'logs')) }
   }
 
   return (
@@ -437,6 +443,7 @@ export function SettingsPanel({
             <CloseIcon />
           </button>
         <div className="settings-content">
+          {settingsError && <p role="alert" className="mb-3 text-sm text-red-400">{t(settingsError)}</p>}
 
           {!settings && <div className="text-white/60">{t("Loading…")}</div>}
 
@@ -452,13 +459,13 @@ export function SettingsPanel({
                       setLanguageBusy(true)
                       setLanguageError(null)
                       try { await changeLauncherLanguage(value) }
-                      catch (error) { setLanguageError(error instanceof Error ? error.message : String(error)) }
+                      catch (error) { setLanguageError(userError(error, 'settings')) }
                       finally { setLanguageBusy(false) }
                     }}>
                     {LAUNCHER_LANGUAGES.map(language => <option key={language.code} value={language.code}>{language.label}</option>)}
                   </select>
                 </label>
-                {languageError && <p role="alert" className="text-xs text-red-400">{languageError}</p>}
+                {languageError && <p role="alert" className="text-xs text-red-400">{t(languageError)}</p>}
               </SectionCard>
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
               <SectionCard title={t("Launcher Background")}>
@@ -475,11 +482,11 @@ export function SettingsPanel({
                       try {
                         const url = await window.csore.chooseBackground()
                         if (url) {
-                          saveBackgroundMode('image')
+                          await saveBackgroundMode('image')
                           onBackgroundChanged(url)
                         }
                       } catch (err) {
-                        setBackgroundError(err instanceof Error ? err.message : t("Could not use that background."))
+                        setBackgroundError(userError(err, 'background'))
                       } finally {
                         setBackgroundBusy(false)
                       }
@@ -493,16 +500,20 @@ export function SettingsPanel({
                     disabled={backgroundBusy}
                     onClick={async () => {
                       setBackgroundError(null)
-                      await window.csore.clearBackground()
-                      saveBackgroundMode('image')
-                      onBackgroundChanged(null)
+                      setBackgroundBusy(true)
+                      try {
+                        await window.csore.clearBackground()
+                        await saveBackgroundMode('image')
+                        onBackgroundChanged(null)
+                      } catch (error) { setBackgroundError(userError(error, 'background')) }
+                      finally { setBackgroundBusy(false) }
                     }}
                     className="rounded bg-white/5 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 disabled:opacity-60"
                   >
                     {t("Reset to default")}
                     </button>
                 </div>
-                {backgroundError && <p className="text-xs text-red-400">{backgroundError}</p>}
+                {backgroundError && <p className="text-xs text-red-400">{t(backgroundError)}</p>}
               </SectionCard>
 
               <SectionCard title={t("Update Settings")}>
@@ -513,7 +524,7 @@ export function SettingsPanel({
                       : updateState?.available
                         ? t('Update available: v{version}', { version: updateState.available.version })
                         : updateState?.error
-                          ? t('Check failed: {error}', { error: updateState.error })
+                          ? t(userError(updateState.error, 'update'))
                           : t("Launcher updates are checked manually -- they never auto-download or auto-install.")}
                   </span>
                   <button
@@ -648,8 +659,8 @@ export function SettingsPanel({
                       ? t('Verifying copied files: {processed} / {total}', { processed: moveProgress.processed, total: moveProgress.total }) : t("Moving files…")}
                   </p>
                 )}
-                {moveError && <p className="text-xs text-red-400">{moveError}</p>}
-                {moveMessage && <p className="text-xs text-white/70">{moveMessage}</p>}
+                {moveError && <p className="text-xs text-red-400">{t(moveError)}</p>}
+                {moveMessage && <p className="text-xs text-white/70">{t(moveMessage)}</p>}
                 <Row label={t("Open file directory")} onClick={handleOpenInstallDir} disabled={!installDir} />
               </SectionCard>
 
@@ -708,7 +719,7 @@ export function SettingsPanel({
                     {verifying ? t("Verifying…") : t("Check Game Integrity")}
                   </button>
 
-                  {verifyError && <p className="text-xs text-red-400">{verifyError}</p>}
+                  {verifyError && <p className="text-xs text-red-400">{t(verifyError)}</p>}
                   {verifyResult && (
                     <p className="text-xs text-white/70">
                       {verifyResult.ok
@@ -723,7 +734,7 @@ export function SettingsPanel({
                       label={t("Repairing…")}
                     />
                   )}
-                  {repairError && <p className="text-xs text-red-400">{repairError}</p>}
+                  {repairError && <p className="text-xs text-red-400">{t(repairError)}</p>}
                   {repairDone && <p className="text-xs text-white/70">{t("Repair complete.")}</p>}
                 </SectionCard>
               )}
@@ -752,7 +763,7 @@ export function SettingsPanel({
                       label={t("Downloading…")}
                     />
                   )}
-                  {redownloadError && <p className="text-xs text-red-400">{redownloadError}</p>}
+                  {redownloadError && <p className="text-xs text-red-400">{t(redownloadError)}</p>}
                 </SectionCard>
               )}
 
@@ -773,11 +784,11 @@ export function SettingsPanel({
                   <button type="button" className="text-xs text-white/70 underline" onClick={() => window.csore.openExternal('https://github.com/Sikarugir-App/Sikarugir')}>
                     {t("Sikarugir installation guide")}
                     </button>
-                  {sikarugirError && <p className="text-xs text-red-400">{sikarugirError}</p>}
+                  {sikarugirError && <p className="text-xs text-red-400">{t(sikarugirError)}</p>}
                 </SectionCard>
               )}
 
-              {uninstallError && <p className="text-xs text-red-400">{uninstallError}</p>}
+              {uninstallError && <p className="text-xs text-red-400">{t(uninstallError)}</p>}
             </div>
           )}
 
@@ -824,7 +835,7 @@ export function SettingsPanel({
                 {updateState?.downloaded && (
                   <p className="text-xs text-white/50">{t("Update downloaded -- restart to install.")}</p>
                 )}
-                {updateState?.error && <p className="text-xs text-red-400">{updateState.error}</p>}
+                {updateState?.error && <p className="text-xs text-red-400">{t(userError(updateState.error, 'update'))}</p>}
               </SectionCard>
 
               <SectionCard title={t("Uninstall Launcher")}>
@@ -833,7 +844,7 @@ export function SettingsPanel({
                   {t("Removes the launcher only. Game files stay where they are -- use \"Uninstall game\" in Manage Games first if you want those gone too.")}
                   </p>
                 {launcherUninstallMessage && (
-                  <p className="whitespace-pre-line text-xs text-white/60">{launcherUninstallMessage}</p>
+                  <p className="whitespace-pre-line text-xs text-white/60">{t(launcherUninstallMessage)}</p>
                 )}
               </SectionCard>
 
@@ -895,9 +906,9 @@ export function SettingsPanel({
             setLauncherUninstallMessage(t("Starting uninstall… Approve the administrator prompt if shown."))
             try {
               const result = await window.csore.uninstallLauncher(removeLauncherData)
-              setLauncherUninstallMessage(result.message)
+              setLauncherUninstallMessage(result.started ? 'Removal has started. Follow any instructions shown by your system.' : "Remove Tia Launcher using your system's app manager. Your game files will stay in place.")
             } catch (err) {
-              setLauncherUninstallMessage(err instanceof Error ? err.message : t("Could not uninstall the launcher."))
+              setLauncherUninstallMessage(userError(err, 'uninstall'))
             } finally { setUninstallingLauncher(false) }
           }}
         >

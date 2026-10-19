@@ -1314,5 +1314,306 @@
     "번역 기여자",
     "翻訳協力",
     "Pangajèn Penerjemah"
+  ],
+  "The operation stopped before it finished. Try again.": [
+    "Proses berhenti sebelum selesai. Coba lagi.",
+    "操作尚未完成就已停止。请重试。",
+    "작업이 완료되기 전에 중단되었습니다. 다시 시도하세요.",
+    "処理が完了する前に停止しました。もう一度お試しください。",
+    "Proses mandheg sadèrèngipun rampung. Mangga dipunbaleni."
+  ],
+  "The connection took too long. Check your internet connection, then try again.": [
+    "Koneksi terlalu lama merespons. Periksa koneksi internet, lalu coba lagi.",
+    "连接等待时间过长。请检查网络连接后重试。",
+    "연결에 시간이 너무 오래 걸립니다. 인터넷 연결을 확인한 후 다시 시도하세요.",
+    "接続に時間がかかりすぎています。インターネット接続を確認してから再試行してください。",
+    "Sambungan dangu sanget. Priksa sambungan internet, lajeng cobi malih."
+  ],
+  "Could not connect. Check your internet connection, then try again.": [
+    "Tidak dapat terhubung. Periksa koneksi internet, lalu coba lagi.",
+    "无法连接。请检查网络连接后重试。",
+    "연결할 수 없습니다. 인터넷 연결을 확인한 후 다시 시도하세요.",
+    "接続できません。インターネット接続を確認してから再試行してください。",
+    "Boten saged nyambung. Priksa sambungan internet, lajeng cobi malih."
+  ],
+  "The service is temporarily unavailable. Try again later.": [
+    "Layanan sedang tidak tersedia. Coba lagi nanti.",
+    "服务暂时不可用。请稍后重试。",
+    "서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
+    "現在サービスを利用できません。しばらくしてから再試行してください。",
+    "Layanan saweg boten kasedhiya. Mangga cobi malih mengko."
+  ],
+  "This download is not available right now. Try again later or contact support.": [
+    "Unduhan ini belum tersedia. Coba lagi nanti atau hubungi bantuan.",
+    "此下载暂不可用。请稍后重试或联系支持人员。",
+    "지금은 이 파일을 다운로드할 수 없습니다. 나중에 다시 시도하거나 지원팀에 문의하세요.",
+    "現在このファイルをダウンロードできません。後でもう一度試すか、サポートにお問い合わせください。",
+    "Undhuhan menika saweg boten kasedhiya. Cobi malih mengko utawi hubungi pitulungan."
+  ],
+  "There is not enough free space. Free up space on the installation drive, then try again.": [
+    "Ruang penyimpanan tidak cukup. Kosongkan sebagian ruang di drive instalasi, lalu coba lagi.",
+    "存储空间不足。请清理安装所在磁盘的空间后重试。",
+    "저장 공간이 부족합니다. 설치 드라이브의 공간을 확보한 후 다시 시도하세요.",
+    "空き容量が足りません。インストール先のドライブの容量を空けてから再試行してください。",
+    "Panyimpenan boten cekap. Kosongaken papan ing drive instalasi, lajeng cobi malih."
+  ],
+  "Some files are being used by another app. Close the game and any apps using its folder, then try again.": [
+    "Beberapa file sedang dipakai aplikasi lain. Tutup game dan aplikasi yang memakai foldernya, lalu coba lagi.",
+    "部分文件正被其他应用使用。请关闭游戏及使用该文件夹的应用后重试。",
+    "다른 앱에서 일부 파일을 사용 중입니다. 게임과 해당 폴더를 사용하는 앱을 닫은 후 다시 시도하세요.",
+    "一部のファイルが別のアプリで使われています。ゲームとそのフォルダーを使用しているアプリを閉じてから再試行してください。",
+    "Sawetara berkas saweg dipunginakaken aplikasi sanes. Tutup game lan aplikasi ingkang migunakaken folderipun, lajeng cobi malih."
+  ],
+  "The launcher cannot save files in this folder. Choose a folder you can write to, then try again.": [
+    "Launcher tidak dapat menyimpan file di folder ini. Pilih folder yang bisa dipakai menyimpan file, lalu coba lagi.",
+    "启动器无法在此文件夹中保存文件。请选择有写入权限的文件夹后重试。",
+    "이 폴더에 파일을 저장할 수 없습니다. 파일을 저장할 수 있는 폴더를 선택한 후 다시 시도하세요.",
+    "このフォルダーにはファイルを保存できません。保存できるフォルダーを選んで再試行してください。",
+    "Launcher boten saged nyimpen berkas ing folder menika. Pilih folder ingkang saged dipunginakaken nyimpen, lajeng cobi malih."
+  ],
+  "Some files could not be saved. Check free space and folder access, then try again.": [
+    "Beberapa file tidak dapat disimpan. Periksa ruang kosong dan akses folder, lalu coba lagi.",
+    "部分文件无法保存。请检查可用空间及文件夹权限后重试。",
+    "일부 파일을 저장할 수 없습니다. 여유 공간과 폴더 접근 권한을 확인한 후 다시 시도하세요.",
+    "一部のファイルを保存できませんでした。空き容量とフォルダーへのアクセス権を確認してから再試行してください。",
+    "Sawetara berkas boten saged kasimpen. Priksa papan kosong lan akses folder, lajeng cobi malih."
+  ],
+  "Another task is still running. Wait for it to finish, then try again.": [
+    "Masih ada proses lain yang berjalan. Tunggu sampai selesai, lalu coba lagi.",
+    "另一个任务仍在运行。请等待其完成后重试。",
+    "다른 작업이 진행 중입니다. 작업이 끝난 후 다시 시도하세요.",
+    "別の処理が実行中です。完了してから再試行してください。",
+    "Taksih wonten proses sanes. Entosi dumugi rampung, lajeng cobi malih."
+  ],
+  "Close the game first, then try again.": [
+    "Tutup game terlebih dahulu, lalu coba lagi.",
+    "请先关闭游戏，然后重试。",
+    "먼저 게임을 종료한 후 다시 시도하세요.",
+    "先にゲームを終了してから再試行してください。",
+    "Tutup game rumiyin, lajeng cobi malih."
+  ],
+  "Update the launcher to continue.": [
+    "Perbarui launcher untuk melanjutkan.",
+    "请更新启动器以继续。",
+    "계속하려면 런처를 업데이트하세요.",
+    "続行するにはランチャーを更新してください。",
+    "Anyaraken launcher supados saged nglajengaken."
+  ],
+  "Update the game first, then try repairing it again.": [
+    "Perbarui game terlebih dahulu, lalu coba perbaiki lagi.",
+    "请先更新游戏，然后再次尝试修复。",
+    "먼저 게임을 업데이트한 후 다시 복구를 시도하세요.",
+    "先にゲームを更新してから、もう一度修復してください。",
+    "Anyaraken game rumiyin, lajeng cobi dandosi malih."
+  ],
+  "Some game files are missing or damaged. Repair the game in Game Settings, then try Play again.": [
+    "Beberapa file game hilang atau rusak. Perbaiki game di Pengaturan Game, lalu coba Mainkan lagi.",
+    "部分游戏文件缺失或损坏。请在游戏设置中修复后再次开始游戏。",
+    "일부 게임 파일이 없거나 손상되었습니다. 게임 설정에서 복구한 후 다시 플레이하세요.",
+    "一部のゲームファイルが不足または破損しています。ゲーム設定で修復してから、もう一度プレイしてください。",
+    "Sawetara berkas game ical utawi rusak. Dandosi ing Pangaturan Game, lajeng cobi main malih."
+  ],
+  "Some downloaded files are incomplete or damaged. Try downloading again.": [
+    "Beberapa file unduhan belum lengkap atau rusak. Coba unduh lagi.",
+    "部分下载文件不完整或已损坏。请重新下载。",
+    "일부 다운로드 파일이 완전하지 않거나 손상되었습니다. 다시 다운로드하세요.",
+    "ダウンロードしたファイルが不完全、または破損しています。もう一度ダウンロードしてください。",
+    "Sawetara berkas undhuhan dereng jangkep utawi rusak. Mangga undhuh malih."
+  ],
+  "File repair is temporarily unavailable. Try again later or contact support.": [
+    "Perbaikan file sedang tidak tersedia. Coba lagi nanti atau hubungi bantuan.",
+    "文件修复暂不可用。请稍后重试或联系支持人员。",
+    "파일 복구를 일시적으로 사용할 수 없습니다. 나중에 다시 시도하거나 지원팀에 문의하세요.",
+    "現在ファイルを修復できません。後でもう一度試すか、サポートにお問い合わせください。",
+    "Dandosan berkas saweg boten kasedhiya. Cobi malih mengko utawi hubungi pitulungan."
+  ],
+  "Choose the folder where your game is installed, or install the game first.": [
+    "Pilih folder tempat game terpasang, atau instal game terlebih dahulu.",
+    "请选择游戏安装文件夹，或先安装游戏。",
+    "게임이 설치된 폴더를 선택하거나 먼저 게임을 설치하세요.",
+    "ゲームがインストールされたフォルダーを選ぶか、先にゲームをインストールしてください。",
+    "Pilih folder papan game dipuninstal, utawi instal game rumiyin."
+  ],
+  "Choose an empty destination folder so your other files stay safe.": [
+    "Pilih folder tujuan kosong agar file lain tetap aman.",
+    "请选择空的目标文件夹，以免影响其他文件。",
+    "다른 파일을 보호하려면 비어 있는 대상 폴더를 선택하세요.",
+    "ほかのファイルを守るため、空の移動先フォルダーを選んでください。",
+    "Pilih folder tujuan ingkang kosong supados berkas sanes tetep aman."
+  ],
+  "Choose a different folder outside the current game folder.": [
+    "Pilih folder lain di luar folder game saat ini.",
+    "请选择当前游戏文件夹之外的其他文件夹。",
+    "현재 게임 폴더 밖에 있는 다른 폴더를 선택하세요.",
+    "現在のゲームフォルダーの外にある別のフォルダーを選んでください。",
+    "Pilih folder sanes ing njawi folder game samenika."
+  ],
+  "Choose a game folder instead of an entire drive.": [
+    "Pilih folder khusus game, bukan seluruh drive.",
+    "请选择专用游戏文件夹，而不是整个磁盘。",
+    "드라이브 전체가 아닌 게임 전용 폴더를 선택하세요.",
+    "ドライブ全体ではなく、ゲーム専用のフォルダーを選んでください。",
+    "Pilih folder mligi kanggé game, sanès sedaya drive."
+  ],
+  "Choose a PNG, JPG, WEBP or GIF image up to 25 MB.": [
+    "Pilih gambar PNG, JPG, WEBP, atau GIF berukuran maksimal 25 MB.",
+    "请选择不超过 25 MB 的 PNG、JPG、WEBP 或 GIF 图片。",
+    "25 MB 이하의 PNG, JPG, WEBP 또는 GIF 이미지를 선택하세요.",
+    "25 MB 以下の PNG、JPG、WEBP、GIF 画像を選んでください。",
+    "Pilih gambar PNG, JPG, WEBP utawi GIF ingkang paling ageng 25 MB."
+  ],
+  "Your saved launcher data needs attention. Restart the launcher. If it keeps happening, contact support before reinstalling.": [
+    "Data launcher tersimpan bermasalah. Mulai ulang launcher. Jika masih terjadi, hubungi bantuan sebelum menginstal ulang.",
+    "保存的启动器数据需要处理。请重启启动器。如仍出现问题，请先联系支持人员，不要急于重新安装。",
+    "저장된 런처 데이터에 문제가 있습니다. 런처를 다시 시작하세요. 문제가 계속되면 재설치 전에 지원팀에 문의하세요.",
+    "保存済みのランチャーデータに問題があります。ランチャーを再起動してください。解決しない場合は、再インストールする前にサポートにお問い合わせください。",
+    "Data launcher ingkang kasimpen wonten masalah. Wiwiti malih launcher. Menawi taksih kedadosan, hubungi pitulungan sadèrèngipun instal malih."
+  ],
+  "The game could not start. Repair its files in Game Settings, then try Play again. If it continues, contact support.": [
+    "Game belum dapat dijalankan. Perbaiki filenya di Pengaturan Game, lalu coba Mainkan lagi. Jika masih gagal, hubungi bantuan.",
+    "游戏无法启动。请在游戏设置中修复文件后重试。如仍失败，请联系支持人员。",
+    "게임을 시작할 수 없습니다. 게임 설정에서 파일을 복구한 후 다시 플레이하세요. 문제가 계속되면 지원팀에 문의하세요.",
+    "ゲームを起動できませんでした。ゲーム設定でファイルを修復してから再度プレイしてください。解決しない場合はサポートにお問い合わせください。",
+    "Game dereng saged dipunwiwiti. Dandosi berkasipun ing Pangaturan Game, lajeng cobi main malih. Menawi taksih gagal, hubungi pitulungan."
+  ],
+  "The game needs an additional component before it can run. Contact support for setup help.": [
+    "Game membutuhkan komponen tambahan agar bisa berjalan. Hubungi bantuan untuk panduan pemasangan.",
+    "游戏运行前需要安装额外组件。请联系支持人员获取安装帮助。",
+    "게임 실행에 추가 구성 요소가 필요합니다. 설치 방법은 지원팀에 문의하세요.",
+    "ゲームの起動に追加のコンポーネントが必要です。設定方法はサポートにお問い合わせください。",
+    "Game mbetahaken komponen tambahan supados saged lumampah. Hubungi pitulungan kanggé pitedah pemasangan."
+  ],
+  "Complete the macOS game setup in Game Settings, then try again.": [
+    "Selesaikan pengaturan game macOS di Pengaturan Game, lalu coba lagi.",
+    "请在游戏设置中完成 macOS 游戏配置后重试。",
+    "게임 설정에서 macOS 게임 설정을 완료한 후 다시 시도하세요.",
+    "ゲーム設定で macOS のゲーム設定を完了してから再試行してください。",
+    "Rampungaken pangaturan game macOS ing Pangaturan Game, lajeng cobi malih."
+  ],
+  "The launch options could not be used. Check Launch Command in Game Settings, then try again.": [
+    "Opsi peluncuran tidak dapat dipakai. Periksa Perintah Peluncuran di Pengaturan Game, lalu coba lagi.",
+    "无法使用这些启动选项。请检查游戏设置中的启动命令后重试。",
+    "실행 옵션을 사용할 수 없습니다. 게임 설정의 실행 명령을 확인한 후 다시 시도하세요.",
+    "起動オプションを使用できません。ゲーム設定の起動コマンドを確認してから再試行してください。",
+    "Pilihan peluncuran boten saged dipunginakaken. Priksa Prentah Peluncuran ing Pangaturan Game, lajeng cobi malih."
+  ],
+  "The download could not be installed safely. Try again. If it happens again, contact support.": [
+    "Unduhan belum dapat dipasang dengan aman. Coba lagi. Jika terulang, hubungi bantuan.",
+    "无法安全安装下载内容。请重试。如再次出现，请联系支持人员。",
+    "다운로드한 파일을 안전하게 설치할 수 없습니다. 다시 시도하고 문제가 반복되면 지원팀에 문의하세요.",
+    "ダウンロードしたファイルを安全にインストールできませんでした。再試行し、繰り返す場合はサポートにお問い合わせください。",
+    "Undhuhan dereng saged dipunpasang kanthi aman. Cobi malih. Menawi kedadosan malih, hubungi pitulungan."
+  ],
+  "The installation could not finish. Try again. If it keeps happening, open Launcher Logs in Launcher Settings and share the log with support.": [
+    "Instalasi belum selesai. Coba lagi. Jika terus gagal, buka Log Launcher di Pengaturan Launcher dan kirim log ke bantuan.",
+    "安装未能完成。请重试。如问题持续，请在启动器设置中打开启动器日志并提供给支持人员。",
+    "설치를 완료하지 못했습니다. 다시 시도하세요. 문제가 계속되면 런처 설정에서 로그를 열어 지원팀에 전달하세요.",
+    "インストールを完了できませんでした。再試行してください。解決しない場合はランチャー設定でログを開き、サポートに共有してください。",
+    "Instalasi dereng rampung. Cobi malih. Menawi taksih gagal, bukak Log Launcher ing Pangaturan Launcher lan kirim log dhateng pitulungan."
+  ],
+  "The files could not be checked. Close the game, then try again.": [
+    "File belum dapat diperiksa. Tutup game, lalu coba lagi.",
+    "无法检查文件。请关闭游戏后重试。",
+    "파일을 확인할 수 없습니다. 게임을 종료한 후 다시 시도하세요.",
+    "ファイルを確認できませんでした。ゲームを閉じてから再試行してください。",
+    "Berkas dereng saged dipunpriksa. Tutup game, lajeng cobi malih."
+  ],
+  "The repair could not finish. Try again. If it keeps happening, share the launcher log with support.": [
+    "Perbaikan belum selesai. Coba lagi. Jika terus gagal, kirim log launcher ke bantuan.",
+    "修复未能完成。请重试。如问题持续，请将启动器日志提供给支持人员。",
+    "복구를 완료하지 못했습니다. 다시 시도하고 문제가 계속되면 런처 로그를 지원팀에 전달하세요.",
+    "修復を完了できませんでした。再試行し、解決しない場合はランチャーログをサポートに共有してください。",
+    "Dandosan dereng rampung. Cobi malih. Menawi taksih gagal, kirim log launcher dhateng pitulungan."
+  ],
+  "The game could not be moved. Close the game and choose an empty destination folder, then try again.": [
+    "Game belum dapat dipindahkan. Tutup game dan pilih folder tujuan kosong, lalu coba lagi.",
+    "无法移动游戏。请关闭游戏并选择空的目标文件夹后重试。",
+    "게임을 이동할 수 없습니다. 게임을 종료하고 비어 있는 대상 폴더를 선택한 후 다시 시도하세요.",
+    "ゲームを移動できませんでした。ゲームを閉じ、空の移動先フォルダーを選んで再試行してください。",
+    "Game dereng saged dipunpindhah. Tutup game lan pilih folder tujuan kosong, lajeng cobi malih."
+  ],
+  "This folder cannot be used. Choose another folder and try again.": [
+    "Folder ini tidak dapat dipakai. Pilih folder lain, lalu coba lagi.",
+    "无法使用此文件夹。请选择其他文件夹后重试。",
+    "이 폴더를 사용할 수 없습니다. 다른 폴더를 선택한 후 다시 시도하세요.",
+    "このフォルダーは使用できません。別のフォルダーを選んで再試行してください。",
+    "Folder menika boten saged dipunginakaken. Pilih folder sanes, lajeng cobi malih."
+  ],
+  "The settings could not be saved or loaded. Close and reopen the launcher, then try again.": [
+    "Pengaturan belum dapat disimpan atau dimuat. Tutup dan buka kembali launcher, lalu coba lagi.",
+    "无法保存或加载设置。请关闭并重新打开启动器后重试。",
+    "설정을 저장하거나 불러올 수 없습니다. 런처를 닫았다가 다시 열고 다시 시도하세요.",
+    "設定を保存または読み込めませんでした。ランチャーを閉じて開き直し、再試行してください。",
+    "Pangaturan dereng saged kasimpen utawi dipunmuat. Tutup lan bukak malih launcher, lajeng cobi malih."
+  ],
+  "The launcher update could not finish. Try again. If it keeps happening, contact support.": [
+    "Pembaruan launcher belum selesai. Coba lagi. Jika terus gagal, hubungi bantuan.",
+    "启动器更新未能完成。请重试。如问题持续，请联系支持人员。",
+    "런처 업데이트를 완료하지 못했습니다. 다시 시도하고 문제가 계속되면 지원팀에 문의하세요.",
+    "ランチャーの更新を完了できませんでした。再試行し、解決しない場合はサポートにお問い合わせください。",
+    "Nganyari launcher dereng rampung. Cobi malih. Menawi taksih gagal, hubungi pitulungan."
+  ],
+  "Removal could not finish. Close the game and try again, or use your system's app manager.": [
+    "Penghapusan belum selesai. Tutup game dan coba lagi, atau gunakan pengelola aplikasi di sistem.",
+    "卸载未能完成。请关闭游戏后重试，或使用系统的应用管理功能。",
+    "제거를 완료하지 못했습니다. 게임을 종료하고 다시 시도하거나 시스템의 앱 관리 기능을 사용하세요.",
+    "削除を完了できませんでした。ゲームを閉じて再試行するか、システムのアプリ管理を使用してください。",
+    "Pambusakan dereng rampung. Tutup game lan cobi malih, utawi ginakaken pangelola aplikasi sistem."
+  ],
+  "The game components could not be set up. Try again. If it keeps happening, contact support.": [
+    "Komponen game belum dapat disiapkan. Coba lagi. Jika terus gagal, hubungi bantuan.",
+    "无法完成游戏组件设置。请重试。如问题持续，请联系支持人员。",
+    "게임 구성 요소를 설정할 수 없습니다. 다시 시도하고 문제가 계속되면 지원팀에 문의하세요.",
+    "ゲームのコンポーネントを設定できませんでした。再試行し、解決しない場合はサポートにお問い合わせください。",
+    "Komponen game dereng saged dipuncawisaken. Cobi malih. Menawi taksih gagal, hubungi pitulungan."
+  ],
+  "The download cache could not be cleared. Wait for any downloads to finish, then try again.": [
+    "Cache unduhan belum dapat dibersihkan. Tunggu unduhan selesai, lalu coba lagi.",
+    "无法清除下载缓存。请等待下载完成后重试。",
+    "다운로드 캐시를 삭제할 수 없습니다. 다운로드가 끝난 후 다시 시도하세요.",
+    "ダウンロードキャッシュを削除できませんでした。ダウンロードの完了を待ってから再試行してください。",
+    "Cache undhuhan dereng saged dipunresiki. Entosi undhuhan rampung, lajeng cobi malih."
+  ],
+  "The folder could not be opened. Try again or contact support.": [
+    "Folder belum dapat dibuka. Coba lagi atau hubungi bantuan.",
+    "无法打开文件夹。请重试或联系支持人员。",
+    "폴더를 열 수 없습니다. 다시 시도하거나 지원팀에 문의하세요.",
+    "フォルダーを開けませんでした。再試行するか、サポートにお問い合わせください。",
+    "Folder dereng saged dipunbikak. Cobi malih utawi hubungi pitulungan."
+  ],
+  "Something went wrong. Try again. If it keeps happening, share the launcher log with support.": [
+    "Ada masalah saat memproses. Coba lagi. Jika terus terjadi, kirim log launcher ke bantuan.",
+    "出现了问题。请重试。如问题持续，请将启动器日志提供给支持人员。",
+    "문제가 발생했습니다. 다시 시도하고 문제가 계속되면 런처 로그를 지원팀에 전달하세요.",
+    "問題が発生しました。再試行し、解決しない場合はランチャーログをサポートに共有してください。",
+    "Wonten masalah nalika proses. Cobi malih. Menawi taksih kedadosan, kirim log launcher dhateng pitulungan."
+  ],
+  "The game has moved, but some files remain in the old folder. Check the new installation before removing old files.": [
+    "Game sudah dipindahkan, tetapi beberapa file masih ada di folder lama. Periksa instalasi baru sebelum menghapus file lama.",
+    "游戏已移动，但旧文件夹中仍有部分文件。请确认新安装正常后再删除旧文件。",
+    "게임을 이동했지만 이전 폴더에 일부 파일이 남아 있습니다. 새 설치를 확인한 후 이전 파일을 삭제하세요.",
+    "ゲームは移動しましたが、元のフォルダーに一部のファイルが残っています。新しいインストールを確認してから古いファイルを削除してください。",
+    "Game sampun dipunpindhah, nanging sawetara berkas taksih ing folder lami. Priksa instalasi enggal sadèrèngipun mbusak berkas lami."
+  ],
+  "Removal has started. Follow any instructions shown by your system.": [
+    "Penghapusan sudah dimulai. Ikuti petunjuk yang muncul dari sistem.",
+    "卸载已开始。请按照系统显示的提示操作。",
+    "제거를 시작했습니다. 시스템에 표시되는 안내를 따르세요.",
+    "削除を開始しました。システムに表示される案内に従ってください。",
+    "Pambusakan sampun dipunwiwiti. Tindakake pitedah ingkang dipuntampilaken sistem."
+  ],
+  "Remove Tia Launcher using your system's app manager. Your game files will stay in place.": [
+    "Hapus Tia Launcher lewat pengelola aplikasi di sistem. File game tetap ada.",
+    "请使用系统的应用管理功能卸载 Tia Launcher。游戏文件将保留。",
+    "시스템의 앱 관리 기능으로 Tia Launcher를 제거하세요. 게임 파일은 유지됩니다.",
+    "システムのアプリ管理から Tia Launcher を削除してください。ゲームファイルはそのまま残ります。",
+    "Busak Tia Launcher lumantar pangelola aplikasi sistem. Berkas game tetep wonten."
+  ],
+  "The game could not start. Close any running game, then try again. If it continues, share the launcher log with support.": [
+    "Game belum dapat dijalankan. Tutup game yang masih berjalan, lalu coba lagi. Jika terus gagal, kirim log launcher ke bantuan.",
+    "游戏无法启动。请关闭仍在运行的游戏后重试。如问题持续，请将启动器日志提供给支持人员。",
+    "게임을 시작할 수 없습니다. 실행 중인 게임을 종료한 후 다시 시도하세요. 문제가 계속되면 런처 로그를 지원팀에 전달하세요.",
+    "ゲームを起動できませんでした。実行中のゲームを閉じてから再試行してください。解決しない場合はランチャーログをサポートに共有してください。",
+    "Game dereng saged dipunwiwiti. Tutup game ingkang taksih lumampah, lajeng cobi malih. Menawi taksih gagal, kirim log launcher dhateng pitulungan."
   ]
 }

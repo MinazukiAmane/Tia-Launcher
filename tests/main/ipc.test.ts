@@ -520,3 +520,20 @@ it('enforces the latest-version requirement on registered game actions in the ma
     setLauncherVersionStatus('checking')
   }
 })
+
+it('keeps technical failures in the log and preserves synchronous and asynchronous IPC errors', async () => {
+  const logger = await import('../../src/main/logger')
+  const logged = vi.spyOn(logger, 'logError').mockImplementation(() => {})
+  const { dialog } = await import('electron')
+  try {
+    registerGameIpcHandlers(() => null)
+    const handler = (channel: string) => vi.mocked(ipcMain.handle).mock.calls.filter(([name]) => name === channel).at(-1)![1]
+    expect(() => handler('launcher:setPreferences')(null as never, { backgroundMode: 'invalid' })).toThrow('Invalid background mode.')
+    expect(logged).toHaveBeenCalledWith('IPC request failed', { channel: 'launcher:setPreferences', error: 'Invalid background mode.' })
+
+    const failure = new Error('EACCES: permission denied at private-player-path')
+    vi.mocked(dialog.showOpenDialog).mockRejectedValueOnce(failure)
+    await expect(handler('game:chooseInstallFolder')(null as never)).rejects.toBe(failure)
+    expect(logged).toHaveBeenCalledWith('IPC request failed', { channel: 'game:chooseInstallFolder', error: failure.message })
+  } finally { logged.mockRestore() }
+})

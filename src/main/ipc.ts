@@ -366,8 +366,15 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
   ])
   const handle = (channel: string, listener: Parameters<typeof ipcMain.handle>[1]): void => {
     ipcMain.handle(channel, (event, ...args) => {
-      if (lockedChannels.has(channel)) assertLauncherCurrent()
-      return listener(event, ...args)
+      const failed = (error: unknown): never => {
+        logError('IPC request failed', { channel, error: error instanceof Error ? error.message : String(error) })
+        throw error
+      }
+      try {
+        if (lockedChannels.has(channel)) assertLauncherCurrent()
+        const result = listener(event, ...args)
+        return result && typeof result.then === 'function' ? Promise.resolve(result).catch(failed) : result
+      } catch (error) { return failed(error) }
     })
   }
   handle('news:get', handleGetNews)

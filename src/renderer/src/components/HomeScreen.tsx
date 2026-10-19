@@ -1,3 +1,4 @@
+import { userError } from '../userErrors'
 import { t } from '../i18n'
 import { migrateLegacyPreferences } from '../persistence'
 import { useEffect, useRef, useState } from 'react'
@@ -162,7 +163,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   }, [])
 
   useEffect(() => {
-    window.csore.getSettings().then(setSettings).catch(error => setErrorMessage(error instanceof Error ? error.message : String(error)))
+    window.csore.getSettings().then(setSettings).catch(error => setErrorMessage(userError(error, 'settings')))
   }, [])
 
   useEffect(() => {
@@ -180,7 +181,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     try {
       localState = await window.csore.getInstallState(installDir)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : t("Could not read the installation."))
+      setErrorMessage(userError(err, 'storage'))
       setState('error')
       return
     }
@@ -199,7 +200,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
         setErrorMessage(null)
         setState(lastKnownGameVersionRef.current && localState.version !== lastKnownGameVersionRef.current ? 'apply_patch' : 'up_to_date')
       } else {
-        setErrorMessage(err instanceof Error ? err.message : t("Could not reach the server."))
+        setErrorMessage(userError(err, 'general'))
         setState(localState?.needsRepair ? 'needs_repair' : localState?.pendingAudioPatch ? 'apply_patch' : 'error')
       }
     }
@@ -230,7 +231,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       }
     } catch (err) {
       pausedOperationRef.current = null
-      setErrorMessage(err instanceof Error ? err.message : t("Install/update failed."))
+      setErrorMessage(userError(err, 'install'))
       setState('error')
     } finally {
       actionInFlightRef.current = false
@@ -257,7 +258,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
           setConfirmingRepair(true)
         }
       } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : t("Could not launch the game."))
+        setErrorMessage(userError(err, 'launch'))
       } finally {
         actionInFlightRef.current = false
         setVerifying(false)
@@ -265,7 +266,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       return
     }
     if (state === 'working') {
-      await window.csore.pauseInstallOrUpdate()
+      try { await window.csore.pauseInstallOrUpdate() }
+      catch (error) { setErrorMessage(userError(error, 'install')) }
       return
     }
     if (state === 'paused') {
@@ -282,7 +284,10 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     }
     if (state === 'fresh_install') {
       // Confirm the destination before downloading.
-      if (await isInstallPathConfirmed(installDir)) {
+      let confirmed = false
+      try { confirmed = await isInstallPathConfirmed(installDir) }
+      catch (error) { setErrorMessage(userError(error, 'storage')); return }
+      if (confirmed) {
         await runInstallOrUpdate()
         return
       }
@@ -306,7 +311,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     if (!settings) return
     const next = { ...settings, alternateRenderer: checked }
     setSettings(next)
-    await window.csore.setSettings(next)
+    try { await window.csore.setSettings(next) }
+    catch (error) { setSettings(settings); setErrorMessage(userError(error, 'settings')) }
   }
 
   async function handleCheckIntegrity(): Promise<void> {
@@ -325,7 +331,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
         setConfirmingRepair(true)
       }
     } catch (err) {
-      setVerifyMessage(err instanceof Error ? err.message : t("Could not verify the install."))
+      setVerifyMessage(userError(err, 'verify'))
     } finally {
       actionInFlightRef.current = false
       setVerifying(false)
@@ -352,7 +358,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
       }
     } catch (err) {
       pausedOperationRef.current = null
-      setErrorMessage(err instanceof Error ? err.message : t("Repair failed."))
+      setErrorMessage(userError(err, 'repair'))
       setState('error')
     } finally {
       actionInFlightRef.current = false
@@ -367,8 +373,8 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
     try {
       await window.csore.clearDownloadCache(installDir)
       setToast(t("Download cache cleared."))
-    } catch {
-      setToast(t("Could not clear the download cache."))
+    } catch (error) {
+      setToast(userError(error, 'cache'))
     } finally {
       setTimeout(() => setToast(null), 3000)
     }
@@ -463,10 +469,10 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
 
         {apiUnavailable && <p role="status" className="home-toast">{t("Game update service unavailable. Play will check your installed files locally.")}</p>}
         {toast && (
-          <p role="status" className="home-toast">{toast}</p>
+          <p role="status" className="home-toast">{t(toast)}</p>
         )}
-        {verifyMessage && <p role="status" className="home-toast">{verifyMessage}</p>}
-        {errorMessage && <p role="alert" className="home-error">{errorMessage}</p>}
+        {verifyMessage && <p role="status" className="home-toast">{t(verifyMessage)}</p>}
+        {errorMessage && <p role="alert" className="home-error">{t(errorMessage)}</p>}
 
         {/* Detailed hover popup (ref/launcher-cursor-hover-ondownloading- button-change.png): phase, percent + byte counts, speed, ETA. */}
         {isHovering && verifying && !progress && (
