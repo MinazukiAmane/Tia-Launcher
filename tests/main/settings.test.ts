@@ -188,11 +188,11 @@ describe('buildGameLaunchArgs', () => {
     expect(buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_en' })).toEqual(['-lang', 'na_en'])
   })
 
-  it('appends bare -classicui when the toggle is on', () => {
+  it('appends bare --classicui when the toggle is on', () => {
     expect(buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_en', classicUi: true })).toEqual([
       '-lang',
       'na_en',
-      '-classicui'
+      '--classicui'
     ])
   })
 
@@ -207,6 +207,6 @@ describe('buildGameLaunchArgs', () => {
   it('both toggles on appends both flags after -lang', () => {
     expect(
       buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_id', classicUi: true, alternateRenderer: true })
-    ).toEqual(['-lang', 'na_id', '-classicui', '-renderer'])
+    ).toEqual(['-lang', 'na_id', '--classicui', '-renderer'])
   })
 })

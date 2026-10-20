@@ -104,7 +104,7 @@ export function getCachedWindowCloseBehavior(): Settings['windowCloseBehavior'] 
 
 export function buildGameLaunchArgs(settings: Settings): string[] {
   const args = ['-lang', settings.lang]
-  if (settings.classicUi) args.push('-classicui')
+  if (settings.classicUi) args.push('--classicui')
   if (settings.alternateRenderer) args.push('-renderer')
   return args
 }
