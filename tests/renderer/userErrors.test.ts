@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { userError, type ErrorAction } from '../../src/renderer/src/userErrors'
 import { translate } from '../../src/renderer/src/i18n'
-import messages from '../../src/renderer/src/locales/messages.json'
+import existingMessages from '../../src/renderer/src/locales/messages.json'
+import mediaMessages from '../../src/shared/mediaMessages.json'
+const messages = { ...existingMessages, ...mediaMessages }
 
 describe('player-facing errors', () => {
   it('turns the reported Electron AbortError into a plain explanation without guessing why it stopped', () => {

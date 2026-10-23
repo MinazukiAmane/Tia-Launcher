@@ -1,5 +1,7 @@
+import { serveBackgroundVideo } from './backgroundMedia'
+import { stopMediaConversion } from './mediaConverter'
 import { configureDatabaseDirectory } from './localDatabase'
-import { app, BrowserWindow, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, protocol } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, registerGameIpcHandlers, handleOpenExternal } from './ipc'
@@ -9,6 +11,8 @@ import { readSettings, getCachedWindowCloseBehavior, setCachedWindowCloseBehavio
 import { setTroubleshootingMode } from './logger'
 import { GameSession } from './gameSession'
 import { findGameExecutable } from './launcher/windows'
+
+protocol.registerSchemesAsPrivileged([{ scheme: 'tia-background', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } }])
 
 app.setPath('userData', join(app.getPath('appData'), 'tia-launcher-bootstrap'))
 configureDatabaseDirectory(app.getPath('userData'))
@@ -134,6 +138,7 @@ if (!gotSingleInstanceLock) {
   app.on('second-instance', showMainWindow)
 
   app.whenReady().then(async () => {
+    protocol.handle('tia-background', request => serveBackgroundVideo(app.getPath('userData'), request))
     registerIpcHandlers()
     mainWindow = createMainWindow()
     const getWindow = (): BrowserWindow | null => mainWindow
@@ -161,6 +166,7 @@ if (!gotSingleInstanceLock) {
 
 app.on('before-quit', () => {
   isQuitting = true
+  stopMediaConversion()
   gameSession.stop()
   tray?.destroy()
 })

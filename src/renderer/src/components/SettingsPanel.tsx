@@ -470,7 +470,7 @@ export function SettingsPanel({
               {/* Update Settings: deliberately status + manual trigger only, NOT a silent-auto-install toggle. */}
               <SectionCard title={t("Launcher Background")}>
                 <p className="text-xs text-white/40">
-                  {t("Choose an image or animated GIF (max 25 MB). Video mode always uses the built-in background.")}
+                  {t("Images: PNG, JPG/JPEG/JFIF, WebP, GIF, AVIF, APNG, BMP, ICO and SVG (up to 25 MB).")}
                   </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -483,6 +483,7 @@ export function SettingsPanel({
                         const url = await window.csore.chooseBackground()
                         if (url) {
                           await saveBackgroundMode('image')
+                          window.dispatchEvent(new Event('tia-background-sources-changed'))
                           onBackgroundChanged(url)
                         }
                       } catch (err) {
@@ -504,15 +505,42 @@ export function SettingsPanel({
                       try {
                         await window.csore.clearBackground()
                         await saveBackgroundMode('image')
+                        window.dispatchEvent(new Event('tia-background-sources-changed'))
                         onBackgroundChanged(null)
                       } catch (error) { setBackgroundError(userError(error, 'background')) }
                       finally { setBackgroundBusy(false) }
                     }}
                     className="rounded bg-white/5 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 disabled:opacity-60"
                   >
-                    {t("Reset to default")}
+                    {t("Reset image")}
                     </button>
                 </div>
+                <p className="mt-4 text-xs text-white/40">{t('Videos: MP4, WebM, MOV, M4V, MKV, AVI, WMV, FLV, MPEG/MPG/MPE/M2V, TS/MTS/M2TS, 3GP/3G2, VOB, OGV/OGG, MXF and F4V (up to 200 MB). Sound stays muted. Some videos need conversion.')}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" disabled={backgroundBusy} className="rounded bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20 disabled:opacity-60"
+                    onClick={async () => {
+                      setBackgroundError(null); setBackgroundBusy(true)
+                      try {
+                        const chosen = await window.csore.chooseBackgroundVideo()
+                        if (chosen) {
+                          window.dispatchEvent(new Event('tia-background-sources-changed'))
+                          await saveBackgroundMode('video')
+                        }
+                      } catch (error) { setBackgroundError(userError(error, 'video')) }
+                      finally { setBackgroundBusy(false) }
+                    }}>{t('Choose video…')}</button>
+                  <button type="button" disabled={backgroundBusy} className="rounded bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10 disabled:opacity-60"
+                    onClick={async () => {
+                      setBackgroundError(null); setBackgroundBusy(true)
+                      try {
+                        await window.csore.clearBackgroundVideo()
+                        window.dispatchEvent(new Event('tia-background-sources-changed'))
+                        await saveBackgroundMode('video')
+                      } catch (error) { setBackgroundError(userError(error, 'video')) }
+                      finally { setBackgroundBusy(false) }
+                    }}>{t('Reset video')}</button>
+                </div>
+                {backgroundBusy && <p role="status" className="text-xs text-white/60">{t('Preparing background…')}</p>}
                 {backgroundError && <p className="text-xs text-red-400">{t(backgroundError)}</p>}
               </SectionCard>
 

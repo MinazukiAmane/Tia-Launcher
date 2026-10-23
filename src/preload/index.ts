@@ -22,6 +22,8 @@ const gameApi = {
   },
 
   getSettings: (): Promise<import('../main/settings').Settings> => ipcRenderer.invoke('game:getSettings'),
+  chooseBackgroundVideo: (): Promise<string | null> => ipcRenderer.invoke('launcher:chooseBackgroundVideo'),
+  clearBackgroundVideo: (): Promise<void> => ipcRenderer.invoke('launcher:clearBackgroundVideo'),
   chooseBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:chooseBackground'),
   clearBackground: (): Promise<void> => ipcRenderer.invoke('launcher:clearBackground'),
   uninstallLauncher: (removeData: boolean): Promise<{ started: boolean; message: string }> =>

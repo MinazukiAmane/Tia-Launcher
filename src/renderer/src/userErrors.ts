@@ -1,6 +1,7 @@
-export type ErrorAction = 'install' | 'launch' | 'verify' | 'repair' | 'move' | 'folder' | 'background' | 'settings' | 'storage' | 'uninstall' | 'runtime' | 'update' | 'cache' | 'logs' | 'general'
+export type ErrorAction = 'install' | 'launch' | 'verify' | 'repair' | 'move' | 'folder' | 'background' | 'settings' | 'storage' | 'uninstall' | 'runtime' | 'update' | 'cache' | 'logs' | 'general' | 'video'
 
 const messages = {
+  video: 'This video could not be used. Choose another video or try converting it again.',
   aborted: 'The operation stopped before it finished. Try again.',
   timeout: 'The connection took too long. Check your internet connection, then try again.',
   network: 'Could not connect. Check your internet connection, then try again.',
@@ -21,7 +22,7 @@ const messages = {
   nonempty: 'Choose an empty destination folder so your other files stay safe.',
   nested: 'Choose a different folder outside the current game folder.',
   root: 'Choose a game folder instead of an entire drive.',
-  background: 'Choose a PNG, JPG, WEBP or GIF image up to 25 MB.',
+  background: 'Choose a supported image up to 25 MB.',
   storage: 'Your saved launcher data needs attention. Restart the launcher. If it keeps happening, contact support before reinstalling.',
   clientStart: 'The game could not start. Repair its files in Game Settings, then try Play again. If it continues, contact support.',
   launch: 'The game could not start. Close any running game, then try again. If it continues, share the launcher log with support.',
@@ -64,6 +65,8 @@ export function userError(error: unknown, action: ErrorAction = 'general'): stri
   if (/entire drive|filesystem root/i.test(detail)) return messages.root
   if (/empty folder|unrelated files|destination.*not empty/i.test(detail)) return messages.nonempty
   if (/outside the current installation|nested destination|same.*folder/i.test(detail)) return messages.nested
+  if (/background video.*too large/i.test(detail)) return 'Choose a video smaller than 200 MB.'
+  if (/background video|video conversion/i.test(detail)) return messages.video
   if (/background.*too large|unsupported image type|choose a background file/i.test(detail)) return messages.background
   if (/per.file repair.*not available|regenerate.*manifest/i.test(detail)) return messages.repairUnavailable
   if (/update the game before repairing/i.test(detail)) return messages.gameUpdate

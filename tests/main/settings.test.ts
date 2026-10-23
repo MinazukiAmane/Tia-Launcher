@@ -36,7 +36,8 @@ const BASE_SETTINGS: Settings = {
   launchCommand: null,
   troubleshootingMode: false,
   windowCloseBehavior: 'exit',
-  customBackground: null
+  customBackground: null,
+  customVideo: null
 }
 
 describe('readSettings', () => {
@@ -55,7 +56,8 @@ describe('readSettings', () => {
       launchCommand: 'prime-run %command%',
       troubleshootingMode: true,
       windowCloseBehavior: 'minimize_to_tray',
-      customBackground: 'custom-123.gif'
+      customBackground: 'custom-123.gif',
+      customVideo: null
     }
     await writeSettings(dir, settings)
     expect(await readSettings(dir)).toEqual(settings)

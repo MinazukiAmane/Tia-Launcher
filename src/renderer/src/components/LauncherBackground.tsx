@@ -49,12 +49,18 @@ export function LauncherBackground({ customUrl, inactive }: { customUrl: string 
   const [mode, setMode] = useState<Mode>(videos.length ? 'video' : 'image')
   const [sources, setSources] = useState<{ image: string | null; video: string | null }>({ image: null, video: null })
   const [visible, setVisible] = useState(!document.hidden)
-  const [failedVideo, setFailedVideo] = useState<string | null>(null)
+  const [failedVideos, setFailedVideos] = useState<Set<string>>(() => new Set())
   const video = useRef<HTMLVideoElement>(null)
   useEffect(() => {
     let mounted = true
-    window.csore.getBackgroundSources().then(value => { if (mounted) setSources(value) }).catch(() => {})
-    return () => { mounted = false }
+    let latest = 0
+    const refresh = (): void => {
+      const request = ++latest
+      window.csore.getBackgroundSources().then(value => { if (mounted && request === latest) { setSources(value); setFailedVideos(new Set()) } }).catch(() => {})
+    }
+    refresh()
+    window.addEventListener('tia-background-sources-changed', refresh)
+    return () => { mounted = false; window.removeEventListener('tia-background-sources-changed', refresh) }
   }, [customUrl])
   useEffect(() => {
     const change = (): void => setVisible(!document.hidden)
@@ -71,9 +77,9 @@ export function LauncherBackground({ customUrl, inactive }: { customUrl: string 
     return () => { mounted = false; window.removeEventListener('tia-background-mode-changed', update) }
   }, [])
   const imageUrl = sources.image ?? (customUrl && !customUrl.startsWith('tia-background:') ? customUrl : null) ?? images[0] ?? frames[0] ?? heroBackground
-  const videoUrl = videos[0] ?? null
+  const videoUrl = [sources.video, ...videos].find(url => url && !failedVideos.has(url)) ?? null
   const animatedFrames = mode === 'image' && !sources.image && (!customUrl || customUrl.startsWith('tia-background:')) && frames.length > 1
-  const playVideo = mode === 'video' && videoUrl !== null && failedVideo !== videoUrl
+  const playVideo = mode === 'video' && videoUrl !== null
   const active = visible && !inactive
   useEffect(() => {
     const element = video.current
@@ -89,7 +95,7 @@ export function LauncherBackground({ customUrl, inactive }: { customUrl: string 
   return <>
     <div className="home-background" style={{ backgroundImage: `url(${imageUrl})`, backgroundPosition: sources.image ? 'center' : 'left center' }} />
     {animatedFrames && <FrameAnimation active={active} />}
-    {playVideo && <video ref={video} className="background-media" style={{ objectPosition: 'left center' }} src={videoUrl} muted loop playsInline preload="metadata" onError={() => setFailedVideo(videoUrl)} aria-hidden="true" />}
+    {playVideo && <video ref={video} className="background-media" style={{ objectPosition: videoUrl === sources.video ? 'center' : 'left center' }} src={videoUrl} muted loop playsInline preload="metadata" onError={() => { if (videoUrl) setFailedVideos(previous => new Set(previous).add(videoUrl)) }} aria-hidden="true" />}
     <div className="background-switcher-zone" hidden={inactive}>
       <div className="background-switcher" role="group" aria-label={t("Background mode")}>
         <button type="button" aria-label={t("Video background")} aria-pressed={mode === 'video'} disabled={!videoUrl} title={videoUrl ? t("Video background") : t("No built-in video available")} onClick={() => select('video')}>

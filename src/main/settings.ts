@@ -1,3 +1,4 @@
+import { VIDEO_NAME } from './backgroundMedia'
 
 import { migrateRecord, writeRecords } from './localDatabase'
 import { join } from 'path'
@@ -22,6 +23,7 @@ export interface Settings {
   windowCloseBehavior: 'minimize_to_tray' | 'exit'
   // Custom background filename; null selects the built-in image.
   customBackground: string | null
+  customVideo?: string | null
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,7 +34,8 @@ export const DEFAULT_SETTINGS: Settings = {
   launchCommand: null,
   troubleshootingMode: false,
   windowCloseBehavior: 'exit',
-  customBackground: null
+  customBackground: null,
+  customVideo: null
 }
 
 export function settingsPath(userDataDir: string): string {
@@ -72,6 +75,7 @@ export async function readSettings(userDataDir: string): Promise<Settings> {
       launchCommand: clampLaunchCommand(merged.launchCommand),
       windowCloseBehavior: sanitizeWindowCloseBehavior(merged.windowCloseBehavior),
       troubleshootingMode: sanitizeTroubleshootingMode(merged.troubleshootingMode),
+      customVideo: typeof merged.customVideo === 'string' && VIDEO_NAME.test(merged.customVideo) ? merged.customVideo : null,
       customBackground: isValidBackgroundName(merged.customBackground) ? merged.customBackground : null
     }
   } catch (err) {
@@ -87,6 +91,7 @@ export async function writeSettings(userDataDir: string, settings: Settings): Pr
     launchCommand: clampLaunchCommand(settings.launchCommand),
     windowCloseBehavior: sanitizeWindowCloseBehavior(settings.windowCloseBehavior),
     troubleshootingMode: sanitizeTroubleshootingMode(settings.troubleshootingMode),
+    customVideo: typeof settings.customVideo === 'string' && VIDEO_NAME.test(settings.customVideo) ? settings.customVideo : null,
     customBackground: isValidBackgroundName(settings.customBackground) ? settings.customBackground : null
   }
   writeRecords('launcher', { settings: sanitized }, userDataDir)

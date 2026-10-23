@@ -1,6 +1,9 @@
+import mediaMessages from '../../shared/mediaMessages.json'
 import { useEffect, useSyncExternalStore } from 'react'
 import { isLauncherLanguage, type LauncherLanguage } from './launcherLanguages'
 import messages from './locales/messages.json'
+
+const catalog = { ...messages, ...mediaMessages }
 
 let language: LauncherLanguage = 'en'
 const listeners = new Set<() => void>()
@@ -11,7 +14,7 @@ const subscribe = (listener: () => void): (() => void) => {
 }
 
 export function translate(text: string, locale: LauncherLanguage, values: Record<string, string | number> = {}): string {
-  const translated = locale === 'en' ? text : (messages as Record<string, string[]>)[text]?.[columns[locale]] ?? text
+  const translated = locale === 'en' ? text : (catalog as Record<string, string[]>)[text]?.[columns[locale]] ?? text
   return translated.replace(/\{(\w+)\}/g, (placeholder, key: string) => String(values[key] ?? placeholder))
 }
 

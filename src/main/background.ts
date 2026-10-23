@@ -1,16 +1,23 @@
+import { readBackgroundVideoUrl } from './backgroundVideo'
 
 import { promises as fs } from 'fs'
 import { join, extname } from 'path'
 
 export const MAX_BACKGROUND_BYTES = 25 * 1024 * 1024
-const NAME_PATTERN = /^custom-\d+\.(png|jpe?g|webp|gif)$/
-const CLEANUP_PATTERN = /^custom-\d+\.(png|jpe?g|webp|gif|mp4|webm)$/
+const NAME_PATTERN = /^custom-\d+\.(png|jpe?g|jfif|webp|gif|avif|apng|bmp|ico|svg)$/
+const CLEANUP_PATTERN = /^custom-\d+\.(png|jpe?g|jfif|webp|gif|avif|apng|bmp|ico|svg|mp4|webm)$/
 const MIME: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
   webp: 'image/webp',
-  gif: 'image/gif'
+  gif: 'image/gif',
+  jfif: 'image/jpeg',
+  avif: 'image/avif',
+  apng: 'image/apng',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  svg: 'image/svg+xml'
 }
 
 export function isValidBackgroundName(name: unknown): name is string {
@@ -24,7 +31,7 @@ function backgroundsDir(userDataDir: string): string {
 // Replace the previous custom image.
 export async function importBackground(userDataDir: string, sourcePath: string): Promise<string> {
   const ext = extname(sourcePath).slice(1).toLowerCase()
-  if (!MIME[ext]) throw new Error('Unsupported image type. Use PNG, JPG, WEBP or GIF.')
+  if (!MIME[ext]) throw new Error('Unsupported image type. Use PNG, JPG, JPEG, JFIF, WEBP, GIF, AVIF, APNG, BMP, ICO or SVG.')
   const stat = await fs.stat(sourcePath)
   const limit = MAX_BACKGROUND_BYTES
   if (!stat.isFile()) throw new Error('Choose a background file.')
@@ -67,10 +74,10 @@ export async function readBackgroundDataUrl(userDataDir: string, name: string | 
   }
 }
 
-export async function readBackgroundSources(userDataDir: string): Promise<{ image: string | null; video: string | null }> {
+export async function readBackgroundSources(userDataDir: string, videoName: string | null = null): Promise<{ image: string | null; video: string | null }> {
  let names: string[] = []
  try { names = (await fs.readdir(backgroundsDir(userDataDir))).filter(isValidBackgroundName).sort((a, b) => b.localeCompare(a, 'en', { numeric: true })) }
  catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err }
  const image = names[0] ?? null
- return { image: await readBackgroundDataUrl(userDataDir, image), video: null }
+ return { image: await readBackgroundDataUrl(userDataDir, image), video: await readBackgroundVideoUrl(userDataDir, videoName) }
 }

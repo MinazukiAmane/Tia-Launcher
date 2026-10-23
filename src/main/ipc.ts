@@ -1,3 +1,6 @@
+import { importBackgroundVideo, clearBackgroundVideos } from './backgroundVideo'
+import { VIDEO_EXTENSIONS } from './backgroundMedia'
+import mediaMessages from '../shared/mediaMessages.json'
 import { resolveInstallLocation } from './installLocation'
 import { readPreferences, writePreferences } from './preferences'
 import { assertLauncherCurrent } from './launcherVersionGate'
@@ -85,10 +88,18 @@ export async function handleChooseInstallFolder(): Promise<string | null> {
   return installDir
 }
 
+let changingBackground = false
+async function backgroundChange<T>(change: () => Promise<T>): Promise<T> {
+  if (changingBackground) throw new Error('Another operation is already in progress.')
+  changingBackground = true
+  try { return await change() } finally { changingBackground = false }
+}
+
 export async function handleChooseBackground(): Promise<string | null> {
+  return backgroundChange(async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
-    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'jfif', 'webp', 'gif', 'avif', 'apng', 'bmp', 'ico', 'svg'] }]
   })
   if (result.canceled || result.filePaths.length === 0) return null
   const userData = app.getPath('userData')
@@ -96,13 +107,45 @@ export async function handleChooseBackground(): Promise<string | null> {
   const current = await readSettings(userData)
   await writeSettings(userData, { ...current, customBackground: name })
   return readBackgroundDataUrl(userData, name)
+  })
+}
+
+export async function handleChooseBackgroundVideo(): Promise<string | null> {
+  return backgroundChange(async () => {
+  const result = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Videos', extensions: VIDEO_EXTENSIONS }] })
+  if (result.canceled || !result.filePaths.length) return null
+  const userData = app.getPath('userData')
+  const columns = { id: 0, 'zh-CN': 1, ko: 2, ja: 3, jv: 4 } as const
+  const language = readPreferences().launcherLanguage ?? 'en'
+  const text = (key: keyof typeof mediaMessages): string => language === 'en' ? key : mediaMessages[key][columns[language]] ?? key
+  const name = await importBackgroundVideo(userData, result.filePaths[0], async () => {
+    const response = await dialog.showMessageBox({ type: 'question', title: text('Convert this video?'), message: text('This video cannot play directly. Convert a copy for the launcher? A conversion component will be downloaded if needed (up to 80 MB). Your original video stays unchanged.'), buttons: [text('Choose another video'), text('Convert')], defaultId: 0, cancelId: 0, noLink: true })
+    return response.response === 1
+  })
+  if (!name) return null
+  try { await writeSettings(userData, { ...await readSettings(userData), customVideo: name }) }
+  catch (error) { await fsPromises.rm(pathJoin(userData, 'backgrounds', name), { force: true }); throw error }
+  try { await clearBackgroundVideos(userData, name) }
+  catch (error) { logError('background video cleanup deferred', { error: String(error) }) }
+  return 'tia-background://video/' + name
+  })
+}
+
+export async function handleClearBackgroundVideo(): Promise<void> {
+  return backgroundChange(async () => {
+  const userData = app.getPath('userData')
+  await writeSettings(userData, { ...await readSettings(userData), customVideo: null })
+  await clearBackgroundVideos(userData)
+  })
 }
 
 export async function handleClearBackground(): Promise<void> {
+  return backgroundChange(async () => {
   const userData = app.getPath('userData')
   const current = await readSettings(userData)
   await writeSettings(userData, { ...current, customBackground: null })
   await clearBackgrounds(userData)
+  })
 }
 
 export interface LauncherUninstallResult {
@@ -177,7 +220,7 @@ export async function handleSetSettings(_event: unknown, incoming: Settings): Pr
   const userData = app.getPath('userData')
   // Only background handlers may change customBackground.
   const current = await readSettings(userData)
-  const settings: Settings = { ...incoming, customBackground: current.customBackground }
+  const settings: Settings = { ...incoming, customBackground: current.customBackground, customVideo: current.customVideo }
   await writeSettings(userData, settings)
 
   setTroubleshootingMode(settings.troubleshootingMode)
@@ -359,7 +402,7 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
   let launching = false
   const lockedChannels = new Set([
     'game:chooseInstallFolder', 'game:moveInstallation', 'game:setSettings',
-    'launcher:chooseBackground', 'launcher:clearBackground', 'game:launch',
+    'launcher:chooseBackground', 'launcher:clearBackground', 'launcher:chooseBackgroundVideo', 'launcher:clearBackgroundVideo', 'game:launch',
     'game:startInstallOrUpdate', 'game:verifyInstall', 'game:repairInstall',
     'game:uninstall', 'game:redownloadDWProton', 'game:chooseSikarugirWrapper',
     'game:clearDownloadCache'
@@ -394,10 +437,12 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
   handle('game:moveInstallation', makeHandleMoveInstallation(win, () => launching || !!isGameRunning?.()))
   handle('game:getSettings', handleGetSettings)
   handle('game:setSettings', handleSetSettings)
+  handle('launcher:chooseBackgroundVideo', handleChooseBackgroundVideo)
+  handle('launcher:clearBackgroundVideo', handleClearBackgroundVideo)
   handle('launcher:chooseBackground', handleChooseBackground)
   handle('launcher:clearBackground', handleClearBackground)
   handle('launcher:getBackground', handleGetBackground)
-  handle('launcher:getBackgroundSources', () => readBackgroundSources(app.getPath('userData')))
+  handle('launcher:getBackgroundSources', async () => readBackgroundSources(app.getPath('userData'), (await readSettings(app.getPath('userData'))).customVideo ?? null))
   handle('launcher:uninstall', handleUninstallLauncher)
   handle('game:launch', async (event, installDir: string) => {
     if (launching || isGameRunning?.()) throw new Error('The game is already running or starting.')
