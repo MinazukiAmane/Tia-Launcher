@@ -1,3 +1,4 @@
+import { SilverPalaceIntroduction } from './components/SilverPalaceIntroduction'
 import { GAMES, type GameDefinition, type GameId } from './gameCatalog'
 import { GAME_ARTWORK } from './gameArtwork'
 import { GameLibrary } from './components/GameLibrary'
@@ -52,6 +53,7 @@ function CloseIcon(): React.JSX.Element {
 
 export default function App(): React.JSX.Element {
   useLauncherLanguage()
+  const [introductionEligible, setIntroductionEligible] = useState(false)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [selectedGame, setSelectedGame] = useState<GameDefinition>(GAMES[0])
   const [gameBusy, setGameBusy] = useState(false)
@@ -75,6 +77,7 @@ export default function App(): React.JSX.Element {
       await loadLauncherLanguage()
       setInstallDir(await window.csore.getSelectedInstallDir())
       setStorageReady(true)
+      void window.csore.getSilverIntroduction().then(state => setIntroductionEligible(state.eligible)).catch(() => {})
     } catch (error) {
       setStorageError(userError(error, 'storage'))
     }
@@ -238,6 +241,7 @@ export default function App(): React.JSX.Element {
 
       </div>
       <UpdateWindow />
+      {introductionEligible && <SilverPalaceIntroduction enabled={storageReady && !gameBusy && !switchingGame && !movingInstallation && !settingsScope && !libraryOpen} onDone={() => setIntroductionEligible(false)} onOpenGame={() => void switchGame('cedar_global')} />}
     </div>
   )
 }

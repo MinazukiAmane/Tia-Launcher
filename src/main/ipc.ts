@@ -1,3 +1,4 @@
+import { getSilverIntroduction, setSilverIntroductionChoice } from './silverIntroduction'
 import { refreshSilverNotices } from './silverNotices'
 import { GAMES, LAUNCHER_API_BASE_URL } from './catalog'
 import { activeGame, selectGame } from './activeGame'
@@ -426,6 +427,8 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
   }
   handle('news:get', handleGetNews)
   handle('silver-notices:get', () => refreshSilverNotices())
+  handle('launcher:getSilverIntroduction', () => getSilverIntroduction())
+  handle('launcher:setSilverIntroductionChoice', (_event, choice: unknown) => setSilverIntroductionChoice(choice))
   handle('game:catalog', () => ({ games: GAMES, selected: activeGame().biz }))
   handle('game:select', (_event, biz: unknown) => {
     if (launching || isGameRunning?.() || isOperationInProgress()) throw new Error('Wait for the game or current operation to finish before switching games.')

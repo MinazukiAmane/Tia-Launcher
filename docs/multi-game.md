@@ -86,3 +86,24 @@ categorized titles on the right. Illustrated notices rotate every five seconds,
 with hover/focus and an open reader pausing rotation; dots select a slide. Clicking
 the large image opens the corresponding internal detail reader and its full image.
 When no category images exist, local Silver Palace artwork is used as a fallback.
+
+
+Silver Palace discovery appears once for every profile that has not answered it,
+including first installs and existing users after updating. Both Interested and
+No thanks persist globally in the launcher database, so relaunching or switching
+games does not ask again. Interested opens a local illustrated overview. Visiting
+the Silver Palace page selects the game without starting an installation. The
+prompt waits for the launcher's version check and active operations to finish.
+Its text follows the launcher language.
+
+The overview is based on official game information:
+https://silverpalace.elementagames.com/en-us/newsDetail?id=1 and
+https://store.playstation.com/en-us/concept/10015692/ .
+
+DWProton keeps Tia's existing download and launch system. It is not included in
+the installer. The existing Dawn release API selects the current runtime, reuses
+an installed matching release for both games, and falls back to an installed
+runtime if release lookup fails. At verification on 2026-10-26 that API returned
+`dwproton-11.0-15`, already installed on the development device. There is no new
+version pin or alternate game execution path. The per-game Wine prefixes remain
+separate while sharing the runtime binaries.

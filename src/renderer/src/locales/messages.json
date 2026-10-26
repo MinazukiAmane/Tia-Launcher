@@ -1664,5 +1664,82 @@
     "{game} 열기",
     "{game} を開く",
     "Bukak {game}"
+  ],
+  "New in Tia": [
+    "Baru di Tia",
+    "Tia 新内容",
+    "Tia의 새로운 소식",
+    "Tia の新着情報",
+    "Anyar ing Tia"
+  ],
+  "Curious about Silver Palace?": [
+    "Penasaran dengan Silver Palace?",
+    "想了解 Silver Palace 吗？",
+    "Silver Palace가 궁금하신가요?",
+    "Silver Palace が気になりますか？",
+    "Penasaran karo Silver Palace?"
+  ],
+  "Discover Silver Palace": [
+    "Kenali Silver Palace",
+    "探索 Silver Palace",
+    "Silver Palace 알아보기",
+    "Silver Palace を知る",
+    "Kenalan karo Silver Palace"
+  ],
+  "Silver Palace is an open-world action RPG set in Silvernia, a Victorian-inspired industrial city. Play as a detective, investigate mysteries, explore the city and fight alongside a cast of companions.": [
+    "Silver Palace adalah action RPG dunia terbuka berlatar Silvernia, kota industri bergaya Victoria. Kamu menjadi detektif, menyelidiki misteri, menjelajahi kota, dan bertarung bersama para rekan.",
+    "Silver Palace 是一款开放世界动作角色扮演游戏，背景是维多利亚风格的工业都市 Silvernia。你将扮演侦探，调查谜案、探索城市，并与同伴并肩作战。",
+    "Silver Palace는 빅토리아풍 산업 도시 Silvernia를 배경으로 한 오픈 월드 액션 RPG입니다. 탐정이 되어 수수께끼를 조사하고 도시를 탐험하며 동료들과 함께 싸우세요.",
+    "Silver Palace は、ヴィクトリア風の工業都市 Silvernia を舞台にしたオープンワールド・アクション RPG です。探偵となり、謎を調べ、街を探索し、仲間とともに戦います。",
+    "Silver Palace iku action RPG donya kabuka ing Silvernia, kutha industri kanthi gaya Victoria. Kowe dadi detektif, nyelidiki misteri, njelajah kutha, lan perang bareng para kanca."
+  ],
+  "Built with Unreal Engine 5, it brings together anime-style characters, real-time action combat and a world transformed by Silverium.": [
+    "Dibuat dengan Unreal Engine 5, game ini memadukan karakter bergaya anime, pertarungan aksi langsung, dan dunia yang berubah berkat Silverium.",
+    "游戏采用虚幻引擎 5 开发，融合了动漫风格角色、即时动作战斗，以及被 Silverium 改变的世界。",
+    "Unreal Engine 5로 제작되어 애니메이션풍 캐릭터, 실시간 액션 전투, Silverium으로 변화한 세계를 선보입니다.",
+    "Unreal Engine 5 で開発され、アニメ調のキャラクター、リアルタイムのアクション戦闘、Silverium によって変わった世界を描きます。",
+    "Digawe nganggo Unreal Engine 5, game iki nggabungake karakter gaya anime, perang aksi langsung, lan donya sing owah amarga Silverium."
+  ],
+  "You can keep playing CSO or visit the Silver Palace page whenever you like. Opening its page does not start a download.": [
+    "Kamu tetap bisa bermain CSO atau membuka halaman Silver Palace kapan saja. Membuka halamannya tidak langsung memulai unduhan.",
+    "你可以继续玩 CSO，也可以随时打开 Silver Palace 页面。打开页面不会自动开始下载。",
+    "계속 CSO를 플레이하거나 언제든 Silver Palace 페이지를 열 수 있습니다. 페이지를 여는 것만으로 다운로드가 시작되지는 않습니다.",
+    "引き続き CSO を遊ぶことも、いつでも Silver Palace のページを開くこともできます。ページを開くだけではダウンロードは始まりません。",
+    "Kowe tetep bisa main CSO utawa mbukak kaca Silver Palace kapan wae. Mbukak kacane ora langsung miwiti undhuhan."
+  ],
+  "Yes, show me": [
+    "Ya, tunjukkan",
+    "好，介绍一下",
+    "네, 보여주세요",
+    "はい、見てみる",
+    "Ya, tuduhna"
+  ],
+  "View Silver Palace": [
+    "Lihat Silver Palace",
+    "查看 Silver Palace",
+    "Silver Palace 보기",
+    "Silver Palace を見る",
+    "Delok Silver Palace"
+  ],
+  "Your choice could not be saved. This introduction may appear again next time.": [
+    "Pilihanmu belum berhasil disimpan. Pengenalan ini mungkin muncul lagi nanti.",
+    "未能保存你的选择，下次可能会再次显示此介绍。",
+    "선택을 저장하지 못했습니다. 다음에 이 소개가 다시 나타날 수 있습니다.",
+    "選択を保存できませんでした。次回もこの紹介が表示される場合があります。",
+    "Pilihanmu durung kasimpen. Pangenalan iki bisa muncul maneh mengko."
+  ],
+  "Tia now includes Silver Palace alongside CSO: Re-Server Edition. Curious about the new game? Take a quick look before deciding what to play.": [
+    "Tia sekarang menyediakan Silver Palace bersama CSO: Re-Server Edition. Penasaran dengan game barunya? Kenalan dulu sebelum memilih mau main apa.",
+    "Tia 现在除了 CSO: Re-Server Edition，还支持 Silver Palace。对新游戏感到好奇吗？不妨先了解一下，再决定玩什么。",
+    "Tia에 CSO: Re-Server Edition과 함께 Silver Palace가 추가되었습니다. 새로운 게임이 궁금하신가요? 무엇을 플레이할지 정하기 전에 간단히 알아보세요.",
+    "Tia に CSO: Re-Server Edition とともに Silver Palace が追加されました。新しいゲームが気になりますか？遊ぶゲームを決める前に、少し見てみましょう。",
+    "Tia saiki nyedhiyakake Silver Palace bareng CSO: Re-Server Edition. Penasaran karo game anyare? Kenalan dhisik sadurunge milih arep main apa."
+  ],
+  "No, thanks": [
+    "Tidak, terima kasih",
+    "不了，谢谢",
+    "아니요, 괜찮습니다",
+    "いいえ、結構です",
+    "Ora, matur nuwun"
   ]
 }

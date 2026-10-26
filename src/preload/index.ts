@@ -74,6 +74,8 @@ const gameApi = {
     return () => ipcRenderer.removeListener('news:update', listener)
   },
   getNews: (): Promise<import('../main/news').NewsItem[]> => ipcRenderer.invoke('news:get'),
+  getSilverIntroduction: (): Promise<{ eligible: boolean }> => ipcRenderer.invoke('launcher:getSilverIntroduction'),
+  setSilverIntroductionChoice: (choice: 'interested' | 'dismissed'): Promise<void> => ipcRenderer.invoke('launcher:setSilverIntroductionChoice', choice),
   getSilverNotices: (): Promise<import('../shared/silverNotices').SilverNoticeFeed> => ipcRenderer.invoke('silver-notices:get'),
   onSilverNotices: (callback: (feed: import('../shared/silverNotices').SilverNoticeFeed) => void): (() => void) => {
     const listener = (_event: unknown, feed: import('../shared/silverNotices').SilverNoticeFeed): void => callback(feed)
