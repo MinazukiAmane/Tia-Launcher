@@ -35,3 +35,13 @@ compatibility; a real supported client still needs a device test.
 The Silver Palace image and optimized video are local assets; see media-sources.md.
 CSO media and game-specific options stay with the CSO profile. Launcher-wide
 settings, including user-selected custom backgrounds, remain shared.
+
+For an existing installation, select the directory containing `SilverPalace/`
+(and its Binaries/Win64 executable). The server's published repair manifest must
+be available. Import verifies existing assets once and downloads only missing or
+corrupt assets when Repair is used. Play reuses successful hashes for unchanged
+files; it does not rescan unknown files or delete extras. Logs are ignored.
+Silver Palace's `SilverPalace/Saved/`, `Engine/Saved/` and root/project/engine
+`DerivedDataCache/` trees are excluded even if an uploaded package accidentally
+contained them. Content, packaged Config, binaries and plugins remain checked.
+Runtime data in the user's AppData or Proton prefix is outside the install check.

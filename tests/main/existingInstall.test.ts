@@ -1,3 +1,4 @@
+import { activeGame, selectGame } from '../../src/main/activeGame'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -24,6 +25,7 @@ describe('importing game files from another launcher', () => {
   let fetchMock: ReturnType<typeof vi.fn>
 
   beforeEach(async () => {
+    selectGame('csore_global')
     root = await mkdtemp(join(tmpdir(), 'csore-existing-'))
     dir = join(root, 'game')
     await mkdir(dir)
@@ -50,7 +52,7 @@ describe('importing game files from another launcher', () => {
       if (String(url).startsWith('http://127.0.0.1:')) return realFetch(url, options)
       return new Response(JSON.stringify(
       String(url).includes('launcher_info')
-        ? { retcode: 0, data: { game_packages: [{ game: { biz: 'csore_global' }, main: { major: { version: manifest.version, res_list_url: 'https://fixture.test/manifest' }, patches: [] } }] } }
+        ? { retcode: 0, data: { game_packages: [{ game: { biz: activeGame().biz }, main: { major: { version: manifest.version, res_list_url: 'https://fixture.test/manifest' }, patches: [] } }] } }
         : manifest
     ))
     })
@@ -58,6 +60,7 @@ describe('importing game files from another launcher', () => {
   })
 
   afterEach(async () => {
+    selectGame('csore_global')
     vi.unstubAllGlobals()
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
     await rm(root, { recursive: true, force: true })
@@ -135,4 +138,36 @@ describe('importing game files from another launcher', () => {
     expect(await importExistingInstall(dir)).toBe(true)
     expect((await verifyInstall(dir)).missingFiles).toEqual(assets.map(asset => asset.path))
   })
+  it('imports Silver Palace without redownloading matching assets and preserves runtime state through repeated Play checks and repair', async () => {
+    selectGame('cedar_global')
+    const exe = activeGame().executable
+    const saved = 'SilverPalace/Saved/Config/WindowsClient/GameUserSettings.ini'
+    const cache = 'Engine/DerivedDataCache/generated.bin'
+    manifest.files = [
+      { ...manifest.files[0], path: exe },
+      { ...manifest.files[1], path: saved },
+      { ...manifest.files[2], path: cache }
+    ]
+    await mkdir(join(dir, exe, '..'), { recursive: true })
+    await mkdir(join(dir, saved, '..'), { recursive: true })
+    await writeFile(join(dir, exe), assets[0].bytes)
+    await writeFile(join(dir, saved), 'player settings')
+    // Additional files are not scanned or deleted.
+    await writeFile(join(dir, 'runtime.db'), 'local state')
+    expect(await importExistingInstall(dir)).toBe(true)
+    for (const quick of [false, true, true]) {
+      expect(await verifyInstall(dir, quick)).toEqual({ ok: true, corruptFiles: [], missingFiles: [] })
+      await writeFile(join(dir, saved), 'modified player settings')
+    }
+    expect((await readInstallState(dir))?.needsRepair).toBe(false)
+    expect(downloaded).toEqual([])
+    await writeFile(join(dir, exe), 'corrupt executable')
+    expect((await verifyInstall(dir, true)).corruptFiles).toEqual([exe])
+    await repairInstall(dir, () => {})
+    expect(downloaded).toEqual([assets[0].path])
+    expect(await readFile(join(dir, saved), 'utf8')).toBe('modified player settings')
+    expect(await readFile(join(dir, 'runtime.db'), 'utf8')).toBe('local state')
+    expect((await verifyInstall(dir, true)).ok).toBe(true)
+  })
+
 })

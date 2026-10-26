@@ -1,3 +1,4 @@
+import { activeGame } from './activeGame'
 
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
@@ -70,8 +71,15 @@ export async function verifyAgainstManifest(
     }
     const filePath = resolveWithinRoot(installDir, entry.path, 'manifest file', reason => { throw new Error(reason) })
     return { entry, filePath }
-  }).filter(({ entry }) => !entry.path.toLowerCase().endsWith('.log') &&
-    !(hasCanonicalRenderer && entry.path === 'Bin/Renderer.dll'))
+  }).filter(({ entry }) => {
+    const path = entry.path.toLowerCase()
+    if (path.endsWith('.log')) return false
+    // UE runtime state is mutable, including when accidentally shipped in a
+    // package. Keep Content, Config, executables and plugins fully verified.
+    if (activeGame().biz === 'cedar_global' &&
+        /^(?:(?:silverpalace|engine)\/saved\/|(?:(?:silverpalace|engine)\/)?deriveddatacache\/)/.test(path)) return false
+    return !(hasCanonicalRenderer && entry.path === 'Bin/Renderer.dll')
+  })
   // Bound metadata IO; hash one file at a time to avoid HDD seek contention.
   for (let offset = 0; offset < entries.length; offset += 4) {
     const batch = entries.slice(offset, offset + 4)
