@@ -1,6 +1,7 @@
+import { activeGame, gamePreferenceScope } from './activeGame'
 import { VIDEO_NAME } from './backgroundMedia'
 
-import { migrateRecord, writeRecords } from './localDatabase'
+import { migrateRecord, writeRecords, readRecord } from './localDatabase'
 import { join } from 'path'
 import { isValidBackgroundName } from './background'
 
@@ -68,6 +69,13 @@ export async function readSettings(userDataDir: string): Promise<Settings> {
   try {
     const stored = await migrateRecord<Partial<Settings>>('launcher', 'settings', settingsPath(userDataDir), userDataDir)
     const merged = { ...DEFAULT_SETTINGS, ...stored } as Settings
+    if (activeGame().biz !== 'csore_global') {
+      const launch = readRecord<Partial<Settings>>(gamePreferenceScope(), 'launchOptions', userDataDir)
+      merged.lang = launch?.lang ?? DEFAULT_SETTINGS.lang
+      merged.classicUi = launch?.classicUi ?? DEFAULT_SETTINGS.classicUi
+      merged.alternateRenderer = launch?.alternateRenderer ?? DEFAULT_SETTINGS.alternateRenderer
+      merged.launchCommand = launch?.launchCommand ?? null
+    }
 
     return {
       ...merged,
@@ -93,6 +101,14 @@ export async function writeSettings(userDataDir: string, settings: Settings): Pr
     troubleshootingMode: sanitizeTroubleshootingMode(settings.troubleshootingMode),
     customVideo: typeof settings.customVideo === 'string' && VIDEO_NAME.test(settings.customVideo) ? settings.customVideo : null,
     customBackground: isValidBackgroundName(settings.customBackground) ? settings.customBackground : null
+  }
+  if (activeGame().biz !== 'csore_global') {
+    writeRecords(gamePreferenceScope(), { launchOptions: { lang: sanitized.lang, classicUi: sanitized.classicUi, alternateRenderer: sanitized.alternateRenderer, launchCommand: sanitized.launchCommand } }, userDataDir)
+    const global = readRecord<Partial<Settings>>('launcher', 'settings', userDataDir)
+    sanitized.lang = global?.lang ?? DEFAULT_SETTINGS.lang
+    sanitized.classicUi = global?.classicUi ?? DEFAULT_SETTINGS.classicUi
+    sanitized.alternateRenderer = global?.alternateRenderer ?? DEFAULT_SETTINGS.alternateRenderer
+    sanitized.launchCommand = global?.launchCommand ?? null
   }
   writeRecords('launcher', { settings: sanitized }, userDataDir)
 }

@@ -1,3 +1,5 @@
+import { activeGame, gamePreferenceScope } from './activeGame'
+import { LAUNCHER_API_BASE_URL } from './catalog'
 import { isFilesystemRoot } from './installLocation'
 import { migrateRecord, writeRecords, forgetGameRecords, gameScope } from './localDatabase'
 import { moveInstallDirectory, type MoveProgress, type MoveResult } from './moveInstallation'
@@ -42,8 +44,8 @@ import {
 import { launchMacOS, findSikarugirWrapper, SikarugirNotFoundError } from './launcher/macos'
 
 // Adjust to the real deployed adminapi base URL and this game's biz slug.
-const API_BASE_URL = 'https://sg-csore-api.serenetia.com'
-const GAME_BIZ = 'csore_global'
+const API_BASE_URL = LAUNCHER_API_BASE_URL
+
 
 export async function checkDirWritable(dir: string): Promise<boolean> {
   const probePath = join(dir, `.csore-write-test-${Date.now()}`)
@@ -164,7 +166,7 @@ async function runLinuxLaunch(installDir: string, args: string[], launchCommand?
   const exePath = await findGameExecutable(installDir) // Bin/ layout is the same across platforms; the exe itself differs, see Task 9/10's open assumption
   const baseDir = join(app.getPath('userData'), 'runtimes')
   const tagName = await ensureDWProtonInstalled(baseDir)
-  const compatDataDir = join(baseDir, 'prefix')
+  const compatDataDir = join(baseDir, activeGame().biz === 'csore_global' ? 'prefix' : 'prefix-' + activeGame().biz)
   await launchLinux(dwprotonInstallDir(baseDir, tagName), compatDataDir, exePath, args, launchCommand)
 }
 
@@ -186,41 +188,42 @@ export async function getSikarugirStatus(): Promise<SikarugirStatus> {
   return { found: wrapper !== null, wrapperPath: wrapper?.wrapperPath ?? null }
 }
 
-let approvedInstallDir: string | null = null
+const approvedInstallDirs = new Map<string, string>()
+const cachedInstallDir = (): string | null => approvedInstallDirs.get(activeGame().biz) ?? null
 
 const APPROVED_INSTALL_DIR_FILENAME = 'approved-install-dir.json'
 
 function approvedInstallDirFilePath(): string {
-  return join(app.getPath('userData'), APPROVED_INSTALL_DIR_FILENAME)
+  return join(app.getPath('userData'), activeGame().biz === 'csore_global' ? APPROVED_INSTALL_DIR_FILENAME : 'approved-install-dir-' + activeGame().biz + '.json')
 }
 
 async function readPersistedApprovedInstallDir(): Promise<string | null> {
-  const data = await migrateRecord<{ installDir: string }>('launcher', 'selectedInstallation', approvedInstallDirFilePath())
+  const data = await migrateRecord<{ installDir: string }>(gamePreferenceScope(), 'selectedInstallation', approvedInstallDirFilePath())
   return typeof data?.installDir === 'string' ? data.installDir : null
 }
 
 export async function setApprovedInstallDir(dir: string): Promise<void> {
-  writeRecords('launcher', { selectedInstallation: { installDir: dir } })
-  approvedInstallDir = dir
+  writeRecords(gamePreferenceScope(), { selectedInstallation: { installDir: dir } })
+  approvedInstallDirs.set(activeGame().biz, dir)
 }
 
 export async function getSelectedInstallDir(): Promise<string | null> {
-  return approvedInstallDir ?? await readPersistedApprovedInstallDir()
+  return cachedInstallDir() ?? await readPersistedApprovedInstallDir()
 }
 
 export function getApprovedInstallDir(): string | null {
-  return approvedInstallDir
+  return cachedInstallDir()
 }
 
 // Clear persisted approval when removing an installation.
 async function clearApprovedInstallDir(): Promise<void> {
-  approvedInstallDir = null
-  writeRecords('launcher', { selectedInstallation: null })
+  approvedInstallDirs.delete(activeGame().biz)
+  writeRecords(gamePreferenceScope(), { selectedInstallation: null })
   await rm(approvedInstallDirFilePath(), { force: true })
 }
 
 export async function isApprovedInstallDir(installDir: string): Promise<boolean> {
-  if (installDir === approvedInstallDir) return true
+  if (installDir === cachedInstallDir()) return true
   if (installDir === (await readPersistedApprovedInstallDir())) return true
   return (await readInstallState(installDir)) !== null
 }
@@ -236,7 +239,7 @@ export function selectLaunchFn(
 
 export async function launchGame(installDir: string): Promise<void> {
   const settings = await readSettings(app.getPath('userData'))
-  const args = buildGameLaunchArgs(settings)
+  const args = activeGame().biz === 'csore_global' ? buildGameLaunchArgs(settings) : []
   const launch = selectLaunchFn(process.platform)
   await launch(installDir, args, settings.launchCommand)
 }
@@ -342,7 +345,7 @@ async function doFreshInstall(
   }
 
   const files = mergeFileLists(gameFiles, audioFiles)
-  const newState: InstallState = { version: target.version, installDir, files }
+  const newState: InstallState = { ...(activeGame().biz === 'cedar_global' ? { gameBiz: activeGame().biz } : {}), version: target.version, installDir, files }
   writeRecords(gameScope(installDir), { install: newState, pendingAudio: null, checkpoint: null })
 
   await clearPendingAudioPatch(installDir)
@@ -385,7 +388,7 @@ async function applyAudioPatchContinuation(
       throw err
     }
     const files = mergeManifestEntries(baseFiles, audioManifest.entries)
-    const newState: InstallState = { version: pending.toVersion, installDir, files }
+    const newState: InstallState = { ...(activeGame().biz === 'cedar_global' ? { gameBiz: activeGame().biz } : {}), version: pending.toVersion, installDir, files }
     writeRecords(gameScope(installDir), { install: newState, pendingAudio: null })
     await clearPendingAudioPatch(installDir)
     onProgress({ phase: 'extracting_audio', processed: 1, total: 1 })
@@ -413,7 +416,7 @@ export async function performInstallOrUpdate(
   const signal = abortController.signal
   logInfo('performInstallOrUpdate: starting', { installDir })
   try {
-    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
+    const info = await fetchLauncherInfo(API_BASE_URL, activeGame().biz)
     const state = await readInstallState(installDir)
     if (state?.needsRepair) throw new Error('Verify or repair the imported game files before updating. A full installation is not needed.')
 
@@ -501,7 +504,7 @@ export async function performInstallOrUpdate(
       } catch (error) { logInfo('performInstallOrUpdate: patch download cleanup deferred', { error: (error as Error).message }) }
       const files = mergeManifestEntries(state?.files ?? [], manifest.entries)
 
-      const gameSideState: InstallState = { version: action.toVersion, installDir, files }
+      const gameSideState: InstallState = { ...(activeGame().biz === 'cedar_global' ? { gameBiz: activeGame().biz } : {}), version: action.toVersion, installDir, files }
 
       if (action.patch.audio_pkgs && action.patch.audio_pkgs.length > 0) {
         const pending: PendingAudioPatch = { toVersion: action.toVersion, audioPkgs: action.patch.audio_pkgs }
@@ -561,7 +564,7 @@ async function verifyInstallContents(installDir: string, quick: boolean): Promis
   if (!state) throw new Error(`no install found at "${installDir}" -- nothing to verify`)
   let manifest: Awaited<ReturnType<typeof fetchVersionManifest>> = null
   try {
-    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ, { forPlay: quick })
+    const info = await fetchLauncherInfo(API_BASE_URL, activeGame().biz, { forPlay: quick })
     manifest = await fetchVersionManifest(findVersionBlock(info, state.version)?.res_list_url, quick ? 4000 : 10000)
   } catch (err) {
     logInfo('verifyInstall: server unavailable, using local state', { error: (err as Error).message })
@@ -588,7 +591,7 @@ export async function repairInstall(
   currentOperationAbortController = abortController
   logInfo('repairInstall: starting', { installDir })
   try {
-    const info = await fetchLauncherInfo(API_BASE_URL, GAME_BIZ)
+    const info = await fetchLauncherInfo(API_BASE_URL, activeGame().biz)
     if (!info.main.major) throw new Error('no published main version available for this game')
 
     const state = await readInstallState(installDir)

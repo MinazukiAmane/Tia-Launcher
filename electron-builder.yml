@@ -24,6 +24,12 @@ extraResources:
     to: flag-launch
     filter:
       - "flag-launch-*.exe"
+  - from: build/native/cedar
+    to: game-runtime
+    filter:
+      - "cedar-start-x64.exe"
+      - "cedar-client-x64.dll"
+      - "LICENSE-Minhook.txt"
   - from: build/icon.png
     to: icon.png
 

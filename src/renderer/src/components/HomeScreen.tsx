@@ -1,3 +1,6 @@
+import { GAMES, type GameDefinition } from '../gameCatalog'
+import silverBackground from '../assets/silver-palace.jpg'
+import silverVideo from '../assets/silver-palace.mp4'
 import { userError } from '../userErrors'
 import { t } from '../i18n'
 import { migrateLegacyPreferences } from '../persistence'
@@ -93,6 +96,8 @@ const PHASE_LABEL: Record<string, string> = {
 }
 
 interface HomeScreenProps {
+  game?: GameDefinition
+  onBusyChange?: (busy: boolean) => void
   installDir: string | null
   // Player's custom launcher background (data: URL), or null for the default.
   backgroundUrl: string | null
@@ -102,7 +107,7 @@ interface HomeScreenProps {
   onOpenGameSettings: () => void
 }
 
-export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
+export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgroundUrl, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -121,6 +126,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null)
   const [confirmingRepair, setConfirmingRepair] = useState(false)
   const [repairing, setRepairing] = useState(false)
+  useEffect(() => { onBusyChange?.(state === 'working' || verifying || repairing); return () => onBusyChange?.(false) }, [state, verifying, repairing, onBusyChange])
   const [toast, setToast] = useState<string | null>(null)
 
   // Synchronous guard: React state alone cannot block same-frame duplicate clicks.
@@ -452,12 +458,12 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
 
   return (
     <div className="home-screen">
-      <LauncherBackground customUrl={backgroundUrl} inactive={settingsOpen} />
+      <LauncherBackground customUrl={backgroundUrl} inactive={settingsOpen} fallbackUrl={game.biz === 'cedar_global' ? silverBackground : undefined} fallbackVideoUrl={game.biz === 'cedar_global' ? silverVideo : undefined} />
       <div className="home-shade" />
-      <nav className="community-rail" aria-label={t("Community")}><CommunityLink /></nav>
+      {game.biz === 'csore_global' && <nav className="community-rail" aria-label={t("Community")}><CommunityLink /></nav>}
 
       <div className="home-news">
-        <NoticesPanel />
+        {game.biz === 'csore_global' ? <NoticesPanel /> : <div className="rounded-xl bg-black/35 px-5 py-4 text-white"><h1 className="text-xl font-semibold">Silver Palace</h1><p className="mt-1 text-sm text-white/60">{t('Notices')} · {t('News')}</p><p className="mt-2 text-sm">Open News in the game for the latest updates.</p></div>}
       </div>
 
       <div className="home-actions">
@@ -582,7 +588,7 @@ export function HomeScreen({ installDir, backgroundUrl, onNeedInstallDir, operat
           </div>
         </div>
 
-        {settings && (
+        {settings && game.biz === 'csore_global' && (
           <label className="renderer-option">
             <input
               type="checkbox"

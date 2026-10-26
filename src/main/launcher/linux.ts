@@ -1,4 +1,4 @@
-import { prepareFlagLaunch } from './flagLaunch'
+import { prepareGameLaunch } from './gameLaunch'
 
 import { spawn, execFile } from 'child_process'
 import { promisify } from 'util'
@@ -116,7 +116,7 @@ export async function launchLinux(
   const options = resolveLaunchOptions(args, launchCommand)
   args = options.args
   launchCommand = options.command
-  const client = await prepareFlagLaunch(exePath, args)
+  const client = await prepareGameLaunch(exePath, args)
   const launchExe = client.executable
   const launchArgs = client.args
   logInfo('launchLinux: attempting launch', { exePath, protonDir })

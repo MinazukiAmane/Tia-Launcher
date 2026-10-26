@@ -8,3 +8,6 @@ dist/
 release-test/
 ref/
 .private-helper/
+
+# Private runtime output: bundle only explicitly whitelisted binaries.
+build/native/cedar/

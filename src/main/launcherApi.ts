@@ -79,6 +79,8 @@ async function requestLauncherInfo(apiBaseUrl: string, gameBiz: string, maxAttem
     if (!body || body.retcode !== 0 || !body.data || !Array.isArray(body.data.game_packages) || body.data.game_packages.length === 0) {
       throw new Error(`launcher_info error: ${body?.message ?? 'invalid response'}`)
     }
-    return body.data.game_packages[0]
+    const selected = body.data.game_packages.find(entry => entry?.game?.biz === gameBiz)
+    if (!selected) throw new Error('launcher_info did not return metadata for the selected game.')
+    return selected
   }
 }

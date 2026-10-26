@@ -1,0 +1,19 @@
+{
+  "apiBaseUrl": "https://sg-tia-api.serenetia.com",
+  "games": [
+    {
+      "biz": "csore_global",
+      "title": "CSO: Re-Server Edition",
+      "badge": "CSO",
+      "installFolder": "Tia-CSORSE",
+      "executable": "Bin/cstrike-online.exe"
+    },
+    {
+      "biz": "cedar_global",
+      "title": "Silver Palace",
+      "badge": "SP",
+      "installFolder": "Tia-SilverPalace",
+      "executable": "SilverPalace/Binaries/Win64/SilverPalaceClient-Win64-Shipping.exe"
+    }
+  ]
+}

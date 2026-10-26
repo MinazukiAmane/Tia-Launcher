@@ -151,7 +151,7 @@ describe('install -> patch -> launch integration', () => {
     global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const url = new URL(urlString)
-      if (url.hostname === 'sg-csore-api.serenetia.com') {
+      if (url.hostname === 'sg-tia-api.serenetia.com') {
         const rewritten = new URL(baseUrl)
         url.protocol = rewritten.protocol
         url.hostname = rewritten.hostname
@@ -331,7 +331,7 @@ describe('audio_pkgs[] download + install/patch (spec gap)', () => {
     global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const url = new URL(urlString)
-      if (url.hostname === 'sg-csore-api.serenetia.com') {
+      if (url.hostname === 'sg-tia-api.serenetia.com') {
         const rewritten = new URL(baseUrl)
         url.protocol = rewritten.protocol
         url.hostname = rewritten.hostname
@@ -484,7 +484,7 @@ describe('repairInstall (spec §6)', () => {
     global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const url = new URL(urlString)
-      if (url.hostname === 'sg-csore-api.serenetia.com') {
+      if (url.hostname === 'sg-tia-api.serenetia.com') {
         const rewritten = new URL(baseUrl)
         url.protocol = rewritten.protocol
         url.hostname = rewritten.hostname

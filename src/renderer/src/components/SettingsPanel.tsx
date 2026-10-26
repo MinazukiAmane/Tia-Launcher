@@ -1,3 +1,4 @@
+import { GAMES, type GameDefinition } from '../gameCatalog'
 import { userError } from '../userErrors'
 import { t, changeLauncherLanguage, useLauncherLanguage } from '../i18n'
 import { LAUNCHER_LANGUAGES, type LauncherLanguage } from '../launcherLanguages'
@@ -46,6 +47,7 @@ function TrashIcon(): React.JSX.Element {
 type Settings = Awaited<ReturnType<typeof window.csore.getSettings>>
 
 interface SettingsPanelProps {
+  game?: GameDefinition
   installDir: string | null
   userDataDir: string
   scope: 'launcher' | 'game'
@@ -147,6 +149,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 }
 
 export function SettingsPanel({
+  game = GAMES[0],
   installDir,
   userDataDir,
   scope,
@@ -650,7 +653,7 @@ export function SettingsPanel({
           {settings && activeTab === 'manage' && (
             <div className="settings-sections">
               <SectionCard
-                title="CSO: Re-Server Edition"
+                title={game.title}
                 right={
                   installDir && (
                     <button
@@ -668,7 +671,7 @@ export function SettingsPanel({
                 <div className="flex items-center gap-3">
                   <img src={gameIcon} alt="" className="h-12 w-12 rounded-lg object-cover" />
                   <div>
-                    <p className="text-sm text-white">CSO: Re-Server Edition</p>
+                    <p className="text-sm text-white">{game.title}</p>
                     <p className="text-xs text-white/40">
                       {installedVersion ? t('Game Version: {version}', { version: installedVersion }) : t("Not installed")}
                     </p>
@@ -693,6 +696,7 @@ export function SettingsPanel({
               </SectionCard>
 
               {}
+              {game.biz === 'csore_global' && <>
               <SectionCard title={t("Game Launch Options")}>
                 <label className="flex items-center justify-between text-sm">
                   {t("Language")}<select
@@ -735,6 +739,7 @@ export function SettingsPanel({
                   />
                 </label>
               </SectionCard>
+              </>}
 
               {installDir && (
                 <SectionCard title={t("Verify / Repair Files")}>

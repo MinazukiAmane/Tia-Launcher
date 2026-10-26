@@ -1,3 +1,5 @@
+import { selectGame } from './activeGame'
+import { readRecord } from './localDatabase'
 import { serveBackgroundVideo } from './backgroundMedia'
 import { stopMediaConversion } from './mediaConverter'
 import { configureDatabaseDirectory } from './localDatabase'
@@ -16,6 +18,8 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'tia-background', privileges: { 
 
 app.setPath('userData', join(app.getPath('appData'), 'tia-launcher-bootstrap'))
 configureDatabaseDirectory(app.getPath('userData'))
+const savedGame = readRecord<string>('launcher', 'selectedGame')
+if (savedGame) { try { selectGame(savedGame) } catch { /* Removed catalog entry defaults to CSO. */ } }
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({

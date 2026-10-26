@@ -188,7 +188,7 @@ describe('fresh install: audio resume after releasing game downloads', () => {
     global.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const urlString = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const url = new URL(urlString)
-      if (url.hostname === 'sg-csore-api.serenetia.com') {
+      if (url.hostname === 'sg-tia-api.serenetia.com') {
         const rewritten = new URL(baseUrl)
         url.protocol = rewritten.protocol
         url.hostname = rewritten.hostname

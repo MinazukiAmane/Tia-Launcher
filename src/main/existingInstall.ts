@@ -1,3 +1,5 @@
+import { activeGame } from './activeGame'
+import { LAUNCHER_API_BASE_URL } from './catalog'
 import { hasFreshGameCheckpoint } from './freshInstallCheckpoint'
 import { readdir, stat } from 'fs/promises'
 import { join } from 'path'
@@ -13,13 +15,20 @@ export async function importExistingInstall(installDir: string): Promise<boolean
   if (hasFreshGameCheckpoint(installDir) || entries.some(entry => entry.name === '.csore_fresh_game.json')) return false
   const named = (name: string): boolean => entries.some(entry => entry.isDirectory() &&
     (process.platform === 'win32' ? entry.name.toLowerCase() === name.toLowerCase() : entry.name === name))
-  if (!named('Bin')) return false
-  let hasExecutable = false
-  try { hasExecutable = (await stat(join(installDir, 'Bin', 'cstrike-online.exe'))).isFile() } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  if (activeGame().biz === 'csore_global') {
+    if (!named('Bin')) return false
+    let hasExecutable = false
+    try { hasExecutable = (await stat(join(installDir, 'Bin', 'cstrike-online.exe'))).isFile() } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+    if (!hasExecutable && !named('Data')) return false
+  } else {
+    try { if (!(await stat(join(installDir, activeGame().executable))).isFile()) return false } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+      throw error
+    }
   }
-  if (!hasExecutable && !named('Data')) return false
-  const info = await fetchLauncherInfo('https://sg-csore-api.serenetia.com', 'csore_global')
+  const info = await fetchLauncherInfo(LAUNCHER_API_BASE_URL, activeGame().biz)
   const target = info.main.major
   const manifest = await fetchVersionManifest(target?.res_list_url)
   if (!target || !manifest?.repair_supported || manifest.version !== target.version || !manifest.files.length) {

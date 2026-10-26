@@ -1,3 +1,4 @@
+import { activeGame } from './activeGame'
 
 import { readGameRecord, writeRecords, gameScope } from './localDatabase'
 import { rm } from 'fs/promises'
@@ -11,6 +12,7 @@ export interface InstalledFileEntry {
 }
 
 export interface InstallState {
+  gameBiz?: string
   version: string
   installDir: string
   files: InstalledFileEntry[]
@@ -25,11 +27,12 @@ export function installStatePath(installDir: string): string {
 }
 
 export async function readInstallState(installDir: string): Promise<InstallState | null> {
-  return readGameRecord<InstallState>(installDir, 'install')
+  const state = await readGameRecord<InstallState>(installDir, 'install')
+  return state && (state.gameBiz ?? 'csore_global') === activeGame().biz ? state : null
 }
 
 export async function writeInstallState(installDir: string, state: InstallState): Promise<void> {
-  writeRecords(gameScope(installDir), { install: state })
+  writeRecords(gameScope(installDir), { install: activeGame().biz === 'csore_global' ? state : { ...state, gameBiz: activeGame().biz } })
 }
 
 export interface PendingAudioPatch {

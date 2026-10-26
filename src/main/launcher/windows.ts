@@ -1,4 +1,5 @@
-import { prepareFlagLaunch } from './flagLaunch'
+import { activeGame } from '../activeGame'
+import { prepareGameLaunch } from './gameLaunch'
 
 import { spawn } from 'child_process'
 import { join, dirname } from 'path'
@@ -8,7 +9,7 @@ import { logInfo, logDebug, logError } from '../logger'
 
 // Convention: Bin/cstrike-online.exe directly under the install dir.
 export async function findGameExecutable(installDir: string): Promise<string> {
-  const exePath = join(installDir, 'Bin', 'cstrike-online.exe')
+  const exePath = join(installDir, activeGame().executable)
   await access(exePath)
   return exePath
 }
@@ -18,7 +19,7 @@ export async function launchWindows(exePath: string, args: string[], launchComma
   const options = resolveLaunchOptions(args, launchCommand)
   args = options.args
   launchCommand = options.command
-  const client = await prepareFlagLaunch(exePath, args)
+  const client = await prepareGameLaunch(exePath, args)
   const launchExe = client.executable
   const launchArgs = client.args
   logInfo('launchWindows: attempting launch', { exePath })

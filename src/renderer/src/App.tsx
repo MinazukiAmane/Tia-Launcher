@@ -1,3 +1,5 @@
+import { GAMES, type GameDefinition, type GameId } from './gameCatalog'
+import silverBackground from './assets/silver-palace.jpg'
 import { userError } from './userErrors'
 import { t, loadLauncherLanguage, useLauncherLanguage } from './i18n'
 import { useEffect, useState } from 'react'
@@ -50,6 +52,9 @@ function CloseIcon(): React.JSX.Element {
 
 export default function App(): React.JSX.Element {
   useLauncherLanguage()
+  const [selectedGame, setSelectedGame] = useState<GameDefinition>(GAMES[0])
+  const [gameBusy, setGameBusy] = useState(false)
+  const [switchingGame, setSwitchingGame] = useState(false)
   const [installDir, setInstallDir] = useState<string | null>(null)
   const [settingsScope, setSettingsScope] = useState<SettingsScope | null>(null)
   const [movingInstallation, setMovingInstallation] = useState(false)
@@ -63,6 +68,8 @@ export default function App(): React.JSX.Element {
     setStorageReady(false)
     setStorageError(null)
     try {
+      const catalog = await window.csore.getGameCatalog()
+      setSelectedGame(catalog.games.find(game => game.biz === catalog.selected) ?? GAMES[0])
       await migrateLegacyPreferences()
       await loadLauncherLanguage()
       setInstallDir(await window.csore.getSelectedInstallDir())
@@ -77,6 +84,20 @@ export default function App(): React.JSX.Element {
     window.csore.getUserDataDir().then(setUserDataDir).catch(() => {})
     window.csore.getBackground().then(setBackgroundUrl).catch(() => setBackgroundUrl(null))
   }, [])
+
+  async function switchGame(biz: GameId): Promise<void> {
+    if (switchingGame || gameBusy || movingInstallation || !storageReady) return
+    setPickError(null)
+    setSwitchingGame(true)
+    try {
+      const game = await window.csore.selectGame(biz)
+      setSettingsScope(null)
+      setInstallDir(null)
+      setSelectedGame(game)
+      setInstallDir(await window.csore.getSelectedInstallDir())
+    } catch (error) { setPickError(userError(error, 'storage')) }
+    finally { setSwitchingGame(false) }
+  }
 
   function handleUninstalled(): void {
     setInstallDir(null)
@@ -106,10 +127,16 @@ export default function App(): React.JSX.Element {
     <div className="launcher-shell">
       <aside className="launcher-sidebar" aria-label={t("Launcher navigation")}>
         <img className="launcher-brand" src={launcherIcon} alt="Tia Launcher" draggable={false} />
-        <button type="button" className="sidebar-game" disabled={movingInstallation} aria-label={t("CSO: Re-Server Edition home")} aria-current={settingsScope ? undefined : 'page'} title="CSO: Re-Server Edition" onClick={() => setSettingsScope(null)}>
-          <img src={heroBackground} alt="" draggable={false} />
-          <span>CSO<span>RSE</span></span>
-        </button>
+        <div className="sidebar-games">
+        {GAMES.map(game => <button key={game.biz} type="button" className="sidebar-game"
+          disabled={movingInstallation || gameBusy || switchingGame || !storageReady}
+          aria-label={game.title} aria-pressed={selectedGame.biz === game.biz}
+          aria-current={selectedGame.biz === game.biz && !settingsScope ? 'page' : undefined}
+          title={game.title} onClick={() => { if (game.biz === selectedGame.biz) setSettingsScope(null); else void switchGame(game.biz) }}>
+          <img src={game.biz === 'cedar_global' ? silverBackground : heroBackground} alt="" draggable={false} />
+          <span>{game.badge}<span>{game.biz === 'cedar_global' ? 'PALACE' : 'RSE'}</span></span>
+        </button>)}
+        </div>
         <button type="button" className="sidebar-library" title={t("Launcher Settings")} aria-label={t("Open launcher settings")} disabled={movingInstallation} onClick={() => openSettings('launcher')}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z" /></svg>
         </button>
@@ -166,7 +193,7 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <HomeScreen backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || !storageReady} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
+      <HomeScreen key={selectedGame.biz} game={selectedGame} onBusyChange={setGameBusy} backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || switchingGame || !storageReady} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
       {storageError && (
         <div role="alert" className="absolute top-14 right-3 z-50 max-w-sm rounded bg-red-950 px-4 py-3 text-sm text-red-100">
           <p>{t("Could not load saved launcher data.")}</p>
@@ -182,9 +209,10 @@ export default function App(): React.JSX.Element {
 
       {settingsScope && (
         <SettingsPanel
+          game={selectedGame}
           installDir={installDir}
           userDataDir={userDataDir}
-          key={settingsScope}
+          key={selectedGame.biz + settingsScope}
           scope={settingsScope}
           onChangeInstallDir={pickInstallDir}
           onInstallationMoved={handleInstallationMoved}

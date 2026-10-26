@@ -155,18 +155,18 @@ export function moveGameRecords(source: string, destination: string, state: unkn
       const insert = db.prepare('INSERT INTO records(scope,name,value) VALUES(?,?,?)')
       for (const row of rows) insert.run(to, String(row.name), String(row.value))
       db.prepare('INSERT INTO records(scope,name,value) VALUES(?,?,?) ON CONFLICT(scope,name) DO UPDATE SET value=excluded.value').run(to, 'install', JSON.stringify(state))
-      const selected = db.prepare("SELECT value FROM records WHERE scope='launcher' AND name='selectedInstallation'").get()
-      if (selected) {
+      const selectedRows = db.prepare("SELECT scope,value FROM records WHERE name='selectedInstallation'").all()
+      for (const selected of selectedRows) {
         const current = JSON.parse(String(selected.value)) as { installDir?: string } | null
         if (current?.installDir && gameScope(current.installDir) === from) {
-          db.prepare("UPDATE records SET value=? WHERE scope='launcher' AND name='selectedInstallation'").run(JSON.stringify({ installDir: destination }))
+          db.prepare("UPDATE records SET value=? WHERE scope=? AND name='selectedInstallation'").run(JSON.stringify({ installDir: destination }), selected.scope)
         }
       }
-      const saved = db.prepare("SELECT value FROM records WHERE scope='launcher' AND name='preferences'").get()
-      if (saved) {
+      const preferenceRows = db.prepare("SELECT scope,value FROM records WHERE name='preferences'").all()
+      for (const saved of preferenceRows) {
         const preferences = JSON.parse(String(saved.value)) as { confirmedInstallDir?: string }
         if (preferences?.confirmedInstallDir && gameScope(preferences.confirmedInstallDir) === from) {
-          db.prepare("UPDATE records SET value=? WHERE scope='launcher' AND name='preferences'").run(JSON.stringify({ ...preferences, confirmedInstallDir: destination }))
+          db.prepare("UPDATE records SET value=? WHERE scope=? AND name='preferences'").run(JSON.stringify({ ...preferences, confirmedInstallDir: destination }), saved.scope)
         }
       }
       db.prepare('DELETE FROM records WHERE scope=?').run(from)

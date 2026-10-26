@@ -10,7 +10,8 @@
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts",
     "src/shared/launcherLanguages.json",
-    "src/shared/mediaMessages.json"
+    "src/shared/mediaMessages.json",
+    "src/shared/games.json"
   ],
   "compilerOptions": {
     "composite": true,

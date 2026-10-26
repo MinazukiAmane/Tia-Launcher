@@ -1,3 +1,6 @@
+import { GAMES, LAUNCHER_API_BASE_URL } from './catalog'
+import { activeGame, selectGame } from './activeGame'
+import { writeRecords } from './localDatabase'
 import { importBackgroundVideo, clearBackgroundVideos } from './backgroundVideo'
 import { VIDEO_EXTENSIONS } from './backgroundMedia'
 import mediaMessages from '../shared/mediaMessages.json'
@@ -47,7 +50,7 @@ export async function handlePing(): Promise<string> {
 }
 
 export async function handleGetLauncherInfo(): Promise<unknown> {
-  return fetchLauncherInfo('https://sg-csore-api.serenetia.com', 'csore_global', { forPlay: true })
+  return fetchLauncherInfo(LAUNCHER_API_BASE_URL, activeGame().biz, { forPlay: true })
 }
 
 // Persisted audio work keeps an otherwise current install in the update state.
@@ -421,6 +424,14 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
     })
   }
   handle('news:get', handleGetNews)
+  handle('game:catalog', () => ({ games: GAMES, selected: activeGame().biz }))
+  handle('game:select', (_event, biz: unknown) => {
+    if (launching || isGameRunning?.() || isOperationInProgress()) throw new Error('Wait for the game or current operation to finish before switching games.')
+    const game = GAMES.find(candidate => candidate.biz === biz)
+    if (!game) throw new Error('Unknown game selection.')
+    writeRecords('launcher', { selectedGame: game.biz })
+    return selectGame(game.biz)
+  })
   handle('game:getLauncherInfo', handleGetLauncherInfo)
   handle('game:getInstallState', handleGetInstallState)
   handle('game:getSelectedInstallDir', () => getSelectedInstallDir())

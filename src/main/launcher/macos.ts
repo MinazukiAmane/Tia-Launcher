@@ -1,5 +1,5 @@
 import { migrateRecord, writeRecords } from '../localDatabase'
-import { prepareFlagLaunch } from './flagLaunch'
+import { prepareGameLaunch } from './gameLaunch'
 import { spawn } from 'child_process'
 import { join, dirname, isAbsolute } from 'path'
 import { access, stat, writeFile, mkdir, mkdtemp, rm } from 'fs/promises'
@@ -69,7 +69,7 @@ export async function launchMacOS(wrapperPath: string, exePath: string, args: st
   args = options.args
   launchCommand = options.command
   const wrapper = await inspectSikarugirWrapper(wrapperPath)
-  const client = await prepareFlagLaunch(exePath, args)
+  const client = await prepareGameLaunch(exePath, args)
   const batch = buildSikarugirBatch(client.executable, client.args, dirname(exePath))
   const staging = await mkdtemp(join(tmpdir(), 'tia-sikarugir-'))
   const batchPath = join(staging, 'launch-game.bat')

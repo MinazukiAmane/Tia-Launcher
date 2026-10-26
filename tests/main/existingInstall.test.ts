@@ -50,7 +50,7 @@ describe('importing game files from another launcher', () => {
       if (String(url).startsWith('http://127.0.0.1:')) return realFetch(url, options)
       return new Response(JSON.stringify(
       String(url).includes('launcher_info')
-        ? { retcode: 0, data: { game_packages: [{ main: { major: { version: manifest.version, res_list_url: 'https://fixture.test/manifest' }, patches: [] } }] } }
+        ? { retcode: 0, data: { game_packages: [{ game: { biz: 'csore_global' }, main: { major: { version: manifest.version, res_list_url: 'https://fixture.test/manifest' }, patches: [] } }] } }
         : manifest
     ))
     })
