@@ -312,9 +312,10 @@ export async function handleGetDWProtonStatus(): Promise<DWProtonStatus> {
 }
 
 export function makeHandleRedownloadDWProton(
-  win: WindowSource
+  win: WindowSource, isGameBusy: () => boolean = () => false
 ): () => Promise<void> {
   return async (): Promise<void> => {
+    if (isGameBusy()) throw new Error('Close the game before updating DWProton.')
     return redownloadDWProton((update: ProgressUpdate) => {
       currentWindow(win)?.webContents.send('game:progress', update)
     })
@@ -475,7 +476,7 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
   handle('game:repairInstall', makeHandleRepairInstall(win))
   handle('game:uninstall', handleUninstallGame)
   handle('game:getDWProtonStatus', handleGetDWProtonStatus)
-  handle('game:redownloadDWProton', makeHandleRedownloadDWProton(win))
+  handle('game:redownloadDWProton', makeHandleRedownloadDWProton(win, () => launching || !!isGameRunning?.()))
   handle('game:getSikarugirStatus', handleGetSikarugirStatus)
   handle('game:chooseSikarugirWrapper', handleChooseSikarugirWrapper)
   handle('game:getLogFilePath', handleGetLogFilePath)

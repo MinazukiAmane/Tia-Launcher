@@ -354,6 +354,21 @@ describe('getDWProtonStatus', () => {
   })
 })
 
+describe('DWProton selection with several downloaded versions', () => {
+  it('reports the newest complete version using numeric version ordering', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'tia-dwproton-versions-'))
+    mockUserDataDir.current = root
+    try {
+      for (const tag of ['dwproton-11.0-9', 'dwproton-11.0-14', 'dwproton-11.0-15', 'dwproton-11.0-16']) {
+        const directory = join(root, 'runtimes', 'proton', tag)
+        await mkdir(directory, { recursive: true })
+        if (!tag.endsWith('-16')) await writeFile(join(directory, 'proton'), '#!/bin/sh\n')
+      }
+      expect(await getDWProtonStatus()).toEqual({ installed: true, version: 'dwproton-11.0-15' })
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+})
+
 describe('getSikarugirStatus', () => {
   it('reports not found on a machine with no Sikarugir wrapper (the normal case outside real macOS hardware)', async () => {
     const status = await getSikarugirStatus()
@@ -378,26 +393,27 @@ describe('redownloadDWProton', () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'csore-userdata-dwproton-redownload-'))
     mockUserDataDir.current = userDataDir
 
-    const staleDir = join(userDataDir, 'runtimes', 'proton', 'dwproton-old')
+    const staleDir = join(userDataDir, 'runtimes', 'proton', 'dwproton-11.0-14')
     await mkdir(staleDir, { recursive: true })
     await writeFile(join(staleDir, 'proton'), '#!/bin/sh\n')
+    await writeFile(join(staleDir, 'user_settings.py'), '# custom configuration')
 
     fixtureServerDir = await mkdtemp(join(tmpdir(), 'csore-dwproton-redownload-fixture-'))
     const srcDir = join(fixtureServerDir, 'src')
-    await mkdir(join(srcDir, 'dwproton-new'), { recursive: true })
-    await writeFile(join(srcDir, 'dwproton-new', 'proton'), '#!/bin/sh\n')
-    const tarballPath = join(fixtureServerDir, 'dwproton-new-x86_64.tar.xz')
-    await execFileAsync('tar', ['cJf', tarballPath, '-C', srcDir, 'dwproton-new'])
+    await mkdir(join(srcDir, 'dwproton-11.0-15'), { recursive: true })
+    await writeFile(join(srcDir, 'dwproton-11.0-15', 'proton'), '#!/bin/sh\n')
+    const tarballPath = join(fixtureServerDir, 'dwproton-11.0-15-x86_64.tar.xz')
+    await execFileAsync('tar', ['cJf', tarballPath, '-C', srcDir, 'dwproton-11.0-15'])
     const { readFile } = await import('fs/promises')
     const tarballBytes = await readFile(tarballPath)
     const sha512 = createHash('sha512').update(tarballBytes).digest('hex')
 
     const giteaReleasesJson = JSON.stringify([
       {
-        tag_name: 'dwproton-new',
+        tag_name: 'dwproton-11.0-15',
         assets: [
-          { name: 'dwproton-new-x86_64.tar.xz', browser_download_url: 'https://fixture.test/redl-tarball' },
-          { name: 'dwproton-new-x86_64.sha512sum', browser_download_url: 'https://fixture.test/redl-sha512sum' }
+          { name: 'dwproton-11.0-15-x86_64.tar.xz', browser_download_url: 'https://fixture.test/redl-tarball' },
+          { name: 'dwproton-11.0-15-x86_64.sha512sum', browser_download_url: 'https://fixture.test/redl-sha512sum' }
         ]
       }
     ])
@@ -411,7 +427,7 @@ describe('redownloadDWProton', () => {
         return new Response(new Uint8Array(tarballBytes), { status: 200 })
       }
       if (url === 'https://fixture.test/redl-sha512sum') {
-        return new Response(`${sha512}  dwproton-new-x86_64.tar.xz\n`, { status: 200 })
+        return new Response(`${sha512}  dwproton-11.0-15-x86_64.tar.xz\n`, { status: 200 })
       }
       throw new Error(`unexpected fetch in test: ${url}`)
     }) as unknown as typeof fetch
@@ -422,9 +438,15 @@ describe('redownloadDWProton', () => {
     expect(downloadCount).toBe(1)
     expect(progress.length).toBeGreaterThan(0)
     await expect(
-      access(join(userDataDir, 'runtimes', 'proton', 'dwproton-new', 'proton'))
+      access(join(userDataDir, 'runtimes', 'proton', 'dwproton-11.0-15', 'proton'))
     ).resolves.toBeUndefined()
-    // Stale previously-installed tag is untouched by redownload.
-    await expect(access(join(staleDir, 'proton'))).resolves.toBeUndefined()
+    expect(await getDWProtonStatus()).toEqual({ installed: true, version: 'dwproton-11.0-15' })
+    // Repeating the action still fetches release metadata and re-downloads the latest.
+    await redownloadDWProton()
+    expect(downloadCount).toBe(2)
+    expect(await readFile(join(userDataDir, 'runtimes/proton/dwproton-11.0-15/user_settings.py'), 'utf8')).toBe('# custom configuration')
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) => String(url).includes('dawn.wine'))).toHaveLength(2)
+    // Older engine builds are removed after the new one is ready.
+    await expect(access(join(staleDir, 'proton'))).rejects.toThrow()
   })
 })

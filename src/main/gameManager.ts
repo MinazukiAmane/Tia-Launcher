@@ -1,4 +1,5 @@
 import { activeGame, gamePreferenceScope } from './activeGame'
+import { retireDWProtonVersions } from './launcher/dwprotonFiles'
 import { LAUNCHER_API_BASE_URL } from './catalog'
 import { isFilesystemRoot } from './installLocation'
 import { migrateRecord, writeRecords, forgetGameRecords, gameScope } from './localDatabase'
@@ -99,7 +100,7 @@ async function findAnyInstalledDWProtonTag(baseDir: string): Promise<string | nu
   const baseProtonDir = join(baseDir, 'proton')
   let existingTags: string[] = []
   try {
-    existingTags = (await readdir(baseProtonDir)).filter(Boolean)
+    existingTags = (await readdir(baseProtonDir)).filter(Boolean).sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))
   } catch {
     existingTags = []
   }
@@ -122,10 +123,8 @@ async function ensureDWProtonInstalled(baseDir: string): Promise<string> {
       throw err
     }
 
-    if (await isDWProtonInstalled(baseDir, release.tagName)) return release.tagName
-
-    await downloadAndInstallDWProton(baseDir, release)
-
+    if (!(await isDWProtonInstalled(baseDir, release.tagName))) await downloadAndInstallDWProton(baseDir, release)
+    await retireDWProtonVersions(baseDir, release.tagName)
     return release.tagName
   })()
 
@@ -149,10 +148,12 @@ export async function getDWProtonStatus(): Promise<DWProtonStatus> {
 }
 
 export async function redownloadDWProton(onProgress?: (update: ProgressUpdate) => void): Promise<void> {
+  if (dwprotonEnsurePromise) throw new Error('DWProton installation is already in progress.')
   const baseDir = join(app.getPath('userData'), 'runtimes')
   dwprotonEnsurePromise = (async (): Promise<string> => {
     const release = await fetchLatestDWProtonRelease()
     await downloadAndInstallDWProton(baseDir, release, onProgress)
+    await retireDWProtonVersions(baseDir, release.tagName)
     return release.tagName
   })()
   try {

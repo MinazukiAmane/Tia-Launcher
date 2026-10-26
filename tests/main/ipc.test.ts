@@ -425,6 +425,10 @@ describe('handleClearDownloadCache', () => {
 })
 
 describe('makeHandleRedownloadDWProton', () => {
+  it('refuses to replace a shared runtime while a game is running or starting', async () => {
+    const handler = makeHandleRedownloadDWProton(() => null, () => true)
+    await expect(handler()).rejects.toThrow('Close the game before updating DWProton.')
+  })
   it('returns a handler function wired to push progress via webContents.send', () => {
     const fakeWin = { isDestroyed: () => false, webContents: { send: vi.fn() } } as unknown as Electron.BrowserWindow
     const handler = makeHandleRedownloadDWProton(fakeWin)

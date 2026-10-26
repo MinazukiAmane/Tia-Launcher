@@ -114,3 +114,17 @@ the detective role, companion combat and life beyond casework, with the expanded
 text translated into every supported launcher language. The copy scrolls while
 the action buttons stay visible; expanding the article does not reset an answer
 that was already saved.
+
+### Shared DWProton upgrades
+
+Linux uses one `runtimes/proton` cache for all games. Re-download checks fresh
+release metadata, installs the newest release, transfers `user_settings.py`,
+`dxvk.conf` and `vkd3d-proton.conf` when present, and then removes older engine
+versions. Existing overrides in the destination take precedence. Bundled engine
+files and protonfixes come from the new release. The installed version shown in
+Settings uses numeric version ordering and ignores incomplete installations.
+
+Each game's Wine prefix and launcher settings remain separate and are reused.
+A failed download, verification or settings transfer keeps the old engine.
+Re-downloading the same release also preserves its custom overrides. Runtime
+replacement is blocked while a game is running or starting.

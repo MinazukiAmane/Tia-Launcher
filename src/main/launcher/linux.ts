@@ -1,9 +1,10 @@
 import { prepareGameLaunch } from './gameLaunch'
+import { copyDWProtonSettings } from './dwprotonFiles'
 
 import { spawn, execFile } from 'child_process'
 import { promisify } from 'util'
 import { join, dirname } from 'path'
-import { access, mkdir, rm, rename } from 'fs/promises'
+import { access, lstat, mkdir, rm, rename } from 'fs/promises'
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
 import { pipeline } from 'stream/promises'
@@ -32,7 +33,7 @@ interface GiteaRelease {
 export async function fetchLatestDWProtonRelease(
   apiUrl: string = DWPROTON_RELEASES_API
 ): Promise<DWProtonRelease> {
-  const res = await fetch(apiUrl, { headers: { 'User-Agent': 'tia-launcher' } })
+  const res = await fetch(apiUrl, { headers: { 'User-Agent': 'tia-launcher', 'Cache-Control': 'no-cache' }, cache: 'no-store' })
   if (!res.ok) throw new Error(`dawn.wine releases request failed: HTTP ${res.status}`)
   const releases = (await res.json()) as GiteaRelease[]
   if (releases.length === 0) throw new Error('no dwproton releases found')
@@ -98,8 +99,18 @@ export async function extractDWProtonTarball(tarballPath: string, destDir: strin
   try {
     await execFileAsync('tar', ['xf', tarballPath, '-C', tmpDestDir, '--strip-components=1'])
     await mkdir(dirname(destDir), { recursive: true })
-    await rm(destDir, { recursive: true, force: true })
-    await rename(tmpDestDir, destDir)
+    if (!(await lstat(join(tmpDestDir, 'proton'))).isFile()) throw new Error('DWProton archive does not contain its launcher.')
+    await copyDWProtonSettings(destDir, tmpDestDir)
+    const backup = `${tmpDestDir}.previous`
+    let previous = false
+    try { await rename(destDir, backup); previous = true }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+    try { await rename(tmpDestDir, destDir) }
+    catch (error) {
+      if (previous) await rename(backup, destDir)
+      throw error
+    }
+    if (previous) await rm(backup, { recursive: true, force: true })
   } catch (err) {
     await rm(tmpDestDir, { recursive: true, force: true })
     throw err
