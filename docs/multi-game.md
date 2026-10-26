@@ -75,3 +75,14 @@ stays mounted while the library is visible, with its video paused and controls
 inert. Game switching and library entry remain disabled during active operations.
 Sidebar game icons show custom name tooltips and a white hover/selection frame.
 The upper-right gear remains the launcher-settings entry point.
+
+
+Notice artwork is optional launcher-only metadata from Roze. Tia opts in with
+`client=tia`, fetches only local `/notice-images/` paths from the configured
+service origin, validates PNG/JPEG/WebP signatures and bounded sizes, and passes
+image data to the renderer without the service URL. Image failures leave the
+notice text usable. The panel uses the CSO layout: large artwork on the left and
+categorized titles on the right. Illustrated notices rotate every five seconds,
+with hover/focus and an open reader pausing rotation; dots select a slide. Clicking
+the large image opens the corresponding internal detail reader and its full image.
+When no category images exist, local Silver Palace artwork is used as a fallback.

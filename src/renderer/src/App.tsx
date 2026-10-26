@@ -139,7 +139,7 @@ export default function App(): React.JSX.Element {
             aria-current={selectedGame.biz === game.biz && !settingsScope && !libraryOpen ? 'page' : undefined}
             onClick={() => void switchGame(game.biz)}>
             <img src={GAME_ARTWORK[game.biz]} alt="" draggable={false} />
-            <span>{game.badge}<span>{game.biz === 'cedar_global' ? 'PALACE' : 'RSE'}</span></span>
+            <span className={game.biz === 'cedar_global' ? 'sidebar-full-name' : undefined}>{game.biz === 'cedar_global' ? <>Silver<span>Palace</span></> : <>{game.badge}<span>RSE</span></>}</span>
           </button>
           <span className="sidebar-game-tooltip" role="tooltip" id={`sidebar-tooltip-${game.biz}`}>{game.title}</span>
         </div>)}

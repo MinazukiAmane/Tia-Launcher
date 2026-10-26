@@ -6,6 +6,8 @@ import type { SilverNotice, SilverNoticeFeed, SilverNoticeTranslation } from '..
 
 export const SILVER_NOTICE_CHANNEL = 'silver-notices:update'
 const MAX_BYTES = 256 * 1024
+const IMAGE_PATH = /^\/notice-images\/[a-z0-9][a-z0-9_-]{0,95}\.(webp|png|jpg|jpeg)$/
+type ParsedNotice = SilverNotice & { imagePath?: string }
 const POLL_MS = 15 * 60 * 1000
 
 function record(value: unknown): Record<string, unknown> {
@@ -30,7 +32,7 @@ export function noticePlainText(value: string): string {
     return number > 0 && number <= 0x10ffff && !(number >= 0xd800 && number <= 0xdfff) ? String.fromCodePoint(number) : entity
   })
 }
-export function parseSilverNotices(value: unknown): SilverNotice[] {
+export function parseSilverNotices(value: unknown): ParsedNotice[] {
   const body = record(value)
   if (body.code !== 0) throw new Error('Notice service unavailable')
   const rows = record(body.ret).data
@@ -53,7 +55,8 @@ export function parseSilverNotices(value: unknown): SilverNotice[] {
       languages.add(language)
       return { language, title: text(content.longTitle, 200), shortTitle: text(content.shortTitle, 100), content: noticePlainText(text(content.noticeContent, 32000)) }
     })
-    const item: SilverNotice = { id, category: kind === 2 ? 'event' : 'news', createdAt: integer(row.createTime ?? 0), startsAt, endsAt, priority: integer(row.priority ?? 0), translations }
+    const item: ParsedNotice = { id, category: kind === 2 ? 'event' : 'news', createdAt: integer(row.createTime ?? 0), startsAt, endsAt, priority: integer(row.priority ?? 0), translations }
+    if (typeof row.launcherImage === 'string' && IMAGE_PATH.test(row.launcherImage)) item.imagePath = row.launcherImage
     return deleted ? [] : [item]
   }).sort((a, b) => b.priority - a.priority || b.createdAt - a.createdAt || b.id - a.id)
 }
@@ -69,8 +72,7 @@ async function serviceEndpoint(): Promise<string> {
   if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Invalid notice service configuration')
   return endpoint
 }
-export async function fetchSilverNotices(endpoint: string): Promise<SilverNotice[]> {
-  const response = await fetch(endpoint, { signal: AbortSignal.timeout(8000), credentials: 'omit' })
+async function readBounded(response: Response, limit: number): Promise<Buffer> {
   if (!response.ok || !response.body) throw new Error('Notice request failed')
   const reader = response.body.getReader(), chunks: Uint8Array[] = []
   let bytes = 0
@@ -79,12 +81,50 @@ export async function fetchSilverNotices(endpoint: string): Promise<SilverNotice
       const result = await reader.read()
       if (result.done) break
       bytes += result.value.byteLength
-      if (bytes > MAX_BYTES) throw new Error('Notice response exceeds size limit')
+      if (bytes > limit) throw new Error('Notice response exceeds size limit')
       chunks.push(result.value)
     }
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
-  return parseSilverNotices(JSON.parse(Buffer.concat(chunks).toString('utf8')))
+  return Buffer.concat(chunks)
 }
+export async function fetchSilverNotices(endpoint: string): Promise<SilverNotice[]> {
+  const url = new URL(endpoint)
+  url.searchParams.set('client', 'tia')
+  const response = await fetch(url.href, { signal: AbortSignal.timeout(8000), credentials: 'omit' })
+  const items = parseSilverNotices(JSON.parse((await readBounded(response, MAX_BYTES)).toString('utf8')))
+  const images = new Map<string, Promise<string | undefined>>()
+  let totalImageBytes = 0
+  async function image(path: string): Promise<string | undefined> {
+    if (images.has(path)) return images.get(path)!
+    if (images.size >= 8) return undefined
+    const pending = (async () => {
+      try {
+        const target = new URL(path, url)
+        if (target.origin !== url.origin || !IMAGE_PATH.test(target.pathname)) return undefined
+        const response = await fetch(target.href, { signal: AbortSignal.timeout(5000), credentials: 'omit', redirect: 'error' })
+        const bytes = await readBounded(response, 2 * 1024 * 1024)
+        totalImageBytes += bytes.length
+        if (totalImageBytes > 8 * 1024 * 1024) return undefined
+        const mime = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()
+        const valid = mime === 'image/webp' ? bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP'
+          : mime === 'image/png' ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+          : mime === 'image/jpeg' && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+        if (!valid) return undefined
+        return `data:${mime};base64,${bytes.toString('base64')}`
+      } catch { return undefined }
+    })()
+    images.set(path, pending)
+    return pending
+  }
+  return Promise.all(items.map(async ({ imagePath, ...item }) => {
+    if (imagePath) {
+      const content = await image(imagePath)
+      if (content) item.image = content
+    }
+    return item
+  }))
+}
+
 let cached: SilverNotice[] = []
 let available = false, stale = false
 let pending: Promise<SilverNoticeFeed> | null = null

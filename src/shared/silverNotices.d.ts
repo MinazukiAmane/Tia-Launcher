@@ -7,6 +7,7 @@ export interface SilverNoticeTranslation {
 export interface SilverNotice {
   id: number
   category: 'news' | 'event'
+  image?: string
   createdAt: number
   startsAt: number
   endsAt: number

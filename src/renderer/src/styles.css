@@ -157,10 +157,6 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 
 /* Roze bulletin reader: native Tia layout with no external page navigation. */
 .silver-notices { overflow: hidden; border: 1px solid #ffffff24; border-radius: 13px; background: #13151bea; box-shadow: 0 4px 16px #0005; }
-.silver-notice-heading { display: flex; align-items: center; justify-content: space-between; padding: 7px 16px 0; color: #e9dda8; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
-.silver-notice-heading button { width: 25px; height: 25px; border-radius: 6px; font-size: 20px; color: #ffffffa0; }
-.silver-notice-heading button:hover { background: #ffffff15; color: white; }
-.silver-notice-heading button:disabled { opacity: .4; }
 .silver-notice-list { max-height: 112px; min-height: 38px; overflow-y: auto; margin: 0; padding: 3px 0; list-style: none; scrollbar-gutter: stable; }
 .silver-notice-list .notice-row { gap: 10px; }
 .silver-notice-status, .silver-notice-stale { padding: 10px 16px; margin: 0; color: #ffffff90; font-size: 11px; }
@@ -198,3 +194,25 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .library-game-card:focus-visible { outline: 2px solid #f7f900; outline-offset: 2px; }
 .library-game-card:disabled { opacity: .7; }
 @media (prefers-reduced-motion: reduce) { .library-background, .library-game-card, .sidebar-game-tooltip { transition: none; } }
+
+.sidebar-game > .sidebar-full-name, .sidebar-game > .sidebar-full-name > span { font-size: 9px; line-height: 1.15; letter-spacing: 0; font-weight: 700; }
+.sidebar-game > .sidebar-full-name > span { margin-top: 1px; }
+
+.silver-notice-hero { display: block; width: 100%; height: auto; max-height: 330px; object-fit: contain; border-radius: 8px; margin-bottom: 20px; }
+
+.silver-notice-layout { display: flex; height: 126px; }
+.silver-notice-art { position: relative; height: 100%; width: 38%; flex-shrink: 0; overflow: hidden; background: #141419; }
+.silver-notice-banner { display: block; width: 100%; height: 100%; }
+.silver-notice-banner img { width: 100%; height: 100%; object-fit: cover; transition: opacity .2s; }
+.silver-notice-banner:hover img { opacity: .9; }
+.silver-notice-art-empty { display: grid; place-items: center; height: 100%; color: #d5c688; font-size: 14px; }
+.silver-notice-copy { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.silver-notice-toolbar { display: flex; align-items: center; flex-shrink: 0; }
+.silver-notice-toolbar .notices-tabs { flex: 1; min-width: 0; gap: 18px; }
+.silver-notice-refresh { width: 24px; height: 26px; margin-right: 7px; border-radius: 5px; font-size: 19px; color: #ffffff90; }
+.silver-notice-refresh:hover { color: white; background: #ffffff15; }
+.silver-notice-refresh:disabled { opacity: .4; }
+.silver-notice-copy .silver-notice-list { max-height: none; min-height: 0; flex: 1; }
+.silver-notice-dots { position: absolute; bottom: 6px; left: 0; right: 0; display: flex; justify-content: center; gap: 5px; pointer-events: none; }
+.silver-notice-dots button { width: 7px; height: 7px; padding: 0; border-radius: 50%; border: 1px solid #ffffffb0; background: #0008; pointer-events: auto; }
+.silver-notice-dots button[aria-pressed="true"] { background: white; }
