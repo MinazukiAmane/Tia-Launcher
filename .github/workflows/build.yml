@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MinazukiAmane/Tia-Launcher-Helpers
-          ref: 3985d8a225d3d6ec34df27c19e978da8859e3482
+          ref: 26f271d86b2a8350f7bbdb113b2e6082293354a3
           ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
           persist-credentials: false
           path: .private-helper
@@ -45,6 +45,10 @@ jobs:
         with:
           version: 0.16.0
           use-cache: false
+
+      - name: Verify native runtime on Windows
+        if: matrix.os == 'windows-latest'
+        run: python .private-helper/tests/cedar_lazy_code.py
 
       - name: Build native helper
         run: node build-scripts/buildFlagLauncher.cjs

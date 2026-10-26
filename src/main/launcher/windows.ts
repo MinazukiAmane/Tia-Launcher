@@ -57,10 +57,11 @@ export async function launchWindows(exePath: string, args: string[], launchComma
       })
       child.once('spawn', () => {
         child.unref()
-        logInfo('launchWindows: succeeded', { exePath })
+        logInfo('launchWindows: process started', { exePath })
         resolve()
       })
     })
   await client.ready()
+  logInfo('launchWindows: succeeded', { exePath })
   } finally { await client.cleanup() }
 }

@@ -163,10 +163,11 @@ export async function launchLinux(
       })
       child.once('spawn', () => {
         child.unref()
-        logInfo('launchLinux: succeeded', { exePath })
+        logInfo('launchLinux: process started', { exePath })
         resolve()
       })
     })
   await client.ready()
+  logInfo('launchLinux: succeeded', { exePath })
   } finally { await client.cleanup() }
 }
