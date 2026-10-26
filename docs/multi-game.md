@@ -66,3 +66,12 @@ opens Tia's own styled, scrollable reader with title, date and full content. It
 never opens the system browser, embeds a remote website, or executes notice HTML.
 The source's Unreal rich text is converted to ordinary text before React renders
 it. CSO continues to use its existing news provider and external article links.
+
+
+The lower-left grid opens the game library. Hovering or focusing a library card
+previews that title's local background without changing the active game or saved
+installation. Clicking the card opens that title's home page. The prior home page
+stays mounted while the library is visible, with its video paused and controls
+inert. Game switching and library entry remain disabled during active operations.
+Sidebar game icons show custom name tooltips and a white hover/selection frame.
+The upper-right gear remains the launcher-settings entry point.

@@ -17,7 +17,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .notices-list, .home-error, [class~="overflow-y-auto"] { scrollbar-gutter: stable; }
 
 .launcher-shell { width: 100vw; height: 100vh; display: flex; gap: 9px; padding: 9px; background: #373839; border-radius: 23px; color: white; }
-.launcher-sidebar { position: relative; display: flex; width: 70px; flex: 0 0 70px; flex-direction: column; align-items: center; border-radius: 18px; background: #1b1b1d; box-shadow: 0 2px 8px #0005; }
+.launcher-sidebar { position: relative; z-index: 40; display: flex; width: 70px; flex: 0 0 70px; flex-direction: column; align-items: center; border-radius: 18px; background: #1b1b1d; box-shadow: 0 2px 8px #0005; }
 .launcher-brand { width: 43px; height: 43px; object-fit: contain; margin-top: 20px; }
 .sidebar-games { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 14px; }
 .sidebar-game { position: relative; width: 52px; height: 58px; overflow: hidden; border: 1px solid #fff7; border-radius: 10px; padding: 4px; box-shadow: 0 0 0 2px #ffffff14; }
@@ -25,9 +25,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .sidebar-game img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
 .sidebar-game > span { position: absolute; z-index: 1; inset: auto 0 8px; color: #fff; font-size: 12px; font-weight: 900; line-height: 1; text-shadow: 0 1px 3px #000; }
 .sidebar-game > span > span { display: block; font-size: 8px; letter-spacing: .17em; margin-top: 2px; }
-.sidebar-game[aria-pressed="true"] { border-color: #f7f900; box-shadow: 0 0 0 2px #f7f90033; }
+.sidebar-game[aria-pressed="true"] { border-color: #fff; box-shadow: 0 0 0 3px #ffffff38; }
 .sidebar-game:focus-visible { outline: 2px solid #f7f900; outline-offset: 4px; }
-.sidebar-game:hover { border-color: #f7f900; }
+.sidebar-game:hover { border-color: #fff; box-shadow: 0 0 0 3px #ffffff38; }
 .sidebar-library { position: absolute; bottom: 22px; width: 36px; height: 36px; display: grid; place-items: center; color: #ddd; border-radius: 8px; }
 .sidebar-library:hover { background: #ffffff12; color: white; }
 .launcher-stage { flex: 1; min-width: 0; position: relative; overflow: hidden; border: 1px solid #ffffff30; border-radius: 18px; background: #101216; }
@@ -175,3 +175,26 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .silver-notice-dialog header button { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 1px solid #ffffff30; border-radius: 50%; color: #ddd; font-size: 22px; }
 .silver-notice-dialog header button:hover { background: #ffffff20; color: white; }
 .silver-notice-content { min-height: 0; overflow-y: auto; padding: 24px 26px 30px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 13px; color: #e1e3e9; scrollbar-gutter: stable; }
+
+.game-home-page { width: 100%; height: 100%; }
+.game-home-page[hidden] { display: none; }
+.sidebar-game-slot { position: relative; }
+.sidebar-game-slot:hover, .sidebar-game-slot:focus-within { z-index: 2; }
+.sidebar-game-tooltip { position: absolute; z-index: 50; left: calc(100% + 15px); top: 50%; transform: translateY(-50%) translateX(-4px); padding: 11px 13px; border-radius: 7px; background: #eeeeef; color: #303034; box-shadow: 0 3px 10px #0005; font-size: 12px; line-height: 1.3; white-space: nowrap; pointer-events: none; visibility: hidden; opacity: 0; transition: opacity .12s, transform .12s, visibility .12s; }
+.sidebar-game-tooltip::before { content: ''; position: absolute; width: 10px; height: 10px; left: -5px; top: calc(50% - 5px); background: inherit; transform: rotate(45deg); }
+.sidebar-game-slot:hover .sidebar-game-tooltip, .sidebar-game-slot:focus-within .sidebar-game-tooltip { visibility: visible; opacity: 1; transform: translateY(-50%) translateX(0); }
+.sidebar-library { width: 44px; height: 44px; border: 2px solid transparent; }
+.sidebar-library[aria-pressed="true"] { border-color: #ffffffbd; color: white; background: #ffffff08; }
+.game-library { position: absolute; inset: 0; overflow: hidden; }
+.library-backgrounds, .library-background, .library-shade { position: absolute; inset: 0; }
+.library-background { background-size: cover; background-position: center; opacity: 0; transition: opacity .25s ease; }
+.library-background[data-visible="true"] { opacity: 1; }
+.library-shade { background: linear-gradient(90deg, #0004, transparent 45%); pointer-events: none; }
+.library-cards { position: absolute; top: 50%; left: 34px; transform: translateY(-50%); display: flex; flex-direction: column; gap: 22px; padding: 14px 10px; max-height: calc(100% - 100px); overflow-y: auto; overscroll-behavior: contain; }
+.library-game-card { position: relative; flex-shrink: 0; width: 116px; height: 140px; border: 3px solid #ffffff50; border-radius: 11px; overflow: hidden; box-shadow: 0 5px 16px #0005; transform: scale(.94); transition: transform .18s ease, border-color .18s ease; }
+.library-game-card img { width: 100%; height: 100%; object-fit: cover; }
+.library-game-card > span { position: absolute; inset: auto 0 0; padding: 25px 7px 10px; background: linear-gradient(transparent, #000e); color: #fff; font-size: 13px; line-height: 1.2; font-weight: 800; text-align: center; text-shadow: 0 1px 3px #000; }
+.library-game-card[data-preview="true"] { transform: scale(1.06); border-color: #fff; }
+.library-game-card:focus-visible { outline: 2px solid #f7f900; outline-offset: 2px; }
+.library-game-card:disabled { opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .library-background, .library-game-card, .sidebar-game-tooltip { transition: none; } }

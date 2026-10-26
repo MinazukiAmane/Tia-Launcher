@@ -1,5 +1,6 @@
 import { GAMES, type GameDefinition, type GameId } from './gameCatalog'
-import silverBackground from './assets/silver-palace.jpg'
+import { GAME_ARTWORK } from './gameArtwork'
+import { GameLibrary } from './components/GameLibrary'
 import { userError } from './userErrors'
 import { t, loadLauncherLanguage, useLauncherLanguage } from './i18n'
 import { useEffect, useState } from 'react'
@@ -8,7 +9,6 @@ import { HomeScreen } from './components/HomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import { UpdateWindow } from './components/UpdateWindow'
 import launcherIcon from './assets/game-icon.png'
-import heroBackground from './assets/hero-background.png'
 
 
 
@@ -52,6 +52,7 @@ function CloseIcon(): React.JSX.Element {
 
 export default function App(): React.JSX.Element {
   useLauncherLanguage()
+  const [libraryOpen, setLibraryOpen] = useState(false)
   const [selectedGame, setSelectedGame] = useState<GameDefinition>(GAMES[0])
   const [gameBusy, setGameBusy] = useState(false)
   const [switchingGame, setSwitchingGame] = useState(false)
@@ -87,6 +88,7 @@ export default function App(): React.JSX.Element {
 
   async function switchGame(biz: GameId): Promise<void> {
     if (switchingGame || gameBusy || movingInstallation || !storageReady) return
+    if (biz === selectedGame.biz) { setSettingsScope(null); setLibraryOpen(false); return }
     setPickError(null)
     setSwitchingGame(true)
     try {
@@ -94,6 +96,7 @@ export default function App(): React.JSX.Element {
       setSettingsScope(null)
       setInstallDir(null)
       setSelectedGame(game)
+      setLibraryOpen(false)
       setInstallDir(await window.csore.getSelectedInstallDir())
     } catch (error) { setPickError(userError(error, 'storage')) }
     finally { setSwitchingGame(false) }
@@ -128,16 +131,23 @@ export default function App(): React.JSX.Element {
       <aside className="launcher-sidebar" aria-label={t("Launcher navigation")}>
         <img className="launcher-brand" src={launcherIcon} alt="Tia Launcher" draggable={false} />
         <div className="sidebar-games">
-        {GAMES.map(game => <button key={game.biz} type="button" className="sidebar-game"
-          disabled={movingInstallation || gameBusy || switchingGame || !storageReady}
-          aria-label={game.title} aria-pressed={selectedGame.biz === game.biz}
-          aria-current={selectedGame.biz === game.biz && !settingsScope ? 'page' : undefined}
-          title={game.title} onClick={() => { if (game.biz === selectedGame.biz) setSettingsScope(null); else void switchGame(game.biz) }}>
-          <img src={game.biz === 'cedar_global' ? silverBackground : heroBackground} alt="" draggable={false} />
-          <span>{game.badge}<span>{game.biz === 'cedar_global' ? 'PALACE' : 'RSE'}</span></span>
-        </button>)}
+        {GAMES.map(game => <div key={game.biz} className="sidebar-game-slot">
+          <button type="button" className="sidebar-game"
+            disabled={movingInstallation || gameBusy || switchingGame || !storageReady}
+            aria-label={game.title} aria-describedby={`sidebar-tooltip-${game.biz}`}
+            aria-pressed={selectedGame.biz === game.biz && !libraryOpen}
+            aria-current={selectedGame.biz === game.biz && !settingsScope && !libraryOpen ? 'page' : undefined}
+            onClick={() => void switchGame(game.biz)}>
+            <img src={GAME_ARTWORK[game.biz]} alt="" draggable={false} />
+            <span>{game.badge}<span>{game.biz === 'cedar_global' ? 'PALACE' : 'RSE'}</span></span>
+          </button>
+          <span className="sidebar-game-tooltip" role="tooltip" id={`sidebar-tooltip-${game.biz}`}>{game.title}</span>
+        </div>)}
         </div>
-        <button type="button" className="sidebar-library" title={t("Launcher Settings")} aria-label={t("Open launcher settings")} disabled={movingInstallation} onClick={() => openSettings('launcher')}>
+        <button type="button" className="sidebar-library" title={t('Game library')} aria-label={t('Open game library')}
+          aria-pressed={libraryOpen} aria-current={libraryOpen ? 'page' : undefined}
+          disabled={movingInstallation || gameBusy || switchingGame || !storageReady}
+          onClick={() => { setSettingsScope(null); setLibraryOpen(true) }}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z" /></svg>
         </button>
       </aside>
@@ -193,7 +203,10 @@ export default function App(): React.JSX.Element {
         </button>
       </div>
 
-      <HomeScreen key={selectedGame.biz} game={selectedGame} onBusyChange={setGameBusy} backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || switchingGame || !storageReady} settingsOpen={settingsScope !== null} onOpenGameSettings={() => openSettings('game')} />
+      <div className="game-home-page" hidden={libraryOpen} inert={libraryOpen}>
+        <HomeScreen key={selectedGame.biz} game={selectedGame} onBusyChange={setGameBusy} backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || switchingGame || !storageReady} settingsOpen={settingsScope !== null || libraryOpen} onOpenGameSettings={() => openSettings('game')} />
+      </div>
+      {libraryOpen && <GameLibrary selected={selectedGame.biz} disabled={switchingGame || movingInstallation || gameBusy || !storageReady} onSelect={biz => void switchGame(biz)} />}
       {storageError && (
         <div role="alert" className="absolute top-14 right-3 z-50 max-w-sm rounded bg-red-950 px-4 py-3 text-sm text-red-100">
           <p>{t("Could not load saved launcher data.")}</p>

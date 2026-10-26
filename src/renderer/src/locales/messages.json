@@ -1636,5 +1636,33 @@
     "이전에 불러온 공지를 표시합니다.",
     "以前取得したお知らせを表示しています。",
     "Nuduhake woro-woro sing wis dimuat sadurunge."
+  ],
+  "Game library": [
+    "Koleksi game",
+    "游戏库",
+    "게임 라이브러리",
+    "ゲームライブラリ",
+    "Koleksi game"
+  ],
+  "Open game library": [
+    "Buka koleksi game",
+    "打开游戏库",
+    "게임 라이브러리 열기",
+    "ゲームライブラリを開く",
+    "Bukak koleksi game"
+  ],
+  "Choose a game": [
+    "Pilih game",
+    "选择游戏",
+    "게임 선택",
+    "ゲームを選択",
+    "Pilih game"
+  ],
+  "Open {game}": [
+    "Buka {game}",
+    "打开 {game}",
+    "{game} 열기",
+    "{game} を開く",
+    "Bukak {game}"
   ]
 }
