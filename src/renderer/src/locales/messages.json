@@ -1686,20 +1686,6 @@
     "Silver Palace を知る",
     "Kenalan karo Silver Palace"
   ],
-  "Silver Palace is an open-world action RPG set in Silvernia, a Victorian-inspired industrial city. Play as a detective, investigate mysteries, explore the city and fight alongside a cast of companions.": [
-    "Silver Palace adalah action RPG dunia terbuka berlatar Silvernia, kota industri bergaya Victoria. Kamu menjadi detektif, menyelidiki misteri, menjelajahi kota, dan bertarung bersama para rekan.",
-    "Silver Palace 是一款开放世界动作角色扮演游戏，背景是维多利亚风格的工业都市 Silvernia。你将扮演侦探，调查谜案、探索城市，并与同伴并肩作战。",
-    "Silver Palace는 빅토리아풍 산업 도시 Silvernia를 배경으로 한 오픈 월드 액션 RPG입니다. 탐정이 되어 수수께끼를 조사하고 도시를 탐험하며 동료들과 함께 싸우세요.",
-    "Silver Palace は、ヴィクトリア風の工業都市 Silvernia を舞台にしたオープンワールド・アクション RPG です。探偵となり、謎を調べ、街を探索し、仲間とともに戦います。",
-    "Silver Palace iku action RPG donya kabuka ing Silvernia, kutha industri kanthi gaya Victoria. Kowe dadi detektif, nyelidiki misteri, njelajah kutha, lan perang bareng para kanca."
-  ],
-  "Built with Unreal Engine 5, it brings together anime-style characters, real-time action combat and a world transformed by Silverium.": [
-    "Dibuat dengan Unreal Engine 5, game ini memadukan karakter bergaya anime, pertarungan aksi langsung, dan dunia yang berubah berkat Silverium.",
-    "游戏采用虚幻引擎 5 开发，融合了动漫风格角色、即时动作战斗，以及被 Silverium 改变的世界。",
-    "Unreal Engine 5로 제작되어 애니메이션풍 캐릭터, 실시간 액션 전투, Silverium으로 변화한 세계를 선보입니다.",
-    "Unreal Engine 5 で開発され、アニメ調のキャラクター、リアルタイムのアクション戦闘、Silverium によって変わった世界を描きます。",
-    "Digawe nganggo Unreal Engine 5, game iki nggabungake karakter gaya anime, perang aksi langsung, lan donya sing owah amarga Silverium."
-  ],
   "You can keep playing CSO or visit the Silver Palace page whenever you like. Opening its page does not start a download.": [
     "Kamu tetap bisa bermain CSO atau membuka halaman Silver Palace kapan saja. Membuka halamannya tidak langsung memulai unduhan.",
     "你可以继续玩 CSO，也可以随时打开 Silver Palace 页面。打开页面不会自动开始下载。",
@@ -1741,5 +1727,68 @@
     "아니요, 괜찮습니다",
     "いいえ、結構です",
     "Ora, matur nuwun"
+  ],
+  "Silver Palace is an open-world fantasy action RPG built with Unreal Engine 5. Its anime-style cast and Victorian-inspired setting bring detective work, exploration and action combat into the same adventure.": [
+    "Silver Palace adalah action RPG fantasi dunia terbuka yang dibuat dengan Unreal Engine 5. Karakter bergaya anime dan latar bernuansa Victoria menyatukan pekerjaan detektif, eksplorasi, serta pertarungan aksi dalam satu petualangan.",
+    "Silver Palace 是一款采用虚幻引擎 5 开发的开放世界奇幻动作角色扮演游戏。动漫风格角色与维多利亚风格背景，将侦探调查、探索和动作战斗融入同一段冒险。",
+    "Silver Palace는 Unreal Engine 5로 제작된 오픈 월드 판타지 액션 RPG입니다. 애니메이션풍 캐릭터와 빅토리아풍 배경 속에서 탐정 활동, 탐험, 액션 전투가 하나의 모험으로 이어집니다.",
+    "Silver Palace は Unreal Engine 5 で開発されたオープンワールド・ファンタジー・アクション RPG です。アニメ調のキャラクターとヴィクトリア風の舞台で、探偵の調査、探索、アクション戦闘がひとつの冒険につながります。",
+    "Silver Palace iku action RPG fantasi donya kabuka sing digawe nganggo Unreal Engine 5. Karakter gaya anime lan latar gaya Victoria nggabungake pakaryan detektif, njelajah, lan perang aksi ing siji petualangan."
+  ],
+  "A city changed by Silverium": [
+    "Kota yang berubah berkat Silverium",
+    "被 Silverium 改变的城市",
+    "Silverium으로 변화한 도시",
+    "Silverium によって変わった都市",
+    "Kutha sing owah amarga Silverium"
+  ],
+  "Welcome to Silvernia, a prosperous metropolis transformed by the discovery of Silverium. This extraordinary resource has reshaped industry, technology and everyday life, drawing people into a city built around its power. Behind that progress, control of Silverium has become the focus of competition between powerful interests.": [
+    "Selamat datang di Silvernia, kota metropolitan makmur yang berubah sejak penemuan Silverium. Sumber daya luar biasa ini membentuk ulang industri, teknologi, dan kehidupan sehari-hari, serta menarik banyak orang ke kota yang tumbuh berkat kekuatannya. Namun, di balik kemajuan tersebut, kendali atas Silverium menjadi pusat persaingan berbagai kepentingan besar.",
+    "欢迎来到 Silvernia：一座因发现 Silverium 而发生巨变的繁荣都市。这种非凡资源重塑了工业、科技与日常生活，吸引众多人来到围绕其力量发展起来的城市。然而在进步的背后，对 Silverium 的控制也成为各方势力竞争的焦点。",
+    "Silverium의 발견으로 변화한 번영의 대도시 Silvernia에 오신 것을 환영합니다. 이 특별한 자원은 산업과 기술, 일상생활을 바꾸고 그 힘으로 성장한 도시에 수많은 사람을 불러 모았습니다. 하지만 발전의 이면에서는 Silverium의 지배권을 둘러싼 강력한 이해관계가 충돌합니다.",
+    "Silverium の発見によって姿を変えた、繁栄する大都市 Silvernia へようこそ。この特別な資源は産業、技術、日常生活を変革し、その力で発展する都市に多くの人々を引き寄せました。しかし進歩の裏では、Silverium の支配権が強大な勢力の争いの中心となっています。",
+    "Sugeng rawuh ing Silvernia, kutha metropolitan makmur sing owah wiwit ditemokake Silverium. Sumber daya mirunggan iki ngowahi industri, teknologi, lan urip saben dina, uga narik akeh wong menyang kutha sing tuwuh amarga kekuwatane. Nanging ing mburine kemajuan kuwi, panguwasa Silverium dadi rebutan kepentingan gedhe."
+  ],
+  "Step into the role of a detective": [
+    "Menjadi seorang detektif",
+    "化身侦探",
+    "탐정이 되어 보세요",
+    "探偵として街へ",
+    "Dadi sawijining detektif"
+  ],
+  "You step into this world as a detective. Investigating crimes and uncovering hidden truths means following clues through the city and looking beyond its polished exterior. Corporate monopolies, underground syndicates, royal affiliates and cults all have their own interests in Silverium, placing your investigations among competing sides.": [
+    "Kamu memasuki dunia ini sebagai detektif. Menyelidiki kejahatan dan mengungkap kebenaran tersembunyi berarti mengikuti petunjuk di penjuru kota dan melihat lebih jauh dari kemegahan luarnya. Monopoli perusahaan, sindikat bawah tanah, pihak kerajaan, serta kelompok pemuja memiliki kepentingan masing-masing terhadap Silverium. Penyelidikanmu pun berada di tengah pihak-pihak yang saling bersaing.",
+    "你将以侦探的身份踏入这个世界。调查犯罪、揭开隐藏真相，意味着在城市中追寻线索，并看清华丽表象背后的事物。垄断企业、地下组织、王室关联势力与教团，都对 Silverium 怀有各自的诉求。你的调查也将穿行于这些彼此竞争的势力之间。",
+    "당신은 탐정이 되어 이 세계에 들어섭니다. 범죄를 조사하고 감춰진 진실을 밝히려면 도시 곳곳에서 단서를 따라가고 화려한 겉모습 너머를 살펴야 합니다. 독점 기업, 지하 조직, 왕실 관계자와 교단은 저마다 Silverium에 이해관계를 갖고 있습니다. 당신의 수사는 경쟁하는 세력들 사이에서 펼쳐집니다.",
+    "あなたは探偵としてこの世界に足を踏み入れます。犯罪を調べ、隠された真実を明らかにするため、街の手がかりを追い、華やかな外観の奥を見つめます。独占企業、地下組織、王室に連なる勢力、教団は、それぞれ Silverium に利害を持っています。調査は、競い合う勢力の間を進んでいきます。",
+    "Kowe mlebu donya iki dadi detektif. Nyelidiki kadurjanan lan mbukak bebener sing didhelikake tegese ngetutake pratandha ing saindenging kutha lan ndeleng luwih adoh saka njabane sing megah. Monopoli perusahaan, sindikat lemah, pihak kraton, lan kelompok pamujan duwe kepentingan dhewe marang Silverium. Penyelidikanmu ana ing tengah pihak-pihak sing padha saingan."
+  ],
+  "Companions and real-time combat": [
+    "Rekan perjalanan dan pertarungan langsung",
+    "同伴与即时战斗",
+    "동료와 실시간 전투",
+    "仲間とリアルタイムの戦闘",
+    "Kanca petualangan lan perang langsung"
+  ],
+  "You do not face these mysteries alone. A varied group of partners joins the adventure, with combat that lets you switch characters in real time, use their skills and link QTE combinations. Investigating a scene, searching for clues and confronting enemies form different parts of the journey through Silvernia.": [
+    "Kamu tidak menghadapi berbagai misteri ini sendirian. Beragam rekan ikut dalam petualangan, dengan pertarungan yang memungkinkan pergantian karakter secara langsung, penggunaan kemampuan mereka, dan rangkaian kombinasi QTE. Memeriksa tempat kejadian, mencari petunjuk, lalu menghadapi musuh menjadi bagian-bagian berbeda dari perjalananmu menyusuri Silvernia.",
+    "你不会独自面对这些谜团。各具特色的同伴将加入冒险，战斗中可以实时切换角色、施展能力并衔接 QTE 连段。勘查现场、寻找线索与迎战敌人，将成为穿行 Silvernia 旅程中相互交织的部分。",
+    "이 미스터리를 혼자 마주할 필요는 없습니다. 개성 있는 동료들이 모험에 합류하며, 전투에서는 실시간으로 캐릭터를 바꾸고 각자의 기술과 QTE 연계를 활용할 수 있습니다. 현장을 조사하고 단서를 찾고 적과 맞서는 과정이 Silvernia를 누비는 여정의 여러 부분을 이룹니다.",
+    "謎に立ち向かうのは一人ではありません。個性豊かな仲間が冒険に加わり、戦闘ではリアルタイムでキャラクターを切り替え、スキルや QTE コンボをつなげられます。現場の調査、手がかり探し、敵との対決が、Silvernia を巡る旅のさまざまな場面を形作ります。",
+    "Kowe ora ngadhepi misteri iki dhewekan. Akeh kanca beda-beda melu petualangan, kanthi perang sing ngidini ganti karakter langsung, nggunakake kabisane, lan ngrangkai kombinasi QTE. Mriksa panggonan kedadeyan, golek pratandha, lan ngadhepi mungsuh dadi perangan saka perjalananmu ngubengi Silvernia."
+  ],
+  "A life beyond the next case": [
+    "Kehidupan di luar kasus berikutnya",
+    "案件之外的城市生活",
+    "다음 사건 너머의 삶",
+    "事件の先にある暮らし",
+    "Urip ing njaba perkara sabanjure"
+  ],
+  "Silvernia is also presented as a place to spend time in, rather than only a backdrop for cases. The official game overview highlights meeting an eclectic cast, forming connections and discovering what lies beyond detective work. Whether you picture making your name through property or becoming a familiar face at a small café, the city offers an identity outside your next investigation. Exploring, talking, investigating and fighting all sit within its broader adventure.": [
+    "Silvernia juga digambarkan sebagai tempat untuk menjalani waktu, bukan sekadar latar sebuah kasus. Pengenalan resmi gamenya menyoroti pertemuan dengan beragam karakter, membangun hubungan, dan menemukan kehidupan di luar pekerjaan detektif. Entah membayangkan diri dikenal melalui dunia properti atau menjadi wajah yang akrab di sebuah kafe kecil, kota ini menawarkan jati diri di luar penyelidikan berikutnya. Menjelajah, berbincang, menyelidiki, dan bertarung menjadi bagian dari petualangan yang lebih luas.",
+    "Silvernia 不只是案件的背景，也是一座可以生活其中的城市。官方介绍强调结识形形色色的角色、建立联系，以及发现侦探工作之外的人生。无论想在地产领域闯出名堂，还是成为小咖啡馆里的熟面孔，这座城市都邀请你寻找下一桩调查之外的身份。探索、交谈、调查与战斗，共同组成更广阔的冒险。",
+    "Silvernia는 사건의 배경을 넘어 시간을 보내고 살아가는 도시로 소개됩니다. 공식 개요는 다양한 인물과 만나 관계를 맺고 탐정 업무 밖의 삶을 발견하는 경험을 강조합니다. 부동산으로 이름을 알리거나 작은 카페의 단골이 되는 모습을 상상하든, 이 도시는 다음 수사 너머의 정체성을 제안합니다. 탐험, 대화, 수사, 전투가 더 넓은 모험의 일부가 됩니다.",
+    "Silvernia は事件の背景だけでなく、時間を過ごし、暮らす場所としても紹介されています。公式の概要では、多彩な人々との出会い、つながり、探偵の仕事を越えた生き方が描かれています。不動産の世界で名を上げることも、小さなカフェのなじみの顔になることも、この街での自分を想像するきっかけになります。探索、会話、調査、戦闘が、より大きな冒険の一部となっています。",
+    "Silvernia uga digambarake dadi panggonan kanggo nglakoni wektu, ora mung latar sawijining perkara. Pangenalan resmi game nyorot ketemu karakter warna-warni, mbangun sesambungan, lan nemokake urip ing njaba pakaryan detektif. Arep dikenal saka jagad properti utawa dadi wong sing kerep teka ing kafe cilik, kutha iki nawakake jati diri ing njaba penyelidikan sabanjure. Njelajah, guneman, nyelidiki, lan perang dadi perangan petualangan sing luwih amba."
   ]
 }

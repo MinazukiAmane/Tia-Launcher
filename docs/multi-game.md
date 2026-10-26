@@ -107,3 +107,10 @@ runtime if release lookup fails. At verification on 2026-10-26 that API returned
 `dwproton-11.0-15`, already installed on the development device. There is no new
 version pin or alternate game execution path. The per-game Wine prefixes remain
 separate while sharing the runtime binaries.
+
+
+The illustrated overview now has separate sections for Silverium and the city,
+the detective role, companion combat and life beyond casework, with the expanded
+text translated into every supported launcher language. The copy scrolls while
+the action buttons stay visible; expanding the article does not reset an answer
+that was already saved.
