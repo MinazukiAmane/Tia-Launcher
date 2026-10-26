@@ -1,3 +1,4 @@
+import { startSilverNoticePolling } from './silverNotices'
 import { selectGame } from './activeGame'
 import { readRecord } from './localDatabase'
 import { serveBackgroundVideo } from './backgroundMedia'
@@ -154,6 +155,7 @@ if (!gotSingleInstanceLock) {
     }, () => gameSession.active)
     initAutoUpdater(getWindow)
     startNewsPolling(getWindow)
+    startSilverNoticePolling(getWindow)
     tray = createTray()
 
     try {

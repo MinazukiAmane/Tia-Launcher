@@ -1,3 +1,4 @@
+import { SilverNoticesPanel } from './SilverNoticesPanel'
 import { GAMES, type GameDefinition } from '../gameCatalog'
 import silverBackground from '../assets/silver-palace.jpg'
 import silverVideo from '../assets/silver-palace.mp4'
@@ -463,7 +464,7 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgrou
       {game.biz === 'csore_global' && <nav className="community-rail" aria-label={t("Community")}><CommunityLink /></nav>}
 
       <div className="home-news">
-        {game.biz === 'csore_global' ? <NoticesPanel /> : <div className="rounded-xl bg-black/35 px-5 py-4 text-white"><h1 className="text-xl font-semibold">Silver Palace</h1><p className="mt-1 text-sm text-white/60">{t('Notices')} · {t('News')}</p><p className="mt-2 text-sm">Open News in the game for the latest updates.</p></div>}
+        {game.biz === 'csore_global' ? <NoticesPanel /> : <SilverNoticesPanel />}
       </div>
 
       <div className="home-actions">

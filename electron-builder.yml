@@ -30,6 +30,7 @@ extraResources:
       - "cedar-start-x64.exe"
       - "cedar-client-x64.dll"
       - "LICENSE-Minhook.txt"
+      - "launcher-services.json"
   - from: build/icon.png
     to: icon.png
 

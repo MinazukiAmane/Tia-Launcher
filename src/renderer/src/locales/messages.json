@@ -1615,5 +1615,26 @@
     "게임을 시작할 수 없습니다. 실행 중인 게임을 종료한 후 다시 시도하세요. 문제가 계속되면 런처 로그를 지원팀에 전달하세요.",
     "ゲームを起動できませんでした。実行中のゲームを閉じてから再試行してください。解決しない場合はランチャーログをサポートに共有してください。",
     "Game dereng saged dipunwiwiti. Tutup game ingkang taksih lumampah, lajeng cobi malih. Menawi taksih gagal, kirim log launcher dhateng pitulungan."
+  ],
+  "Refresh notices": [
+    "Muat ulang pengumuman",
+    "刷新公告",
+    "공지 새로고침",
+    "お知らせを更新",
+    "Muat maneh woro-woro"
+  ],
+  "Notices are temporarily unavailable.": [
+    "Pengumuman sementara tidak tersedia.",
+    "公告暂时不可用。",
+    "공지를 일시적으로 불러올 수 없습니다.",
+    "現在お知らせを取得できません。",
+    "Woro-woro sauntara ora kasedhiya."
+  ],
+  "Showing previously loaded notices.": [
+    "Menampilkan pengumuman yang dimuat sebelumnya.",
+    "正在显示之前加载的公告。",
+    "이전에 불러온 공지를 표시합니다.",
+    "以前取得したお知らせを表示しています。",
+    "Nuduhake woro-woro sing wis dimuat sadurunge."
   ]
 }

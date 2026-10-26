@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MinazukiAmane/Tia-Launcher-Helpers
-          ref: 38962fdb1e5e3336f4d6fea23aa388f9001226f5
+          ref: 3b63e8efb02966f699dbef02e619544fe8af44a3
           ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
           persist-credentials: false
           path: .private-helper

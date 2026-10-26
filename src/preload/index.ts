@@ -74,6 +74,12 @@ const gameApi = {
     return () => ipcRenderer.removeListener('news:update', listener)
   },
   getNews: (): Promise<import('../main/news').NewsItem[]> => ipcRenderer.invoke('news:get'),
+  getSilverNotices: (): Promise<import('../shared/silverNotices').SilverNoticeFeed> => ipcRenderer.invoke('silver-notices:get'),
+  onSilverNotices: (callback: (feed: import('../shared/silverNotices').SilverNoticeFeed) => void): (() => void) => {
+    const listener = (_event: unknown, feed: import('../shared/silverNotices').SilverNoticeFeed): void => callback(feed)
+    ipcRenderer.on('silver-notices:update', listener)
+    return () => ipcRenderer.removeListener('silver-notices:update', listener)
+  },
   openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url),
   getUserDataDir: (): Promise<string> => ipcRenderer.invoke('app:getUserDataDir'),
   getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke('app:getPlatform'),

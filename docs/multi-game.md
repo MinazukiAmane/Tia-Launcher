@@ -45,3 +45,24 @@ Silver Palace's `SilverPalace/Saved/`, `Engine/Saved/` and root/project/engine
 `DerivedDataCache/` trees are excluded even if an uploaded package accidentally
 contained them. Content, packaged Config, binaries and plugins remain checked.
 Runtime data in the user's AppData or Proton prefix is outside the install check.
+
+
+Silver Palace announcements use the same public notice feed as the game's Roze
+bulletin board. Its endpoint is supplied by the existing private-helper build in
+`launcher-services.json`, whitelisted as a data-only resource. Public launcher
+source and renderer IPC do not carry the endpoint. This keeps it out of the UI
+and public repository; it is not a secret once installed or used on a network.
+
+The main process independently polls every 15 minutes and refreshes on opening the
+Silver Palace page or pressing refresh. It enforces the notice schedule, removes
+deleted notices, orders priority/newest first, and retains the last good feed if
+a refresh fails. A successful empty feed clears old notices. The reader uses the
+launcher's selected language, then English, then the first available translation.
+Roze currently provides English, Simplified/Traditional Chinese, Japanese and
+Korean; Indonesian and Javanese fall back to English until the server adds them.
+
+Notices, Events and News are displayed on the Silver Palace page. Clicking a row
+opens Tia's own styled, scrollable reader with title, date and full content. It
+never opens the system browser, embeds a remote website, or executes notice HTML.
+The source's Unreal rich text is converted to ordinary text before React renders
+it. CSO continues to use its existing news provider and external article links.

@@ -154,3 +154,24 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .background-switcher button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 .background-switcher svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 2; }
 @media (prefers-reduced-motion: reduce) { .background-switcher { transition: none; } }
+
+/* Roze bulletin reader: native Tia layout with no external page navigation. */
+.silver-notices { overflow: hidden; border: 1px solid #ffffff24; border-radius: 13px; background: #13151bea; box-shadow: 0 4px 16px #0005; }
+.silver-notice-heading { display: flex; align-items: center; justify-content: space-between; padding: 7px 16px 0; color: #e9dda8; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.silver-notice-heading button { width: 25px; height: 25px; border-radius: 6px; font-size: 20px; color: #ffffffa0; }
+.silver-notice-heading button:hover { background: #ffffff15; color: white; }
+.silver-notice-heading button:disabled { opacity: .4; }
+.silver-notice-list { max-height: 112px; min-height: 38px; overflow-y: auto; margin: 0; padding: 3px 0; list-style: none; scrollbar-gutter: stable; }
+.silver-notice-list .notice-row { gap: 10px; }
+.silver-notice-status, .silver-notice-stale { padding: 10px 16px; margin: 0; color: #ffffff90; font-size: 11px; }
+.silver-notice-stale { border-top: 1px solid #ffffff15; }
+.silver-notice-dialog { width: min(720px, calc(100vw - 80px)); max-height: calc(100vh - 100px); margin: auto; padding: 0; border: 1px solid #ccba7980; border-radius: 15px; background: #14171e; color: #f4f0e3; box-shadow: 0 20px 70px #000b; overflow: hidden; }
+.silver-notice-dialog[open] { display: flex; flex-direction: column; }
+.silver-notice-dialog::backdrop { background: #050710bd; backdrop-filter: blur(6px); }
+.silver-notice-dialog header { display: flex; justify-content: space-between; gap: 20px; flex-shrink: 0; padding: 22px 26px; border-bottom: 1px solid #e9dda825; background: linear-gradient(120deg, #a68b3620, transparent); }
+.silver-notice-dialog header p { margin: 0 0 8px; color: #d5c688; font-size: 11px; letter-spacing: .1em; }
+.silver-notice-dialog h2 { margin: 0 0 8px; font-size: 22px; line-height: 1.3; font-weight: 600; overflow-wrap: anywhere; }
+.silver-notice-dialog time { color: #ffffff70; font-size: 11px; }
+.silver-notice-dialog header button { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border: 1px solid #ffffff30; border-radius: 50%; color: #ddd; font-size: 22px; }
+.silver-notice-dialog header button:hover { background: #ffffff20; color: white; }
+.silver-notice-content { min-height: 0; overflow-y: auto; padding: 24px 26px 30px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; font-size: 13px; color: #e1e3e9; scrollbar-gutter: stable; }
