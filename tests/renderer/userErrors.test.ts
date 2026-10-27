@@ -21,7 +21,7 @@ describe('player-facing errors', () => {
     ['another operation (install/update/repair/uninstall) is already in progress', 'Another task is still running'],
     ['download stalled (no data for 30000ms): https://example.test/private?token=secret', 'connection took too long'],
     ['downloaded file failed MD5 verification: https://example.test/private', 'incomplete or damaged'],
-    ['Timed out waiting for client flags initialization. The client was not confirmed ready.', 'Repair its files'],
+    ['Timed out waiting for client startup. The client was not confirmed ready.', 'Repair its files'],
     ['Per-file repair is not available on the server yet. Regenerate the version manifest first.', 'File repair is temporarily unavailable'],
     ['Launcher database was damaged. A backup was restored', 'saved launcher data'],
     ['Unsupported image type. Use PNG, JPG, WEBP or GIF.', 'up to 25 MB'],

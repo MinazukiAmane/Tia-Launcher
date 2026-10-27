@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: MinazukiAmane/Tia-Launcher-Helpers
-          ref: 26f271d86b2a8350f7bbdb113b2e6082293354a3
+          ref: edbd5d9fe15633e3251938213a4f2e428d4b66e3
           ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
           persist-credentials: false
           path: .private-helper
@@ -51,7 +51,11 @@ jobs:
         run: python .private-helper/tests/cedar_lazy_code.py
 
       - name: Build native helper
-        run: node build-scripts/buildFlagLauncher.cjs
+        run: node build-scripts/buildNativeLaunchers.cjs
+
+      - name: Verify native client startup on Windows
+        if: matrix.os == 'windows-latest'
+        run: node build-scripts/verifyNativeLaunchers.cjs
 
       - name: Remove private helper checkout
         if: always()

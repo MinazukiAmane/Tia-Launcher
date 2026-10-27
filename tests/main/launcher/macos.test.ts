@@ -1,6 +1,6 @@
 // Process/wrapper tests isolate native helper preparation.
-vi.mock('../../../src/main/launcher/flagLaunch', () => ({
-  prepareFlagLaunch: async (executable: string, args: string[]) => ({
+vi.mock('../../../src/main/launcher/csoreLaunch', () => ({
+  prepareCSORELaunch: async (executable: string, args: string[]) => ({
     executable, args, ready: async () => {}, cleanup: async () => {}
   })
 }))

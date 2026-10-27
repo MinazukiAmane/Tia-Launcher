@@ -72,7 +72,7 @@ export function userError(error: unknown, action: ErrorAction = 'general'): stri
   if (/update the game before repairing/i.test(detail)) return messages.gameUpdate
   if (/no install found|no installed game|not an approved install directory/i.test(detail)) return messages.notInstalled
   if (/game executable not found|executable not found.*cstrike|ENOENT.*cstrike-online/i.test(detail)) return messages.files
-  if (/flags initialization|exported flags|client flags|client export table|initialize game launch|client was not confirmed ready|error:.*(?:client|flags|remote image)/i.test(detail)) return messages.clientStart
+  if (/client startup|client architecture|executable architecture|initialize game launch|client was not confirmed ready|error:.*(?:client|startup|executable)/i.test(detail)) return messages.clientStart
   if (/umu.launcher.*not installed|umu.run.*not found/i.test(detail)) return messages.component
   if (/container runtime|steamrt.*validation failed/i.test(detail)) return messages.runtime
   if (/Sikarugir|wrapper.*(?:not found|not initialized)|prefix not initialized/i.test(detail)) return messages.mac

@@ -3,7 +3,7 @@ import { readFile, writeFile, stat } from 'fs/promises'
 import { join, dirname } from 'path'
 import { prepareNativeGameLaunch } from '../../../src/main/launcher/nativeGameLaunch'
 vi.mock('electron', () => ({ app: { isPackaged: false } }))
-const fixture = join(process.cwd(), 'tests/fixtures/flags-fixture-x64.exe')
+const fixture = join(process.cwd(), 'tests/fixtures/pe-x64.bin')
 const hostPath = (value: string): string => process.platform === 'win32' ? value : value.slice(2).replace(/\\/g, '/')
 const cleanups: (() => Promise<void>)[] = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup() })

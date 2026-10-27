@@ -11,3 +11,6 @@ ref/
 
 # Private runtime output: bundle only explicitly whitelisted binaries.
 build/native/cedar/
+
+# Native client launchers are built from private sources.
+build/native/*.exe

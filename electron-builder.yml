@@ -21,9 +21,9 @@ publish:
 
 extraResources:
   - from: build/native
-    to: flag-launch
+    to: client-runtime
     filter:
-      - "flag-launch-*.exe"
+      - "csore-start-*.exe"
   - from: build/native/cedar
     to: game-runtime
     filter:

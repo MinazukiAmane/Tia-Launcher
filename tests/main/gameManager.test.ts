@@ -161,7 +161,7 @@ describe('runLinuxLaunch (via selectLaunchFn) starting from a clean machine', ()
 
     installDir = await mkdtemp(join(tmpdir(), 'csore-install-'))
     await mkdir(join(installDir, 'Bin'), { recursive: true })
-    await writeFile(join(installDir, 'Bin', 'cstrike-online.exe'), readFileSync(join(process.cwd(), 'tests/fixtures/flags-fixture-x86.exe')))
+    await writeFile(join(installDir, 'Bin', 'cstrike-online.exe'), readFileSync(join(process.cwd(), 'tests/fixtures/pe-x86.bin')))
 
     // Build a real fixture DWProton tarball + its real sha512sum.
     fixtureServerDir = await mkdtemp(join(tmpdir(), 'csore-dwproton-fixture-'))
@@ -207,7 +207,7 @@ describe('runLinuxLaunch (via selectLaunchFn) starting from a clean machine', ()
           if (_cmd === 'umu-run') {
             const reportArg = _args[1]
             const report = process.platform === 'win32' ? reportArg : reportArg.slice(2).replace(/\\/g, '/')
-            writeFileSync(report, 'ready\nflags_before_resume: 1\n')
+            writeFileSync(report, 'ready\n')
           }
           const child = new EventEmitter() as EventEmitter & { unref: () => void }
           child.unref = () => {}

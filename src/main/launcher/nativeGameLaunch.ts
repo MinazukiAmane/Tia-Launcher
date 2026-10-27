@@ -2,11 +2,11 @@ import { app } from 'electron'
 import { access, mkdtemp, readFile, rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import type { FlagLaunch } from './flagLaunch'
+import type { LaunchSession } from './csoreLaunch'
 
 // Native implementation is built from the private helper repository. This
 // public boundary contains only its launch/report protocol, never game patches.
-export async function prepareNativeGameLaunch(exePath: string, args: string[]): Promise<FlagLaunch> {
+export async function prepareNativeGameLaunch(exePath: string, args: string[]): Promise<LaunchSession> {
   await access(exePath)
   const root = app.isPackaged ? join(process.resourcesPath, 'game-runtime') : join(process.cwd(), 'build/native/cedar')
   const executable = join(root, 'cedar-start-x64.exe')
