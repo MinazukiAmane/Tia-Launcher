@@ -15,5 +15,5 @@ it('uses a short request and avoids repeating failed calls before offline Play',
  fetch.mockImplementation(async () => success())
  await fetchLauncherInfo('https://play-outage.example.test', 'csore_global')
  await fetchLauncherInfo('https://play-outage.example.test', 'csore_global', { forPlay: true })
- expect(fetch).toHaveBeenCalledTimes(3)
+ expect(fetch).toHaveBeenCalledTimes(2)
 })

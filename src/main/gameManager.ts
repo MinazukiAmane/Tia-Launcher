@@ -114,6 +114,10 @@ async function ensureDWProtonInstalled(baseDir: string): Promise<string> {
   if (dwprotonEnsurePromise) return dwprotonEnsurePromise
 
   dwprotonEnsurePromise = (async (): Promise<string> => {
+    // Play uses the installed Tia runtime immediately. The explicit Redownload
+    // action checks for a new release and performs migration/retirement.
+    const installedTag = await findAnyInstalledDWProtonTag(baseDir)
+    if (installedTag) return installedTag
     let release: DWProtonRelease | undefined
     try {
       release = await fetchLatestDWProtonRelease()
@@ -564,15 +568,17 @@ async function verifyInstallContents(installDir: string, quick: boolean): Promis
   const state = await readInstallState(installDir)
   if (!state) throw new Error(`no install found at "${installDir}" -- nothing to verify`)
   let manifest: Awaited<ReturnType<typeof fetchVersionManifest>> = null
+  const metadataStarted = performance.now()
   try {
     const info = await fetchLauncherInfo(API_BASE_URL, activeGame().biz, { forPlay: quick })
-    manifest = await fetchVersionManifest(findVersionBlock(info, state.version)?.res_list_url, quick ? 4000 : 10000)
+    manifest = await fetchVersionManifest(findVersionBlock(info, state.version)?.res_list_url, quick ? 4000 : 10000, quick)
   } catch (err) {
     logInfo('verifyInstall: server unavailable, using local state', { error: (err as Error).message })
   }
+  logInfo('verifyInstall: manifest resolved', { durationMs: Math.round(performance.now() - metadataStarted), quick, remoteManifest: manifest?.version === state.version })
   const result = await verifyAgainstManifest(installDir,
     manifest && manifest.version === state.version ? manifest : { files: state.files },
-    quick && !state.needsRepair)
+    quick && !state.needsRepair, { onMetrics: metrics => logInfo('verifyInstall: file check completed', { quick, ...metrics }) })
   if (result.ok && state.needsRepair) {
     await writeInstallState(installDir, { ...state, installDir, needsRepair: false })
   }

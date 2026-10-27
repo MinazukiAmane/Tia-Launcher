@@ -30,7 +30,7 @@ it.runIf(process.platform === 'linux')('reuses Tia runtime for both titles witho
   await launchGame(join(root,'cso'))
   selectGame('cedar_global')
   await launchGame(join(root,'silver'))
-  expect(fetchLatestDWProtonRelease).toHaveBeenCalledTimes(2)
+  expect(fetchLatestDWProtonRelease).not.toHaveBeenCalled()
   expect(global.fetch).not.toHaveBeenCalled()
   const calls=vi.mocked(launchLinux).mock.calls
   expect(calls).toHaveLength(2)

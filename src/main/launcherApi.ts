@@ -35,16 +35,21 @@ interface LauncherInfoResponse {
 }
 
 const unavailableForPlayUntil = new Map<string, number>()
+const recentInfo = new Map<string, { at: number; entry: GamePackageEntry }>()
+const PLAY_METADATA_TTL_MS = 30_000
 
 // Use a short Play timeout and cooldown during outages.
 export async function fetchLauncherInfo(apiBaseUrl: string, gameBiz: string, options?: { forPlay?: boolean }): Promise<GamePackageEntry> {
  const key = apiBaseUrl + '/' + gameBiz
+ const recent = recentInfo.get(key)
+ if (options?.forPlay && recent && Date.now() - recent.at < PLAY_METADATA_TTL_MS) return structuredClone(recent.entry)
  if (options?.forPlay && (unavailableForPlayUntil.get(key) ?? 0) > Date.now()) {
   throw new Error('Game update service temporarily unavailable; checking installed files locally.')
  }
  try {
   const result = await requestLauncherInfo(apiBaseUrl, gameBiz, options?.forPlay ? 1 : 3, options?.forPlay ? 4000 : 10000)
   unavailableForPlayUntil.delete(key)
+  recentInfo.set(key, { at: Date.now(), entry: structuredClone(result) })
   return result
  } catch (error) {
   if (options?.forPlay) unavailableForPlayUntil.set(key, Date.now() + 30000)
