@@ -111,7 +111,7 @@ interface HomeScreenProps {
 
 export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgroundUrl, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
-  const serverStatus = useServerStatus(game.biz === 'csore_global')
+  const serverStatus = useServerStatus(game.biz === 'csore_global', settingsOpen)
   const maintenance = serverStatus === 'maintenance'
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

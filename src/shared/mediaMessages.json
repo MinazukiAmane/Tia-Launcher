@@ -16,5 +16,6 @@
  "Server maintenance": ["Server dalam pemeliharaan", "服务器维护中", "서버 점검 중", "サーバーメンテナンス中", "Server lagi dirumat"],
  "Server status unavailable": ["Status server tidak diketahui", "服务器状态未知", "서버 상태를 확인할 수 없음", "サーバー状況を確認できません", "Status server ora dingerteni"],
  "Maintenance": ["Pemeliharaan", "维护中", "점검 중", "メンテナンス中", "Pangrumatan"],
- "Game server availability. Play is unavailable during maintenance.": ["Status server game. Play tidak tersedia selama pemeliharaan.", "游戏服务器状态。维护期间无法开始游戏。", "게임 서버 상태입니다. 점검 중에는 플레이할 수 없습니다.", "ゲームサーバーの接続状況です。メンテナンス中はプレイできません。", "Status server game. Play ora kasedhiya nalika pangrumatan."]
+ "Game server availability. Play is unavailable during maintenance.": ["Status server game. Play tidak tersedia selama pemeliharaan.", "游戏服务器状态。维护期间无法开始游戏。", "게임 서버 상태입니다. 점검 중에는 플레이할 수 없습니다.", "ゲームサーバーの接続状況です。メンテナンス中はプレイできません。", "Status server game. Play ora kasedhiya nalika pangrumatan."],
+ "Custom server": ["Server khusus", "自定义服务器", "사용자 지정 서버", "カスタムサーバー", "Server khusus"]
 }

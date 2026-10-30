@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createStatusReader } from '../../src/main/serverStatus'
+import { createStatusReader, hasCustomServer } from '../../src/main/serverStatus'
 import { blocksBrowserShortcut } from '../../src/main/windowShortcuts'
 afterEach(() => vi.unstubAllGlobals())
 it('deduplicates requests and caches a validated result without revealing the master address', async () => {
@@ -28,4 +28,22 @@ it('blocks browser reload variants and production inspector shortcuts', () => {
   }
   expect(blocksBrowserShortcut({ key: 'r' }, true)).toBe(false)
   expect(blocksBrowserShortcut({ key: 'c', control: true }, true)).toBe(false)
+})
+
+it.each(['-port 50601', '-ip dev.example.test', '-ip "127.0.0.1" -port 12345', '-lang na_en -port 50601'])('does not apply production maintenance to explicit client target: %s', async (command) => {
+ const fetcher = vi.fn()
+ vi.stubGlobal('fetch', fetcher)
+ expect(hasCustomServer(command)).toBe(true)
+ expect(await createStatusReader('https://api.example.test')(command)).toEqual({ status: 'custom', checkedAt: null })
+ expect(fetcher).not.toHaveBeenCalled()
+})
+it.each([null, '', '-lang na_en', '-port', '-port nope', '-port 0', '-port 65536', '-ip', '-ip -lang na_en', '-ip "unterminated', 'env -port 50601 %command%', '-port=50601'])('does not bypass maintenance for unrelated or malformed options: %s', (command) => {
+ expect(hasCustomServer(command)).toBe(false)
+})
+it('keeps the official cached status after switching back from a custom server', async () => {
+ vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'maintenance', checkedAt: new Date().toISOString() }) }))
+ const read = createStatusReader('https://api.example.test')
+ expect((await read()).status).toBe('maintenance')
+ expect((await read('-port 50601')).status).toBe('custom')
+ expect((await read()).status).toBe('maintenance')
 })

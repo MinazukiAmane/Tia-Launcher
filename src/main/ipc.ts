@@ -430,7 +430,7 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
     })
   }
   handle('news:get', handleGetNews)
-  handle('game:serverStatus', readServerStatus)
+  handle('game:serverStatus', async () => readServerStatus((await readSettings(app.getPath('userData'))).launchCommand))
   handle('silver-notices:get', () => refreshSilverNotices())
   handle('launcher:getSilverIntroduction', () => getSilverIntroduction())
   handle('launcher:setSilverIntroductionChoice', (_event, choice: unknown) => setSilverIntroductionChoice(choice))

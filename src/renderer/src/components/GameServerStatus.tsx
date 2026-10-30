@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 
 export type Status = Awaited<ReturnType<typeof window.csore.getServerStatus>>['status']
-const labels: Record<Status, string> = { online: 'Server Online', maintenance: 'Server maintenance', unknown: 'Server status unavailable' }
-export function useServerStatus(enabled = true): Status {
+const labels: Record<Status, string> = { custom: 'Custom server', online: 'Server Online', maintenance: 'Server maintenance', unknown: 'Server status unavailable' }
+export function useServerStatus(enabled = true, settingsOpen = false): Status {
   const [status, setStatus] = useState<Status>('unknown')
   useEffect(() => {
     if (!enabled) { setStatus('unknown'); return }
@@ -18,7 +18,7 @@ export function useServerStatus(enabled = true): Status {
     }
     void poll()
     return () => { stopped = true; clearTimeout(timer) }
-  }, [enabled])
+  }, [enabled, settingsOpen])
   return enabled ? status : 'unknown'
 }
 export function GameServerStatus({ status }: { status: Status }): React.JSX.Element {

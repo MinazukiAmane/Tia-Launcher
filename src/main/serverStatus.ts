@@ -1,10 +1,13 @@
-export type ServerStatus = { status: 'online' | 'maintenance' | 'unknown'; checkedAt: string | null }
+import { resolveLaunchOptions } from './launcher/launchCommand'
+
+export type ServerStatus = { status: 'online' | 'maintenance' | 'unknown' | 'custom'; checkedAt: string | null }
 const unknown: ServerStatus = { status: 'unknown', checkedAt: null }
-export function createStatusReader(baseUrl: string): () => Promise<ServerStatus> {
+export function createStatusReader(baseUrl: string): (launchCommand?: string | null) => Promise<ServerStatus> {
   let cached = unknown
   let expires = 0
   let pending: Promise<ServerStatus> | undefined
-  return async () => {
+  return async (launchCommand) => {
+    if (hasCustomServer(launchCommand)) return { status: 'custom', checkedAt: null }
     if (Date.now() < expires) return cached
     if (pending) return pending
     pending = (async () => {
@@ -21,4 +24,15 @@ export function createStatusReader(baseUrl: string): () => Promise<ServerStatus>
     })()
     try { return await pending } finally { pending = undefined }
   }
+}
+
+export function hasCustomServer(command?: string | null): boolean {
+  let args: string[]
+  try { args = resolveLaunchOptions([], command).args } catch { return false }
+  const ip = args.indexOf('-ip')
+  const port = args.indexOf('-port')
+  const address = ip < 0 ? '' : args[ip + 1] ?? ''
+  const number = port < 0 ? '' : args[port + 1] ?? ''
+  return (ip >= 0 && /^[a-zA-Z0-9.:[\]_-]+$/.test(address) && !address.startsWith('-')) ||
+    (port >= 0 && /^\d+$/.test(number) && Number(number) >= 1 && Number(number) <= 65535)
 }
