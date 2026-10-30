@@ -1,3 +1,4 @@
+import { blocksBrowserShortcut } from './windowShortcuts'
 import { startSilverNoticePolling } from './silverNotices'
 import { selectGame } from './activeGame'
 import { readRecord } from './localDatabase'
@@ -41,6 +42,7 @@ export function createMainWindow(): BrowserWindow {
     icon: trayIconPath(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      devTools: !app.isPackaged,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -52,6 +54,11 @@ export function createMainWindow(): BrowserWindow {
   // Linux does not implement maximizable; handle window-manager requests too.
   win.on('maximize', () => win.unmaximize())
   win.on('enter-full-screen', () => win.setFullScreen(false))
+
+  win.webContents.on('before-input-event', (event, input) => {
+    if (blocksBrowserShortcut(input, app.isPackaged)) event.preventDefault()
+  })
+  win.setMenu(null)
 
   win.on('ready-to-show', () => { if (!isQuitting) win.show() })
 

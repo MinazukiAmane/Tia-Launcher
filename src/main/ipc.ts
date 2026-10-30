@@ -1,3 +1,4 @@
+import { createStatusReader } from './serverStatus'
 import { getSilverIntroduction, setSilverIntroductionChoice } from './silverIntroduction'
 import { refreshSilverNotices } from './silverNotices'
 import { GAMES, LAUNCHER_API_BASE_URL } from './catalog'
@@ -382,6 +383,8 @@ export async function handleClearDownloadCache(_event: unknown, installDir: stri
   await rm(join(installDir, '.csore_download_tmp'), { recursive: true, force: true })
 }
 
+const readServerStatus = createStatusReader(LAUNCHER_API_BASE_URL)
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('ping', handlePing)
   ipcMain.on('shell:open-external', (_event, url: string) => handleOpenExternal(url))
@@ -427,6 +430,7 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
     })
   }
   handle('news:get', handleGetNews)
+  handle('game:serverStatus', readServerStatus)
   handle('silver-notices:get', () => refreshSilverNotices())
   handle('launcher:getSilverIntroduction', () => getSilverIntroduction())
   handle('launcher:setSilverIntroductionChoice', (_event, choice: unknown) => setSilverIntroductionChoice(choice))

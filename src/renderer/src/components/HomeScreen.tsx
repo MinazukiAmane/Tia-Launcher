@@ -1,3 +1,4 @@
+import { GameServerStatus, useServerStatus } from './GameServerStatus'
 import { SilverNoticesPanel } from './SilverNoticesPanel'
 import { GAMES, type GameDefinition } from '../gameCatalog'
 import silverBackground from '../assets/silver-palace.jpg'
@@ -110,6 +111,8 @@ interface HomeScreenProps {
 
 export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgroundUrl, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
+  const serverStatus = useServerStatus(game.biz === 'csore_global')
+  const maintenance = serverStatus === 'maintenance'
   const [progress, setProgress] = useState<{ processed: number; total: number; phase: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [apiUnavailable, setApiUnavailable] = useState(false)
@@ -416,8 +419,10 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgrou
     paused: t("Resume")
   }
 
-  const primaryDisabled = operationBusy || state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
-  const label = verifying
+  const primaryDisabled = (maintenance && state === 'up_to_date') || operationBusy || state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
+  const label = maintenance && state === 'up_to_date' && !verifying
+    ? t("Maintenance")
+    : verifying
     ? t("Checking Integrity")
     : primaryDisabled && state === 'working'
       ? (progress ? t(PHASE_LABEL[progress.phase] ?? progress.phase) : t("Working…"))
@@ -459,6 +464,7 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgrou
 
   return (
     <div className="home-screen">
+      {game.biz === 'csore_global' && <GameServerStatus status={serverStatus} />}
       <LauncherBackground customUrl={backgroundUrl} inactive={settingsOpen} fallbackUrl={game.biz === 'cedar_global' ? silverBackground : undefined} fallbackVideoUrl={game.biz === 'cedar_global' ? silverVideo : undefined} />
       <div className="home-shade" />
       {game.biz === 'csore_global' && <nav className="community-rail" aria-label={t("Community")}><CommunityLink /></nav>}

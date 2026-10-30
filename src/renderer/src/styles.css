@@ -242,3 +242,8 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .silver-introduction-section { margin: 19px 0; }
 .silver-introduction-section h3 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: #e2d6a2; }
 .silver-introduction-section p { margin: 0; font-size: 13px; line-height: 1.8; }
+
+.game-server-status { position: absolute; top: 25px; left: 25px; z-index: 5; display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 20px; background: #141419b8; color: #ccc; font-size: 11px; }
+.game-server-status > span { width: 7px; height: 7px; border-radius: 50%; background: #888; }
+.game-server-status.is-online > span { background: #60d394; }
+.game-server-status.is-maintenance > span { background: #efc96a; }

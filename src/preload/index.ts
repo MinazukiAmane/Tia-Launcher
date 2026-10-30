@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_UPDATE } from '../shared/updateChannels'
 
 const gameApi = {
+  getServerStatus: (): Promise<import('../main/serverStatus').ServerStatus> => ipcRenderer.invoke('game:serverStatus'),
   getGameCatalog: (): Promise<{ games: readonly import('../shared/gameDefinition').GameDefinition[]; selected: import('../shared/gameDefinition').GameId }> => ipcRenderer.invoke('game:catalog'),
   selectGame: (biz: import('../shared/gameDefinition').GameId): Promise<import('../shared/gameDefinition').GameDefinition> => ipcRenderer.invoke('game:select', biz),
   getPreferences: (): Promise<import('../main/preferences').Preferences> => ipcRenderer.invoke('launcher:getPreferences'),

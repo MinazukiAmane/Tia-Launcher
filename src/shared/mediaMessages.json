@@ -11,5 +11,10 @@
  "Choose another video": ["Pilih video lain", "选择其他视频", "다른 동영상 선택", "別の動画を選択", "Pilih video sanes"],
  "This video could not be used. Choose another video or try converting it again.": ["Video ini belum dapat dipakai. Pilih video lain atau coba konversi lagi.", "无法使用此视频。请选择其他视频或重新尝试转换。", "이 동영상을 사용할 수 없습니다. 다른 영상을 선택하거나 다시 변환하세요.", "この動画は使用できません。別の動画を選ぶか、もう一度変換してください。", "Video menika dereng saged dipunginakaken. Pilih video sanes utawi cobi konversi malih."],
  "Choose a video smaller than 200 MB.": ["Pilih video berukuran kurang dari 200 MB.", "请选择小于 200 MB 的视频。", "200 MB보다 작은 동영상을 선택하세요.", "200 MB 未満の動画を選んでください。", "Pilih video ingkang langkung alit saking 200 MB."],
- "Choose a supported image up to 25 MB.": ["Pilih gambar dengan format yang didukung, maksimal 25 MB.", "请选择支持格式的图片，最大 25 MB。", "지원하는 형식의 25 MB 이하 이미지를 선택하세요.", "対応する形式の 25 MB 以下の画像を選んでください。", "Pilih gambar format ingkang dipundhukung, paling ageng 25 MB."]
+ "Choose a supported image up to 25 MB.": ["Pilih gambar dengan format yang didukung, maksimal 25 MB.", "请选择支持格式的图片，最大 25 MB。", "지원하는 형식의 25 MB 이하 이미지를 선택하세요.", "対応する形式の 25 MB 以下の画像を選んでください。", "Pilih gambar format ingkang dipundhukung, paling ageng 25 MB."],
+ "Server Online": ["Server Online", "服务器在线", "서버 온라인", "サーバーオンライン", "Server Online"],
+ "Server maintenance": ["Server dalam pemeliharaan", "服务器维护中", "서버 점검 중", "サーバーメンテナンス中", "Server lagi dirumat"],
+ "Server status unavailable": ["Status server tidak diketahui", "服务器状态未知", "서버 상태를 확인할 수 없음", "サーバー状況を確認できません", "Status server ora dingerteni"],
+ "Maintenance": ["Pemeliharaan", "维护中", "점검 중", "メンテナンス中", "Pangrumatan"],
+ "Game server availability. Play is unavailable during maintenance.": ["Status server game. Play tidak tersedia selama pemeliharaan.", "游戏服务器状态。维护期间无法开始游戏。", "게임 서버 상태입니다. 점검 중에는 플레이할 수 없습니다.", "ゲームサーバーの接続状況です。メンテナンス中はプレイできません。", "Status server game. Play ora kasedhiya nalika pangrumatan."]
 }

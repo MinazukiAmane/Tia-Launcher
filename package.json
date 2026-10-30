@@ -1,6 +1,6 @@
 {
   "name": "tia-launcher",
-  "version": "1.14.2",
+  "version": "1.15.0",
   "private": true,
   "description": "Tia Launcher - cross-platform game launcher",
   "main": "./out/main/index.js",
