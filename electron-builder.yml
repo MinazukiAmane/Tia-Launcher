@@ -38,8 +38,18 @@ artifactName: "Tia-Launcher-${version}-${os}-${arch}.${ext}"
 
 win:
   target: nsis
+  # Embeds a Windows manifest that always triggers the UAC elevation
+  # prompt when the exe is launched, every time, with no "run as admin"
+  # right-click needed -- matches perMachine below (an all-users,
+  # Program-Files install genuinely needs elevated writes at runtime too,
+  # not just at install time).
+  requestedExecutionLevel: requireAdministrator
 nsis:
   oneClick: false
+  # Forces an all-users install (Program Files, elevation required at
+  # install time) and removes the "Install for all users / just for me"
+  # choice NSIS otherwise shows when this is left unset.
+  perMachine: true
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
 
