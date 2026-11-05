@@ -23,6 +23,17 @@ describe('game session window lifecycle', () => {
     expect(restore).toHaveBeenCalledOnce()
     expect(session.active).toBe(false)
   })
+  it('signals the first confirmed process only once and never after stop', async () => {
+    vi.useFakeTimers()
+    const detected = vi.fn()
+    const session = new GameSession({ suspend: vi.fn(), restore: vi.fn(), onGameDetected: detected, probe: vi.fn().mockResolvedValue(true), pollMs: 10 })
+    session.start('/game/client.exe')
+    await vi.advanceTimersByTimeAsync(180)
+    expect(detected).toHaveBeenCalledOnce()
+    session.stop()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(detected).toHaveBeenCalledOnce()
+  })
   it('restores the launcher when a game exits too quickly to observe', async () => {
     vi.useFakeTimers()
     const restore = vi.fn()

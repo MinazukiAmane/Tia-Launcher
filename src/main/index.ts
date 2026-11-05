@@ -1,3 +1,4 @@
+import { LaunchOverlay } from './launchOverlay'
 import { blocksBrowserShortcut } from './windowShortcuts'
 import { startSilverNoticePolling } from './silverNotices'
 import { selectGame } from './activeGame'
@@ -91,14 +92,17 @@ let isQuitting = false
 let tray: Tray | null = null
 
 let mainWindow: BrowserWindow | null = null
+const launchOverlay = new LaunchOverlay()
 const gameSession = new GameSession({
   suspend: () => {
     const win = mainWindow
+    launchOverlay.show(win && !win.isDestroyed() ? win.getBounds() : undefined)
     mainWindow = null
     // Destroying the window releases its renderer process and UI assets.
     if (win && !win.isDestroyed()) win.destroy()
   },
-  restore: () => { if (!isQuitting) showMainWindow() }
+  onGameDetected: () => launchOverlay.gameDetected(),
+  restore: () => { launchOverlay.close(); if (!isQuitting) showMainWindow() }
 })
 
 function showMainWindow(): void {
@@ -180,6 +184,7 @@ if (!gotSingleInstanceLock) {
 app.on('before-quit', () => {
   isQuitting = true
   stopMediaConversion()
+  launchOverlay.close()
   gameSession.stop()
   tray?.destroy()
 })

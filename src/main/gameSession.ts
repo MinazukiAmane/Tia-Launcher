@@ -55,6 +55,7 @@ export async function isGameProcessRunning(exePath: string): Promise<boolean> {
 export interface GameSessionOptions {
   suspend: () => void
   restore: () => void
+  onGameDetected?: () => void
   probe?: (exePath: string) => Promise<boolean>
   pollMs?: number
   startupTimeoutMs?: number
@@ -92,7 +93,10 @@ export class GameSession {
         const found = await (this.options.probe ?? isGameProcessRunning)(exePath)
         if (generation !== this.generation) return
         failureCount = 0
-        if (found) { observed = true; absentCount = 0 }
+        if (found) {
+          if (!observed) this.options.onGameDetected?.()
+          observed = true; absentCount = 0
+        }
         else if (observed) {
           if (++absentCount >= 2) { finish(); return }
         } else if (Date.now() >= deadline) { finish(); return }

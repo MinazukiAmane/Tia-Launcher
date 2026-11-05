@@ -20,6 +20,8 @@ publish:
   channel: latest
 
 extraResources:
+  - from: build/licenses/Orbitron-OFL.txt
+    to: licenses/Orbitron-OFL.txt
   - from: build/native
     to: client-runtime
     filter:
@@ -49,11 +51,9 @@ win:
   # error message + folder picker already covers it without this.
 nsis:
   oneClick: false
-  # Forces an all-users install (Program Files, elevation required once
-  # at install time only -- not on every launch) and removes the
-  # "Install for all users / just for me" choice NSIS otherwise shows
-  # when this is left unset.
-  perMachine: true
+  # Preserve existing install scope/path; fresh installs default to Program Files.
+  perMachine: false
+  selectPerMachineByDefault: true
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: always
 
