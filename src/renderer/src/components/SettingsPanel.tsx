@@ -707,7 +707,7 @@ export function SettingsPanel({
                     className="rounded bg-white/10 px-2 py-1"
                   >
                     <option value="">{t("Default (no FPS override)")}</option>
-                    {[144, 165, 249].map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}
+                    {[144, 165, 240].map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}
                   </select>
                 </label>
 

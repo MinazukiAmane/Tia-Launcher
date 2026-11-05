@@ -14,7 +14,7 @@ export interface Settings {
   lang: 'na_id' | 'na_en'
   classicUi: boolean
   alternateRenderer: boolean
-  fpsLimit?: 144 | 165 | 249 | null
+  fpsLimit?: 144 | 165 | 240 | null
 
   downloadSpeedLimitKbps: number | null
 
@@ -60,7 +60,8 @@ function clampLaunchCommand(value: string | null): string | null {
 }
 
 function sanitizeFPSLimit(value: unknown): Settings['fpsLimit'] {
-  return value === 144 || value === 165 || value === 249 ? value : null
+  if (value === 249) return 240
+  return value === 144 || value === 165 || value === 240 ? value : null
 }
 
 function sanitizeWindowCloseBehavior(value: unknown): Settings['windowCloseBehavior'] {

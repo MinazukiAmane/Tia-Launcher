@@ -216,7 +216,7 @@ describe('buildGameLaunchArgs', () => {
 })
 
 describe('FPS launch presets', () => {
-  it.each([144, 165, 249] as const)('persists %i FPS and forwards it as client arguments', async fpsLimit => {
+  it.each([144, 165, 240] as const)('persists %i FPS and forwards it as client arguments', async fpsLimit => {
     const dir = await makeTempDir()
     await writeSettings(dir, { ...BASE_SETTINGS, fpsLimit })
     const stored = await readSettings(dir)
@@ -234,4 +234,13 @@ describe('FPS launch presets', () => {
       expect(buildGameLaunchArgs(settings)).toEqual(['-lang', 'na_en'])
     }
   })
+})
+
+it('migrates the old 249 FPS preset to 240 without changing other launch options', async () => {
+  const dir = await makeTempDir()
+  const { writeRecords } = await import('../../src/main/localDatabase')
+  writeRecords('launcher', { settings: { ...BASE_SETTINGS, fpsLimit: 249, classicUi: true } }, dir)
+  const stored = await readSettings(dir)
+  expect(stored.fpsLimit).toBe(240)
+  expect(buildGameLaunchArgs(stored)).toEqual(['-lang', 'na_en', '--classicui', '+developer', '1', '+fps_max', '240'])
 })
