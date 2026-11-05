@@ -369,3 +369,18 @@ it('applies a delta directly between files without whole-file JS reads', async (
   } finally { spy.mockRestore() }
   expect(await readFile(join(install, 'Bin/client.dll'), 'utf8')).toBe('oldnew')
 })
+
+it('rejects patch writes through an existing junction without touching external files', async () => {
+  const dir = await makeTempDir()
+  const root = join(dir, 'game'), outside = join(dir, 'outside')
+  await mkdir(root)
+  await mkdir(outside)
+  await writeFile(join(outside, 'file.txt'), 'keep')
+  await nativeFs.symlink(outside, join(root, 'Data'), 'junction')
+  const zip = new AdmZip()
+  zip.addFile('Data/file.txt', Buffer.from('new'))
+  const archive = join(dir, 'patch.zip')
+  zip.writeZip(archive)
+  await expect(applyPatch(root, archive, { entries: [{ path: 'Data/file.txt', action: 'added', new_md5: md5(Buffer.from('new')) }] }, fakeBspatch)).rejects.toThrow(/links|junctions/)
+  expect(await readFile(join(outside, 'file.txt'), 'utf8')).toBe('keep')
+})

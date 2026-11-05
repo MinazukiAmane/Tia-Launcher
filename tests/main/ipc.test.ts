@@ -266,8 +266,10 @@ describe('app:getPlatform handler', () => {
 
     const call = vi.mocked(ipcMain.handle).mock.calls.find(([channel]) => channel === 'app:getPlatform')
     expect(call).toBeDefined()
-    const handler = call?.[1] as () => string
-    expect(handler()).toBe(process.platform)
+    const handler = call?.[1]!
+    const mainFrame = {}
+    Object.assign(fakeWin.webContents, { mainFrame })
+    expect(handler({ sender: fakeWin.webContents, senderFrame: mainFrame } as never)).toBe(process.platform)
   })
 })
 
@@ -513,11 +515,13 @@ it('enforces the latest-version requirement on registered game actions in the ma
   Object.defineProperty(app, 'isPackaged', { value: true, configurable: true })
   try {
     setLauncherVersionStatus('required')
-    registerGameIpcHandlers(() => null)
+    const mainFrame = {}
+    const fakeWin = { isDestroyed: () => false, webContents: { mainFrame } } as unknown as Electron.BrowserWindow
+    registerGameIpcHandlers(fakeWin)
     for (const channel of ['game:launch', 'game:startInstallOrUpdate', 'game:repairInstall', 'game:moveInstallation', 'game:setSettings']) {
       const registration = vi.mocked(ipcMain.handle).mock.calls.filter(([name]) => name === channel).at(-1)
       expect(registration).toBeDefined()
-      expect(() => registration![1]({} as Electron.IpcMainInvokeEvent, '/unapproved')).toThrow(/latest version/)
+      expect(() => registration![1]({ sender: fakeWin.webContents, senderFrame: mainFrame } as never, '/unapproved')).toThrow(/latest version/)
     }
   } finally {
     Object.defineProperty(app, 'isPackaged', { value: false, configurable: true })
@@ -530,14 +534,27 @@ it('keeps technical failures in the log and preserves synchronous and asynchrono
   const logged = vi.spyOn(logger, 'logError').mockImplementation(() => {})
   const { dialog } = await import('electron')
   try {
-    registerGameIpcHandlers(() => null)
+    const mainFrame = {}
+    const fakeWin = { isDestroyed: () => false, webContents: { mainFrame } } as unknown as Electron.BrowserWindow
+    const event = { sender: fakeWin.webContents, senderFrame: mainFrame } as never
+    registerGameIpcHandlers(fakeWin)
     const handler = (channel: string) => vi.mocked(ipcMain.handle).mock.calls.filter(([name]) => name === channel).at(-1)![1]
-    expect(() => handler('launcher:setPreferences')(null as never, { backgroundMode: 'invalid' })).toThrow('Invalid background mode.')
+    expect(() => handler('launcher:setPreferences')(event, { backgroundMode: 'invalid' })).toThrow('Invalid background mode.')
     expect(logged).toHaveBeenCalledWith('IPC request failed', { channel: 'launcher:setPreferences', error: 'Invalid background mode.' })
 
     const failure = new Error('EACCES: permission denied at private-player-path')
     vi.mocked(dialog.showOpenDialog).mockRejectedValueOnce(failure)
-    await expect(handler('game:chooseInstallFolder')(null as never)).rejects.toBe(failure)
+    await expect(handler('game:chooseInstallFolder')(event)).rejects.toBe(failure)
     expect(logged).toHaveBeenCalledWith('IPC request failed', { channel: 'game:chooseInstallFolder', error: failure.message })
   } finally { logged.mockRestore() }
+})
+
+it('rejects an IPC action from another window or subframe before changing preferences', async () => {
+  const frame = {}
+  const win = { isDestroyed: () => false, webContents: { mainFrame: frame } } as unknown as Electron.BrowserWindow
+  registerGameIpcHandlers(win)
+  const handler = vi.mocked(ipcMain.handle).mock.calls.filter(([name]) => name === 'launcher:setPreferences').at(-1)![1]
+  for (const event of [{ sender: {}, senderFrame: frame }, { sender: win.webContents, senderFrame: {} }]) {
+    expect(() => handler(event as never, { backgroundMode: 'images' })).toThrow(/active launcher window/)
+  }
 })

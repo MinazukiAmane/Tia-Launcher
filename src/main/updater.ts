@@ -1,3 +1,4 @@
+import { assertTrustedSender } from './ipcSecurity'
 import { setLauncherVersionStatus, type VersionStatus } from './launcherVersionGate'
 import { currentWindow, type WindowSource } from './windowSource'
 import { app, ipcMain } from 'electron'
@@ -154,7 +155,8 @@ export function initAutoUpdater(win: WindowSource): void {
     return checkRequest
   }
 
-  ipcMain.handle(IPC_UPDATE.START_DOWNLOAD, (_event, fullDownload?: boolean) => {
+  ipcMain.handle(IPC_UPDATE.START_DOWNLOAD, (event, fullDownload?: boolean) => {
+    assertTrustedSender(win, event)
     if (downloadRequest) return downloadRequest
     if (state.downloaded) return Promise.resolve()
     state.error = null
@@ -172,7 +174,8 @@ export function initAutoUpdater(win: WindowSource): void {
     return downloadRequest
   })
 
-  ipcMain.handle(IPC_UPDATE.QUIT_AND_INSTALL, async () => {
+  ipcMain.handle(IPC_UPDATE.QUIT_AND_INSTALL, async (event) => {
+    assertTrustedSender(win, event)
     if (isOperationInProgress()) {
       throw new Error(
         'Cannot restart to install the update: a game download or patch is still in progress. Please wait for it to finish.'
@@ -180,8 +183,8 @@ export function initAutoUpdater(win: WindowSource): void {
     }
     return autoUpdater.quitAndInstall()
   })
-  ipcMain.handle(IPC_UPDATE.CHECK, () => checkForUpdates())
-  ipcMain.handle(IPC_UPDATE.GET_STATE, () => state)
+  ipcMain.handle(IPC_UPDATE.CHECK, event => { assertTrustedSender(win, event); return checkForUpdates() })
+  ipcMain.handle(IPC_UPDATE.GET_STATE, event => { assertTrustedSender(win, event); return state })
 
   // Skip in dev -- no packaged installer / update feed to check against.
   if (!app.isPackaged) return

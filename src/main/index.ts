@@ -46,7 +46,7 @@ export function createMainWindow(): BrowserWindow {
       devTools: !app.isPackaged,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   })
 
@@ -155,9 +155,9 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     protocol.handle('tia-background', request => serveBackgroundVideo(app.getPath('userData'), request))
-    registerIpcHandlers()
     mainWindow = createMainWindow()
     const getWindow = (): BrowserWindow | null => mainWindow
+    registerIpcHandlers(getWindow)
     registerGameIpcHandlers(getWindow, async installDir => {
       try {
         const exePath = await findGameExecutable(installDir)

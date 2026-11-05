@@ -10,6 +10,7 @@ import { Transform } from 'stream'
 import { join, dirname } from 'path'
 import { mkdtemp, rm, mkdir } from 'fs/promises'
 import {
+  assertNoLinkedPath,
   assertSafeRelativePath as assertSafeRelativePathShared,
   resolveWithinRoot as resolveWithinRootShared
 } from './pathSafety'
@@ -173,6 +174,7 @@ export async function applyPatch(
   // Validate manifest paths before opening the archive.
   for (const entry of manifest.entries) {
     assertSafeRelativePath(entry.path, entry, 'path')
+    await assertNoLinkedPath(installDir, resolveWithinRoot(installDir, entry.path, entry, 'path'))
     if (entry.delta_file) assertSafeRelativePath(entry.delta_file, entry, 'delta_file')
   }
 
@@ -182,6 +184,7 @@ export async function applyPatch(
 
   try {
     const stagingRoot = join(installDir, '.csore_download_tmp')
+    await assertNoLinkedPath(installDir, stagingRoot)
     await mkdir(stagingRoot, { recursive: true })
     const stagingDir = await mkdtemp(join(stagingRoot, 'patch-staging-'))
     await applyPatchWithStaging(installDir, zipfile, entries, manifest, bspatch, stagingDir)
@@ -271,6 +274,7 @@ async function applyPatchWithStaging(
       if (entry.action !== 'removed') continue
       if (stagedPathsLower.has(entry.path.toLowerCase())) continue
       const livePath = resolveWithinRoot(installDir, entry.path, entry, 'path')
+      await assertNoLinkedPath(installDir, livePath)
       await fs.rm(livePath, { force: true })
     }
 
@@ -278,6 +282,7 @@ async function applyPatchWithStaging(
       if (entry.action === 'removed') continue
       const stagedPath = resolveWithinRoot(stagingDir, entry.path, entry, 'path')
       const livePath = resolveWithinRoot(installDir, entry.path, entry, 'path')
+      await assertNoLinkedPath(installDir, livePath)
       await mkdir(dirname(livePath), { recursive: true })
       await retryTransientFileAccess(() => fs.rename(stagedPath, livePath))
     }

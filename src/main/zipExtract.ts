@@ -1,12 +1,13 @@
 
 import * as yauzl from 'yauzl'
 import { createWriteStream } from 'fs'
-import { mkdir } from 'fs/promises'
-import { dirname } from 'path'
+import { mkdir, mkdtemp, rename, rm } from 'fs/promises'
+import { dirname, join } from 'path'
 import { pipeline } from 'stream/promises'
 import { Transform } from 'stream'
 import { createHash } from 'crypto'
-import { resolveWithinRoot } from './pathSafety'
+import { resolveWithinRoot, assertNoLinkedPath } from './pathSafety'
+import { retryTransientFileAccess } from './fileAccess'
 import type { InstalledFileEntry } from './installState'
 
 export async function extractZip(
@@ -38,6 +39,9 @@ export async function extractZip(
         throw new Error(`refusing to extract unsafe zip entry: ${reason}`)
       })
 
+      await assertNoLinkedPath(destDir, destPath)
+      const unixType = (entry.externalFileAttributes >>> 16) & 0xf000
+      if (unixType && unixType !== 0x8000 && unixType !== 0x4000) throw new Error('Archive contains an unsupported special file.')
       if (isDirEntry) {
         await mkdir(destPath, { recursive: true })
         tick()
@@ -46,7 +50,9 @@ export async function extractZip(
 
       await mkdir(dirname(destPath), { recursive: true })
       const readStream = await zipfile.openReadStreamPromise(entry)
-      const writeStream = createWriteStream(destPath)
+      const temporaryDir = await mkdtemp(join(dirname(destPath), '.tia-extract-'))
+      const temporaryPath = join(temporaryDir, 'content')
+      const writeStream = createWriteStream(temporaryPath, { flags: 'wx' })
 
       const hash = createHash('md5')
       const hashingPassThrough = new Transform({
@@ -56,7 +62,11 @@ export async function extractZip(
         }
       })
 
-      await pipeline(readStream, hashingPassThrough, writeStream)
+      try {
+        await pipeline(readStream, hashingPassThrough, writeStream)
+        await assertNoLinkedPath(destDir, destPath)
+        await retryTransientFileAccess(() => rename(temporaryPath, destPath))
+      } finally { await rm(temporaryDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) }
 
       files.push({
         path: entry.fileName.replace(/\\/g, '/'),

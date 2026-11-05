@@ -23,7 +23,7 @@ import { fetchLauncherInfo } from './launcherApi'
 import type { VersionBlock } from './launcherApi'
 import { fetchVersionManifest, findVersionBlock, verifyAgainstManifest } from './manifestVerify'
 import { decideAction, reassembleParts, downloadPartWithRetry } from './installManager'
-import { resolveWithinRoot, isWithinRoot } from './pathSafety'
+import { assertNoLinkedPath, resolveWithinRoot, isWithinRoot } from './pathSafety'
 import { DownloadPausedError } from './downloader'
 import { retryTransientFileAccess } from './fileAccess'
 import { readManifest, applyPatch, PatchVerificationError } from './patcher'
@@ -428,6 +428,7 @@ export async function performInstallOrUpdate(
     const maxBytesPerSecond = await resolveMaxBytesPerSecond()
 
     const downloadTmpDir = join(installDir, '.csore_download_tmp')
+    await assertNoLinkedPath(installDir, downloadTmpDir)
     const partsDir = join(downloadTmpDir, 'parts')
     const zipPath = join(downloadTmpDir, 'download.zip')
 
@@ -618,11 +619,13 @@ export async function repairInstall(
     }
     const maxBytesPerSecond = await resolveMaxBytesPerSecond()
     const staging = join(installDir, '.csore_download_tmp', 'repair')
+    await assertNoLinkedPath(installDir, staging)
     await mkdir(staging, { recursive: true })
     const total = files.reduce((sum, file) => sum + file.size, 0)
     let completed = 0
     for (const file of files) {
       const target = resolveWithinRoot(installDir, file.path, 'repair file', reason => { throw new Error(reason) })
+      await assertNoLinkedPath(installDir, target)
       await mkdir(dirname(target), { recursive: true })
       const root = await realpath(installDir)
       const parent = await realpath(dirname(target))

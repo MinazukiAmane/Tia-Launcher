@@ -1,6 +1,6 @@
 
 import { createReadStream } from 'fs'
-import { stat, rm, open } from 'fs/promises'
+import { lstat, rm, open } from 'fs/promises'
 import { retryTransientFileAccess } from './fileAccess'
 import { createHash } from 'crypto'
 import { Readable } from 'stream'
@@ -31,7 +31,9 @@ export class DownloadPausedError extends Error {
 
 async function existingSize(destPath: string): Promise<number> {
   try {
-    return (await retryTransientFileAccess(() => stat(destPath))).size
+    const info = await retryTransientFileAccess(() => lstat(destPath))
+    if (!info.isFile() || info.isSymbolicLink() || info.nlink > 1) throw new Error('Download destination must be a regular, unlinked file.')
+    return info.size
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return 0
     throw err
@@ -60,6 +62,11 @@ async function downloadPartToFile(
   // Caller cancellation preserves the partial file for resume.
   externalSignal?: AbortSignal
 ): Promise<void> {
+  if (!Number.isSafeInteger(part.size) || part.size < 0 || !/^[a-f0-9]{32}$/i.test(part.md5)) {
+    throw new Error('Invalid download size or checksum.')
+  }
+  const url = new URL(part.url)
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Invalid download URL.')
   let existing = await existingSize(destPath)
 
   if (existing > part.size) {
@@ -100,6 +107,11 @@ async function downloadPartToFile(
 
       const isPartialResponse = res.status === 206
       const resumingCleanly = existing > 0 && isPartialResponse
+      if (isPartialResponse) {
+        const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(res.headers.get('content-range') ?? '')
+        if (!range || Number(range[1]) !== existing || Number(range[2]) < existing || Number(range[3]) !== part.size ||
+            Number(range[2]) >= part.size) throw new Error('Download server returned an inconsistent byte range.')
+      }
       // Retry opening before consuming the response; never replay partial stream writes.
       const handle = await retryTransientFileAccess(() => open(destPath, resumingCleanly ? 'a' : 'w'))
       const writeStream = handle.createWriteStream()
@@ -156,7 +168,7 @@ async function downloadPartToFile(
   }
 
   const gotMd5 = await md5OfFile(destPath)
-  if (gotMd5 !== part.md5) {
+  if ((await existingSize(destPath)) !== part.size || gotMd5 !== part.md5.toLowerCase()) {
     await rm(destPath, { force: true })
     throw new DownloadVerificationError(part)
   }

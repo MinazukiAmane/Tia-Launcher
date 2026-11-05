@@ -29,3 +29,8 @@ it('handles POSIX filesystem root while preserving traversal protection', async 
   expect(isWithinRoot('/game', '/game2/Bin')).toBe(false)
   expect(() => resolveWithinRoot('/game', '../outside', 'zip', violation)).toThrow()
 })
+
+it.each(['C:relative.txt', 'Bin/file:payload', String.raw`..\outside`, 'safe/../outside', 'NUL.txt', 'Bin/CON', 'Bin/file.', 'Bin/file ', '', '.', 'a\0b'])('rejects unsafe cross-platform path %j', async path => {
+  const { resolveWithinRoot } = await import('../../src/main/pathSafety')
+  expect(() => resolveWithinRoot('/game', path, 'entry', violation)).toThrow()
+})

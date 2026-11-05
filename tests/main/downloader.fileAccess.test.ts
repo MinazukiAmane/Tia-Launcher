@@ -53,3 +53,26 @@ it('reports the local path and error code for a persistent disk failure', async 
   await expect(downloadPart(part, target)).rejects.toMatchObject({ code: 'EIO', path: target, message: expect.stringContaining('Cannot access download file') })
   expect(open).toHaveBeenCalledTimes(1)
 })
+
+it('refuses a hard-linked download cache without overwriting its target', async () => {
+  const fs = await import('fs/promises')
+  const outside = join(folder, 'save'), target = join(folder, 'download')
+  await writeFile(outside, 'keep')
+  await fs.link(outside, target)
+  await expect(downloadPart(part, target)).rejects.toThrow(/unlinked/)
+  expect(await readFile(outside, 'utf8')).toBe('keep')
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+it('rejects an incorrect partial response before appending bytes to a resume file', async () => {
+  const target = join(folder, 'download')
+  await writeFile(target, bytes.subarray(0, 4))
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes, { status: 206, headers: { 'Content-Range': `bytes 0-${bytes.length - 1}/${bytes.length}` } })))
+  await expect(downloadPart(part, target)).rejects.toThrow(/byte range/)
+  expect(await readFile(target)).toEqual(bytes.subarray(0, 4))
+})
+
+it('rejects mismatched declared sizes even if the checksum matches the response', async () => {
+  const target = join(folder, 'download')
+  await expect(downloadPart({ ...part, size: part.size + 10 }, target)).rejects.toThrow(/MD5 verification/)
+})

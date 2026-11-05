@@ -1,3 +1,4 @@
+import { assertTrustedSender } from './ipcSecurity'
 import { createStatusReader } from './serverStatus'
 import { getSilverIntroduction, setSilverIntroductionChoice } from './silverIntroduction'
 import { refreshSilverNotices } from './silverNotices'
@@ -385,9 +386,12 @@ export async function handleClearDownloadCache(_event: unknown, installDir: stri
 
 const readServerStatus = createStatusReader(LAUNCHER_API_BASE_URL)
 
-export function registerIpcHandlers(): void {
-  ipcMain.handle('ping', handlePing)
-  ipcMain.on('shell:open-external', (_event, url: string) => handleOpenExternal(url))
+export function registerIpcHandlers(win: WindowSource): void {
+  ipcMain.handle('ping', event => { assertTrustedSender(win, event); return handlePing() })
+  ipcMain.on('shell:open-external', (event, url: string) => {
+    try { assertTrustedSender(win, event); handleOpenExternal(url) }
+    catch (error) { logError('External link request rejected', { error: (error as Error).message }) }
+  })
 }
 
 export function makeHandleMoveInstallation(win: WindowSource, isGameBusy: () => boolean) {
@@ -423,6 +427,7 @@ export function registerGameIpcHandlers(win: WindowSource, onGameLaunched?: (ins
         throw error
       }
       try {
+        assertTrustedSender(win, event)
         if (lockedChannels.has(channel)) assertLauncherCurrent()
         const result = listener(event, ...args)
         return result && typeof result.then === 'function' ? Promise.resolve(result).catch(failed) : result

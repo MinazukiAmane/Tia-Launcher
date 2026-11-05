@@ -1,3 +1,4 @@
+vi.mock('../../src/main/ipcSecurity', () => ({ assertTrustedSender: vi.fn() }))
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 describe('initialUpdateState', () => {
