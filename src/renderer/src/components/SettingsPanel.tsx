@@ -699,6 +699,19 @@ export function SettingsPanel({
               {game.biz === 'csore_global' && <>
               <SectionCard title={t("Game Launch Options")}>
                 <label className="flex items-center justify-between text-sm">
+                  {t("FPS Unlock")}
+                  <select
+                    aria-label={t("FPS Unlock")}
+                    value={settings.fpsLimit ?? ''}
+                    onChange={(e) => update({ fpsLimit: e.target.value === '' ? null : Number(e.target.value) as Settings['fpsLimit'] })}
+                    className="rounded bg-white/10 px-2 py-1"
+                  >
+                    <option value="">{t("Default (no FPS override)")}</option>
+                    {[144, 165, 249].map(fps => <option key={fps} value={fps}>{fps} FPS</option>)}
+                  </select>
+                </label>
+
+                <label className="flex items-center justify-between text-sm">
                   {t("Language")}<select
                     value={settings.lang}
                     onChange={(e) => update({ lang: e.target.value as Settings['lang'] })}

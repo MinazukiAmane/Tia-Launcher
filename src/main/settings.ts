@@ -14,6 +14,7 @@ export interface Settings {
   lang: 'na_id' | 'na_en'
   classicUi: boolean
   alternateRenderer: boolean
+  fpsLimit?: 144 | 165 | 249 | null
 
   downloadSpeedLimitKbps: number | null
 
@@ -31,6 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lang: 'na_en',
   classicUi: false,
   alternateRenderer: false,
+  fpsLimit: null,
   downloadSpeedLimitKbps: null,
   launchCommand: null,
   troubleshootingMode: false,
@@ -57,6 +59,10 @@ function clampLaunchCommand(value: string | null): string | null {
   return value.slice(0, MAX_LAUNCH_COMMAND_LENGTH)
 }
 
+function sanitizeFPSLimit(value: unknown): Settings['fpsLimit'] {
+  return value === 144 || value === 165 || value === 249 ? value : null
+}
+
 function sanitizeWindowCloseBehavior(value: unknown): Settings['windowCloseBehavior'] {
   return value === 'minimize_to_tray' || value === 'exit' ? value : DEFAULT_SETTINGS.windowCloseBehavior
 }
@@ -75,10 +81,12 @@ export async function readSettings(userDataDir: string): Promise<Settings> {
       merged.classicUi = launch?.classicUi ?? DEFAULT_SETTINGS.classicUi
       merged.alternateRenderer = launch?.alternateRenderer ?? DEFAULT_SETTINGS.alternateRenderer
       merged.launchCommand = launch?.launchCommand ?? null
+      merged.fpsLimit = sanitizeFPSLimit(launch?.fpsLimit)
     }
 
     return {
       ...merged,
+      fpsLimit: sanitizeFPSLimit(merged.fpsLimit),
       downloadSpeedLimitKbps: clampDownloadSpeedLimitKbps(merged.downloadSpeedLimitKbps),
       launchCommand: clampLaunchCommand(merged.launchCommand),
       windowCloseBehavior: sanitizeWindowCloseBehavior(merged.windowCloseBehavior),
@@ -95,6 +103,7 @@ export async function readSettings(userDataDir: string): Promise<Settings> {
 export async function writeSettings(userDataDir: string, settings: Settings): Promise<void> {
   const sanitized: Settings = {
     ...settings,
+    fpsLimit: sanitizeFPSLimit(settings.fpsLimit),
     downloadSpeedLimitKbps: clampDownloadSpeedLimitKbps(settings.downloadSpeedLimitKbps),
     launchCommand: clampLaunchCommand(settings.launchCommand),
     windowCloseBehavior: sanitizeWindowCloseBehavior(settings.windowCloseBehavior),
@@ -103,12 +112,13 @@ export async function writeSettings(userDataDir: string, settings: Settings): Pr
     customBackground: isValidBackgroundName(settings.customBackground) ? settings.customBackground : null
   }
   if (activeGame().biz !== 'csore_global') {
-    writeRecords(gamePreferenceScope(), { launchOptions: { lang: sanitized.lang, classicUi: sanitized.classicUi, alternateRenderer: sanitized.alternateRenderer, launchCommand: sanitized.launchCommand } }, userDataDir)
+    writeRecords(gamePreferenceScope(), { launchOptions: { fpsLimit: sanitized.fpsLimit, lang: sanitized.lang, classicUi: sanitized.classicUi, alternateRenderer: sanitized.alternateRenderer, launchCommand: sanitized.launchCommand } }, userDataDir)
     const global = readRecord<Partial<Settings>>('launcher', 'settings', userDataDir)
     sanitized.lang = global?.lang ?? DEFAULT_SETTINGS.lang
     sanitized.classicUi = global?.classicUi ?? DEFAULT_SETTINGS.classicUi
     sanitized.alternateRenderer = global?.alternateRenderer ?? DEFAULT_SETTINGS.alternateRenderer
     sanitized.launchCommand = global?.launchCommand ?? null
+    sanitized.fpsLimit = sanitizeFPSLimit(global?.fpsLimit)
   }
   writeRecords('launcher', { settings: sanitized }, userDataDir)
 }
@@ -127,5 +137,7 @@ export function buildGameLaunchArgs(settings: Settings): string[] {
   const args = ['-lang', settings.lang]
   if (settings.classicUi) args.push('--classicui')
   if (settings.alternateRenderer) args.push('-renderer')
+  const fpsLimit = sanitizeFPSLimit(settings.fpsLimit)
+  if (fpsLimit) args.push('+developer', '1', '+fps_max', String(fpsLimit))
   return args
 }

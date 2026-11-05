@@ -1790,5 +1790,19 @@
     "Silvernia는 사건의 배경을 넘어 시간을 보내고 살아가는 도시로 소개됩니다. 공식 개요는 다양한 인물과 만나 관계를 맺고 탐정 업무 밖의 삶을 발견하는 경험을 강조합니다. 부동산으로 이름을 알리거나 작은 카페의 단골이 되는 모습을 상상하든, 이 도시는 다음 수사 너머의 정체성을 제안합니다. 탐험, 대화, 수사, 전투가 더 넓은 모험의 일부가 됩니다.",
     "Silvernia は事件の背景だけでなく、時間を過ごし、暮らす場所としても紹介されています。公式の概要では、多彩な人々との出会い、つながり、探偵の仕事を越えた生き方が描かれています。不動産の世界で名を上げることも、小さなカフェのなじみの顔になることも、この街での自分を想像するきっかけになります。探索、会話、調査、戦闘が、より大きな冒険の一部となっています。",
     "Silvernia uga digambarake dadi panggonan kanggo nglakoni wektu, ora mung latar sawijining perkara. Pangenalan resmi game nyorot ketemu karakter warna-warni, mbangun sesambungan, lan nemokake urip ing njaba pakaryan detektif. Arep dikenal saka jagad properti utawa dadi wong sing kerep teka ing kafe cilik, kutha iki nawakake jati diri ing njaba penyelidikan sabanjure. Njelajah, guneman, nyelidiki, lan perang dadi perangan petualangan sing luwih amba."
+  ],
+  "FPS Unlock": [
+    "Buka Batas FPS",
+    "解锁帧率",
+    "FPS 제한 해제",
+    "FPS制限解除",
+    "Bukak Wates FPS"
+  ],
+  "Default (no FPS override)": [
+    "Default (ikuti pengaturan game)",
+    "默认（使用游戏设置）",
+    "기본값 (게임 설정 사용)",
+    "デフォルト（ゲーム設定を使用）",
+    "Default (manut setelan game)"
   ]
 }

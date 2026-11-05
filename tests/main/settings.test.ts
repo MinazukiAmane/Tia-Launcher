@@ -32,6 +32,7 @@ const BASE_SETTINGS: Settings = {
   lang: 'na_en',
   classicUi: false,
   alternateRenderer: false,
+  fpsLimit: null,
   downloadSpeedLimitKbps: null,
   launchCommand: null,
   troubleshootingMode: false,
@@ -52,6 +53,7 @@ describe('readSettings', () => {
       lang: 'na_id',
       classicUi: true,
       alternateRenderer: false,
+      fpsLimit: null,
       downloadSpeedLimitKbps: 4096,
       launchCommand: 'prime-run %command%',
       troubleshootingMode: true,
@@ -210,5 +212,26 @@ describe('buildGameLaunchArgs', () => {
     expect(
       buildGameLaunchArgs({ ...BASE_SETTINGS, lang: 'na_id', classicUi: true, alternateRenderer: true })
     ).toEqual(['-lang', 'na_id', '--classicui', '-renderer'])
+  })
+})
+
+describe('FPS launch presets', () => {
+  it.each([144, 165, 249] as const)('persists %i FPS and forwards it as client arguments', async fpsLimit => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, { ...BASE_SETTINGS, fpsLimit })
+    const stored = await readSettings(dir)
+    expect(stored.fpsLimit).toBe(fpsLimit)
+    expect(buildGameLaunchArgs(stored)).toEqual(['-lang', 'na_en', '+developer', '1', '+fps_max', String(fpsLimit)])
+    await writeSettings(dir, { ...stored, fpsLimit: null })
+    expect(buildGameLaunchArgs(await readSettings(dir))).toEqual(['-lang', 'na_en'])
+  })
+  it('keeps legacy settings and rejects unsupported FPS values without adding arguments', async () => {
+    const dir = await makeTempDir()
+    await writeSettings(dir, BASE_SETTINGS)
+    expect((await readSettings(dir)).fpsLimit).toBeNull()
+    for (const fpsLimit of [undefined, null, 0, 60, 999, '144', NaN]) {
+      const settings = { ...BASE_SETTINGS, fpsLimit } as Settings
+      expect(buildGameLaunchArgs(settings)).toEqual(['-lang', 'na_en'])
+    }
   })
 })
