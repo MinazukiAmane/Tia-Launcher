@@ -11,10 +11,13 @@ export class LaunchOverlay {
   private window: BrowserWindow | null = null
   private timer: ReturnType<typeof setTimeout> | null = null
   private shownAt = 0
+  private anchorTimer: ReturnType<typeof setInterval> | null = null
+  private removeDisplayListeners: (() => void) | null = null
 
   show(bounds?: Rectangle): void {
     this.close()
-    const { workArea } = bounds ? screen.getDisplayMatching(bounds) : screen.getPrimaryDisplay()
+    const display = bounds ? screen.getDisplayMatching(bounds) : screen.getPrimaryDisplay()
+    const { workArea } = display
     const win = new BrowserWindow({
       width: 236, height: 100,
       x: Math.max(workArea.x, workArea.x + workArea.width - 260),
@@ -29,7 +32,33 @@ export class LaunchOverlay {
     this.shownAt = Date.now()
     win.setIgnoreMouseEvents(true)
     win.setMenu(null)
-    win.once('ready-to-show', () => { if (this.window === win && !win.isDestroyed()) win.showInactive() })
+    const anchor = (): void => {
+      if (this.window !== win || win.isDestroyed()) return
+      const area = (screen.getAllDisplays().find(item => item.id === display.id) ?? screen.getPrimaryDisplay()).workArea
+      const target = {
+        x: Math.max(area.x, area.x + area.width - 260),
+        y: Math.max(area.y, area.y + area.height - 124),
+        width: 236, height: 100
+      }
+      const current = win.getBounds()
+      if (Object.entries(target).some(([key, value]) => current[key as keyof Rectangle] !== value)) win.setBounds(target, false)
+    }
+    screen.on('display-metrics-changed', anchor)
+    screen.on('display-added', anchor)
+    screen.on('display-removed', anchor)
+    this.removeDisplayListeners = () => {
+      screen.removeListener('display-metrics-changed', anchor)
+      screen.removeListener('display-added', anchor)
+      screen.removeListener('display-removed', anchor)
+    }
+    // Window managers and fullscreen games can reposition windows after creation.
+    this.anchorTimer = setInterval(anchor, 500)
+    win.once('ready-to-show', () => {
+      if (this.window !== win || win.isDestroyed()) return
+      anchor()
+      win.showInactive()
+      anchor()
+    })
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     void win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(launchOverlayHTML)).catch(() => {
       if (this.window === win) this.close()
@@ -44,6 +73,10 @@ export class LaunchOverlay {
   }
 
   close(): void {
+    if (this.anchorTimer) clearInterval(this.anchorTimer)
+    this.anchorTimer = null
+    this.removeDisplayListeners?.()
+    this.removeDisplayListeners = null
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
     const win = this.window
