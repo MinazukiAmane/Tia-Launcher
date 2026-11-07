@@ -1,3 +1,4 @@
+import { verificationReference } from './verificationReference'
 import { activeGame, gamePreferenceScope } from './activeGame'
 import { retireDWProtonVersions } from './launcher/dwprotonFiles'
 import { LAUNCHER_API_BASE_URL } from './catalog'
@@ -578,7 +579,7 @@ async function verifyInstallContents(installDir: string, quick: boolean): Promis
   }
   logInfo('verifyInstall: manifest resolved', { durationMs: Math.round(performance.now() - metadataStarted), quick, remoteManifest: manifest?.version === state.version })
   const result = await verifyAgainstManifest(installDir,
-    manifest && manifest.version === state.version ? manifest : { files: state.files },
+    verificationReference(installDir, state, manifest),
     quick && !state.needsRepair, { onMetrics: metrics => logInfo('verifyInstall: file check completed', { quick, ...metrics }) })
   if (result.ok && state.needsRepair) {
     await writeInstallState(installDir, { ...state, installDir, needsRepair: false })

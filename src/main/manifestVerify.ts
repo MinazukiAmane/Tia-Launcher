@@ -1,3 +1,4 @@
+import { authenticateManifest, type ManifestProof } from './manifestTrust'
 import { activeGame } from './activeGame'
 import { availableParallelism } from 'node:os'
 import { VerificationWorkers, mapBounded } from './verificationWorkers'
@@ -5,7 +6,7 @@ import { VerificationWorkers, mapBounded } from './verificationWorkers'
 import { createHash } from 'crypto'
 import { createReadStream, type Stats } from 'fs'
 import { stat } from 'fs/promises'
-import { readGameRecord, writeRecords, gameScope } from './localDatabase'
+import { readGameRecord, writeRecords, gameScope, databaseIsProtected } from './localDatabase'
 import { pipeline } from 'stream/promises'
 import { resolveWithinRoot } from './pathSafety'
 import type { GamePackageEntry, VersionBlock } from './launcherApi'
@@ -19,6 +20,7 @@ export interface ManifestFileEntry {
 }
 
 export interface VersionManifest {
+  proof?: ManifestProof
   version: string
   files: ManifestFileEntry[]
   repair_supported?: boolean
@@ -33,15 +35,27 @@ const recentManifests = new Map<string, { at: number; manifest: VersionManifest 
 
 export async function fetchVersionManifest(resListUrl: string | undefined, timeoutMs = 10_000, forPlay = false): Promise<VersionManifest | null> {
   if (!resListUrl) return null
+  try {
+    const url = new URL(resListUrl)
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) return null
+  } catch { return null }
   const recent = recentManifests.get(resListUrl)
-  if (forPlay && recent && Date.now() - recent.at < 30_000) return structuredClone(recent.manifest)
+  if (forPlay && recent && (!databaseIsProtected() || recent.manifest.proof) && Date.now() - recent.at < 30_000) return structuredClone(recent.manifest)
   try {
     const res = await fetch(resListUrl, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) return null
-    const body = (await res.json()) as Partial<VersionManifest>
+    const text = await res.text()
+    const keyId = res.headers.get('X-Tia-Manifest-Key')
+    const proof: ManifestProof | undefined = keyId ? {
+      keyId, signature: res.headers.get('X-Tia-Manifest-Signature') ?? '',
+      gameBiz: res.headers.get('X-Tia-Manifest-Game') ?? '', body: text
+    } : undefined
+    if (databaseIsProtected() && !proof) return null
+    const body = (proof ? authenticateManifest(proof, activeGame().biz) : JSON.parse(text)) as Partial<VersionManifest>
     if (!Array.isArray(body.files)) return null
-    if (body.files.some(file => !file || typeof file.path !== 'string' || typeof file.md5 !== 'string' || !Number.isSafeInteger(file.size) || file.size < 0)) return null
+    if (body.files.some(file => !file || typeof file.path !== 'string' || typeof file.md5 !== 'string' || !/^[a-f0-9]{32}$/i.test(file.md5) || !Number.isSafeInteger(file.size) || file.size < 0)) return null
     const manifest = { version: typeof body.version === 'string' ? body.version : '', files: body.files, repair_supported: body.repair_supported }
+    if (proof) (manifest as VersionManifest).proof = proof
     if (recentManifests.size >= 16) recentManifests.delete(recentManifests.keys().next().value!)
     recentManifests.set(resListUrl, { at: Date.now(), manifest: structuredClone(manifest) })
     return manifest

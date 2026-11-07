@@ -59,7 +59,7 @@ export function userError(error: unknown, action: ErrorAction = 'general'): stri
   if (/\bEBUSY\b|resource busy|sharing violation|file.*(?:locked|in use)/i.test(detail)) return messages.locked
   if (/\b(?:EACCES|EPERM|EROFS)\b|not writable|unwritable|permission denied|read.only/i.test(detail)) return messages.permission
   if (/\b(?:EIO|UNKNOWN)\b.*(?:open|write|read|access download file)|disk.*error/i.test(detail)) return messages.disk
-  if (/database|sqlite|invalid saved|saved.*metadata/i.test(detail)) return messages.storage
+  if (/database|sqlite|invalid saved|saved.*metadata|saved launcher data/i.test(detail)) return messages.storage
   if (/another operation|current operation|another task|operation.*in progress/i.test(detail)) return messages.busy
   if (/close the game|game.*already running/i.test(detail)) return messages.running
   if (/entire drive|filesystem root/i.test(detail)) return messages.root
@@ -70,6 +70,7 @@ export function userError(error: unknown, action: ErrorAction = 'general'): stri
   if (/background.*too large|unsupported image type|choose a background file/i.test(detail)) return messages.background
   if (/per.file repair.*not available|regenerate.*manifest/i.test(detail)) return messages.repairUnavailable
   if (/update the game before repairing/i.test(detail)) return messages.gameUpdate
+  if (/connect to the internet once/i.test(detail)) return 'Connect to the internet once to confirm this installation, then try Play again.'
   if (/no install found|no installed game|not an approved install directory/i.test(detail)) return messages.notInstalled
   if (/game executable not found|executable not found.*cstrike|ENOENT.*cstrike-online/i.test(detail)) return messages.files
   if (/client startup|client architecture|executable architecture|initialize game launch|client was not confirmed ready|error:.*(?:client|startup|executable)/i.test(detail)) return messages.clientStart

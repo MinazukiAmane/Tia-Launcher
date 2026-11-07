@@ -95,7 +95,7 @@ describe('fetchVersionManifest', () => {
   })
 
   it('returns the parsed manifest for a real 200 response', async () => {
-    const manifest: VersionManifest = { version: '1.0.0', files: [{ path: 'a.txt', md5: 'x', size: 1 }] }
+    const manifest: VersionManifest = { version: '1.0.0', files: [{ path: 'a.txt', md5: md5('x'), size: 1 }] }
     server = createServer((_req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify(manifest))

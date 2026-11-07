@@ -2,11 +2,12 @@ import { LaunchOverlay } from './launchOverlay'
 import { blocksBrowserShortcut } from './windowShortcuts'
 import { startSilverNoticePolling } from './silverNotices'
 import { selectGame } from './activeGame'
+import { initializeLauncherDatabase } from './databaseProtection'
 import { readRecord } from './localDatabase'
 import { serveBackgroundVideo } from './backgroundMedia'
 import { stopMediaConversion } from './mediaConverter'
 import { configureDatabaseDirectory } from './localDatabase'
-import { app, BrowserWindow, Tray, Menu, nativeImage, protocol } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, protocol, dialog } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { registerIpcHandlers, registerGameIpcHandlers, handleOpenExternal } from './ipc'
@@ -21,8 +22,6 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'tia-background', privileges: { 
 
 app.setPath('userData', join(app.getPath('appData'), 'tia-launcher-bootstrap'))
 configureDatabaseDirectory(app.getPath('userData'))
-const savedGame = readRecord<string>('launcher', 'selectedGame')
-if (savedGame) { try { selectGame(savedGame) } catch { /* Removed catalog entry defaults to CSO. */ } }
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -154,6 +153,9 @@ if (!gotSingleInstanceLock) {
   app.on('second-instance', showMainWindow)
 
   app.whenReady().then(async () => {
+    await initializeLauncherDatabase(app.getPath('userData'))
+    const savedGame = readRecord<string>('launcher', 'selectedGame')
+    if (savedGame) { try { selectGame(savedGame) } catch { /* Removed catalog entry. */ } }
     protocol.handle('tia-background', request => serveBackgroundVideo(app.getPath('userData'), request))
     mainWindow = createMainWindow()
     const getWindow = (): BrowserWindow | null => mainWindow
@@ -178,6 +180,9 @@ if (!gotSingleInstanceLock) {
     }
 
     app.on('activate', showMainWindow)
+  }).catch(error => {
+    dialog.showErrorBox('Tia Launcher', error instanceof Error ? error.message : 'Saved launcher data could not be opened.')
+    app.quit()
   })
 }
 

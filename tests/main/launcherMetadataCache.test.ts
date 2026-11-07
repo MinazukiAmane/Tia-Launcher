@@ -20,11 +20,11 @@ it('reuses recent metadata for Play, isolates titles, and refreshes manual or ex
 
 it('caches only successful manifests briefly and keeps manual verification fresh', async () => {
   let now = 1000; vi.spyOn(Date, 'now').mockImplementation(() => now)
-  const fetch = vi.fn(async () => Response.json({ version: '1', files: [{ path: 'a', md5: 'hash', size: 1 }] }))
+  const fetch = vi.fn(async () => Response.json({ version: '1', files: [{ path: 'a', md5: 'a'.repeat(32), size: 1 }] }))
   vi.stubGlobal('fetch', fetch)
   const url = 'https://manifest-short-cache.test/list'
   const first = await fetchVersionManifest(url); first!.files[0].md5 = 'mutated'
-  expect((await fetchVersionManifest(url, 4000, true))!.files[0].md5).toBe('hash')
+  expect((await fetchVersionManifest(url, 4000, true))!.files[0].md5).toBe('a'.repeat(32))
   expect(fetch).toHaveBeenCalledTimes(1)
   await fetchVersionManifest(url); expect(fetch).toHaveBeenCalledTimes(2)
   now += 30_001

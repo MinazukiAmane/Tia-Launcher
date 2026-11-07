@@ -1,8 +1,11 @@
+import { DatabaseCipher, DatabaseIntegrityError } from './databaseCipher'
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, mkdirSync, realpathSync, renameSync, copyFileSync, unlinkSync } from 'fs'
 import { readFile, rename } from 'fs/promises'
 import { dirname, join, resolve } from 'path'
 import { randomUUID } from 'crypto'
+
+const ciphers = new Map<string, DatabaseCipher>()
 
 const directoryKey = Symbol.for('tia.launcher.databaseDirectory')
 const directories = globalThis as typeof globalThis & { [directoryKey]?: string }
@@ -35,13 +38,14 @@ function openDatabase(path: string): DatabaseSync {
     db = new DatabaseSync(path)
     db.exec('PRAGMA busy_timeout=5000; PRAGMA synchronous=EXTRA; PRAGMA foreign_keys=ON;')
     const version = Number(db.prepare('PRAGMA user_version').get()!.user_version)
-    if (version > 1) throw new Error('This launcher database requires a newer launcher version.')
+    if (version > 2) throw new Error('This launcher database requires a newer launcher version.')
     if (version === 0) {
       db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE IF NOT EXISTS records (scope TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(scope,name));
         PRAGMA user_version=1;
         COMMIT;`)
     }
+    if (version < 2 && ciphers.has(path)) throw new DatabaseIntegrityError()
     db.prepare('SELECT name FROM records LIMIT 1').get()
     return db
   } catch (error) {
@@ -92,7 +96,7 @@ function withDatabase<T>(directory: string | undefined, action: (db: DatabaseSyn
 export function readRecord<T>(scope: string, name: string, directory?: string): T | null | undefined {
   return withDatabase(directory, db => {
     const row = db.prepare('SELECT value FROM records WHERE scope=? AND name=?').get(scope, name)
-    return row ? JSON.parse(String(row.value)) as T | null : undefined
+    return row ? JSON.parse(decodeRecord(databasePath(directory), scope, name, String(row.value))) as T | null : undefined
   })
 }
 
@@ -105,8 +109,13 @@ export function writeRecords(scope: string, values: Record<string, unknown>, dir
       const existing = db.prepare('SELECT value FROM records WHERE scope=? AND name=?')
       for (const [name, value] of Object.entries(values)) {
         const serialized = JSON.stringify(value)
-        if (existing.get(scope, name)?.value === serialized) continue
-        statement.run(scope, name, serialized)
+        const previous = existing.get(scope, name)?.value
+        if (previous !== undefined) {
+          try { if (decodeRecord(databasePath(directory), scope, name, String(previous)) === serialized) continue } catch (error) {
+            if (name !== 'verifyCache') throw error
+          }
+        }
+        statement.run(scope, name, encodeRecord(databasePath(directory), scope, name, serialized))
         changed = true
       }
       db.exec('COMMIT')
@@ -153,20 +162,24 @@ export function moveGameRecords(source: string, destination: string, state: unkn
       const rows = db.prepare('SELECT name,value FROM records WHERE scope=?').all(from)
       db.prepare('DELETE FROM records WHERE scope=?').run(to)
       const insert = db.prepare('INSERT INTO records(scope,name,value) VALUES(?,?,?)')
-      for (const row of rows) insert.run(to, String(row.name), String(row.value))
-      db.prepare('INSERT INTO records(scope,name,value) VALUES(?,?,?) ON CONFLICT(scope,name) DO UPDATE SET value=excluded.value').run(to, 'install', JSON.stringify(state))
+      for (const row of rows) {
+        const name = String(row.name)
+        // A path move changes the authenticated record identity.
+        if (name !== 'verifyCache') insert.run(to, name, encodeRecord(databasePath(), to, name, decodeRecord(databasePath(), from, name, String(row.value))))
+      }
+      db.prepare('INSERT INTO records(scope,name,value) VALUES(?,?,?) ON CONFLICT(scope,name) DO UPDATE SET value=excluded.value').run(to, 'install', encodeRecord(databasePath(), to, 'install', JSON.stringify(state)))
       const selectedRows = db.prepare("SELECT scope,value FROM records WHERE name='selectedInstallation'").all()
       for (const selected of selectedRows) {
-        const current = JSON.parse(String(selected.value)) as { installDir?: string } | null
+        const current = JSON.parse(decodeRecord(databasePath(), String(selected.scope), 'selectedInstallation', String(selected.value))) as { installDir?: string } | null
         if (current?.installDir && gameScope(current.installDir) === from) {
-          db.prepare("UPDATE records SET value=? WHERE scope=? AND name='selectedInstallation'").run(JSON.stringify({ installDir: destination }), selected.scope)
+          db.prepare("UPDATE records SET value=? WHERE scope=? AND name='selectedInstallation'").run(encodeRecord(databasePath(), String(selected.scope), 'selectedInstallation', JSON.stringify({ installDir: destination })), selected.scope)
         }
       }
       const preferenceRows = db.prepare("SELECT scope,value FROM records WHERE name='preferences'").all()
       for (const saved of preferenceRows) {
-        const preferences = JSON.parse(String(saved.value)) as { confirmedInstallDir?: string }
+        const preferences = JSON.parse(decodeRecord(databasePath(), String(saved.scope), 'preferences', String(saved.value))) as { confirmedInstallDir?: string }
         if (preferences?.confirmedInstallDir && gameScope(preferences.confirmedInstallDir) === from) {
-          db.prepare("UPDATE records SET value=? WHERE scope=? AND name='preferences'").run(JSON.stringify({ ...preferences, confirmedInstallDir: destination }), saved.scope)
+          db.prepare("UPDATE records SET value=? WHERE scope=? AND name='preferences'").run(encodeRecord(databasePath(), String(saved.scope), 'preferences', JSON.stringify({ ...preferences, confirmedInstallDir: destination })), saved.scope)
         }
       }
       db.prepare('DELETE FROM records WHERE scope=?').run(from)
@@ -193,6 +206,7 @@ export async function readGameRecord<T>(directory: string, name: keyof typeof le
   const imported: string[] = []
   for (const [key, filename] of Object.entries(legacyGameFiles)) {
     if (readRecord(scope, key) !== undefined) continue
+    if (key === 'verifyCache' && databaseIsProtected()) { values[key] = null; continue }
     const path = join(directory, filename)
     try {
       let archived = false
@@ -226,4 +240,68 @@ export async function readGameRecord<T>(directory: string, name: keyof typeof le
   }
   if (readRecord(scope, 'legacyMigrated') !== true) writeRecords(scope, { legacyMigrated: true })
   return readRecord<T>(scope, name) ?? null
+}
+
+
+function encodeRecord(path: string, scope: string, name: string, plain: string): string {
+  return ciphers.get(path)?.seal(scope, name, plain) ?? plain
+}
+
+function decodeRecord(path: string, scope: string, name: string, raw: string): string {
+  return ciphers.get(path)?.open(scope, name, raw) ?? raw
+}
+
+export function databaseIsProtected(): boolean { return ciphers.has(databasePath()) }
+
+// Called once, before exposing any IPC or reading saved settings.
+export function protectDatabase(key: Buffer, allowMigration: boolean, directory?: string): void {
+  const path = databasePath(directory)
+  const cipher = new DatabaseCipher(key)
+  const db = openDatabase(path)
+  let migrated = false
+  try {
+    const version = Number(db.prepare('PRAGMA user_version').get()!.user_version)
+    if (version < 2 && !allowMigration) throw new DatabaseIntegrityError()
+    const rows = db.prepare('SELECT scope,name,value FROM records').all()
+    if (version === 2) {
+      // Authenticate existing data once during startup, including rarely used settings.
+      for (const row of rows) {
+        try { cipher.open(String(row.scope), String(row.name), String(row.value)) } catch (error) {
+          if (row.name !== 'verifyCache') throw error
+          db.prepare('DELETE FROM records WHERE scope=? AND name=?').run(row.scope, row.name)
+        }
+      }
+      // Resume cleanup if a previous migration stopped after committing rows.
+      if (allowMigration) { db.exec('VACUUM'); migrated = true }
+    } else {
+      db.exec('PRAGMA secure_delete=ON; BEGIN IMMEDIATE')
+      try {
+        const update = db.prepare('UPDATE records SET value=? WHERE scope=? AND name=?')
+        for (const row of rows) {
+          const scope = String(row.scope), name = String(row.name), raw = String(row.value)
+          JSON.parse(raw)
+          // Old plaintext cache stamps are not an authenticated verification.
+          if (name === 'verifyCache') { db.prepare('DELETE FROM records WHERE scope=? AND name=?').run(scope, name); continue }
+          update.run(cipher.seal(scope, name, raw), scope, name)
+        }
+        db.exec('PRAGMA user_version=2; COMMIT')
+      } catch (error) { db.exec('ROLLBACK'); throw error }
+      // Remove plaintext from SQLite free pages and the pre-migration backup.
+      db.exec('VACUUM')
+      migrated = true
+    }
+    ciphers.set(path, cipher)
+  } finally { db.close() }
+  // VACUUM INTO keeps recovery data encrypted too.
+  if (migrated) {
+    const temporary = path + '.' + randomUUID() + '.tmp'
+    const snapshot = openDatabase(path)
+    try {
+      snapshot.prepare('VACUUM INTO ?').run(temporary)
+      renameSync(temporary, path + '.bak')
+    } finally {
+      snapshot.close()
+      if (existsSync(temporary)) unlinkSync(temporary)
+    }
+  }
 }
