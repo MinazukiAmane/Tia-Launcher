@@ -30,7 +30,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring dbus-x11 at-spi2-core
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring dbus-x11 at-spi2-core pipewire rtkit xdg-desktop-portal-gtk
       - name: Check out private native helper
         uses: actions/checkout@v7.0.1
         with:
@@ -107,7 +107,7 @@ jobs:
           export TIA_NATIVE_STARTUP_SMOKE=1
           export TIA_NATIVE_STARTUP_BINARY="$(find "$PWD/src-tauri/target/debug/bundle/appimage" -maxdepth 1 -name '*.AppImage' -print -quit)"
           test -n "$TIA_NATIVE_STARTUP_BINARY"
-          xvfb-run -a dbus-run-session -- npx vitest run tests/main/appImageStartup.native.test.ts --maxWorkers=1
+          python3 migration/tests/run-linux-native-smoke.py
       - name: Build macOS universal DMG
         if: runner.os == 'macOS'
         env:
