@@ -49,11 +49,14 @@ pub(super) fn recover(envelope: &Envelope) -> Result<Option<Zeroizing<[u8; 32]>>
     #[cfg(target_os = "macos")]
     if blob.starts_with(b"v10") {
         for application in APPLICATIONS {
-            if let Ok(password) = security_framework::passwords::get_generic_password(
-                &format!("{application} Safe Storage"),
-                application,
-            ) {
-                let password = Zeroizing::new(password);
+            if let Ok((password, _item)) =
+                security_framework::os::macos::passwords::find_generic_password(
+                    None,
+                    &format!("{application} Safe Storage"),
+                    application,
+                )
+            {
+                let password = Zeroizing::new(password.as_ref().to_vec());
                 if let Ok(key) = candidate(envelope, &blob, &password, 1003) {
                     return Ok(Some(key));
                 }
