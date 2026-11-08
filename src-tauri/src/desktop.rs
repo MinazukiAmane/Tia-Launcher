@@ -875,10 +875,14 @@ pub fn run() {
                 } else {
                     "tia-launcher-bootstrap"
                 });
-            #[cfg(debug_assertions)]
+            #[cfg(any(debug_assertions, feature = "migration-test"))]
             let directory = {
                 let args: Vec<_> = std::env::args().collect();
                 if let Some(index) = args.iter().position(|a| a == "--profile") {
+                    #[cfg(all(feature = "migration-test", not(debug_assertions)))]
+                    if !app.config().identifier.ends_with(".preview") {
+                        return Err("Isolated profiles require a preview test build.".into());
+                    }
                     PathBuf::from(
                         args.get(index + 1)
                             .ok_or_else(|| anyhow::anyhow!("Missing preview profile."))?,

@@ -1,7 +1,7 @@
 const { app, safeStorage } = require('electron')
 const { DatabaseSync } = require('node:sqlite')
 const { randomBytes, createCipheriv, createDecipheriv, pbkdf2Sync, createHmac, createHash } = require('node:crypto')
-const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } = require('node:fs')
+const { mkdtempSync, writeFileSync, readFileSync, rmSync } = require('node:fs')
 const { tmpdir } = require('node:os')
 const { resolve, join } = require('node:path')
 const { spawn } = require('node:child_process')
@@ -11,9 +11,7 @@ const helper = resolve(process.argv[scriptIndex + 1])
 const backend = process.argv[scriptIndex + 2]
 const temporary = mkdtempSync(join(tmpdir(),'tia-key-recovery-'))
 const nativeBinary=process.env.TIA_MACOS_NATIVE_BINARY
-const nativeHome=join(temporary,'home')
-const profile=process.platform==='darwin' && nativeBinary ? join(nativeHome,'Library','Application Support','tia-launcher-preview') : temporary
-mkdirSync(profile,{recursive:true,mode:0o700})
+const profile=temporary
 app.setName('tia-launcher')
 app.setPath('userData',profile)
 app.disableHardwareAcceleration()
@@ -60,7 +58,7 @@ app.whenReady().then(async()=>{
   if (process.platform==='darwin' && nativeBinary) {
    const {startMigratedAppImage}=require('../../migration/electron/appImageStartup')
    for (let attempt=0;attempt<2;attempt++) {
-    const {pid}=await startMigratedAppImage(resolve(nativeBinary),[],{...process.env,HOME:nativeHome},90_000,message=>process.stderr.write(message))
+    const {pid}=await startMigratedAppImage(resolve(nativeBinary),['--profile',profile],process.env,90_000,message=>process.stderr.write(message))
     try {
      const saved=JSON.parse(readFileSync(join(profile,'launcher.tauri.key'),'utf8'))
      assert.equal(saved.mode,'keychain','The main app must protect its own key after handoff')
