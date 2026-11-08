@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
-import { chmod, mkdtemp, readFile, readdir, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, readdir, realpath, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readAppImageContext, replaceAppImage } from '../../migration/electron/appImageMigration'
@@ -9,7 +9,7 @@ const directories: string[] = []
 afterEach(async () => { await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true }))) })
 const unix = process.platform !== 'win32'
 async function fixture() {
-  const directory = await mkdtemp(join(tmpdir(), 'tia-appimage-')); directories.push(directory)
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'tia-appimage-'))); directories.push(directory)
   const path = join(directory, 'My Tia Launcher.AppImage')
   const download = join(directory, 'download.AppImage')
   const payload = Buffer.concat([Buffer.from([0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0x41, 0x49, 2, 0]), Buffer.from('new launcher')])

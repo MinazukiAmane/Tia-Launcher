@@ -3,6 +3,7 @@ use anyhow::{Result, bail};
 use cbc::cipher::{BlockDecryptMut, KeyIvInit, block_padding::Pkcs7};
 use zeroize::Zeroizing;
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 const APPLICATIONS: [&str; 3] = ["Tia Launcher", "tia-launcher", "tia-launcher-bootstrap"];
 
 fn decrypt(blob: &[u8], password: &[u8], iterations: u32) -> Result<Zeroizing<Vec<u8>>> {
@@ -26,6 +27,7 @@ fn candidate(
     verified_key(envelope, std::str::from_utf8(&plain)?)
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(super) fn recover(envelope: &Envelope) -> Result<Option<Zeroizing<[u8; 32]>>> {
     use base64::Engine;
     if envelope.version != 1 || !envelope.migrated {
