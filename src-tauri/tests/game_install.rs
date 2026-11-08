@@ -370,13 +370,12 @@ sleep 0.2
 
 #[cfg(windows)]
 #[tokio::test]
+#[ignore = "requires the first-party Windows clients and native runtime fixtures"]
 async fn windows_real_native_helpers_initialize_both_architectures_and_forward_options() {
-    let Some(fixture_root) = std::env::var_os("TIA_NATIVE_FIXTURE_DIR") else {
-        return;
-    };
-    let Some(resources) = std::env::var_os("TIA_NATIVE_RESOURCE_DIR") else {
-        return;
-    };
+    let fixture_root = std::env::var_os("TIA_NATIVE_FIXTURE_DIR")
+        .expect("TIA_NATIVE_FIXTURE_DIR must point to the first-party clients");
+    let resources = std::env::var_os("TIA_NATIVE_RESOURCE_DIR")
+        .expect("TIA_NATIVE_RESOURCE_DIR must point to the native runtime resources");
     for architecture in ["x86", "x64"] {
         let directory = tempfile::tempdir().unwrap();
         let root = directory.path().join("Game");

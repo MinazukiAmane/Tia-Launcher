@@ -66,6 +66,22 @@ jobs:
       - name: Test real Electron safeStorage compatibility
         if: runner.os == 'Windows'
         run: npx electron migration/windows/electron-key-smoke.cjs src-tauri/target/debug/tia-migration-helper.exe
+      - name: Test real Windows client startup for x86 and x64
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $fixture = Join-Path $env:RUNNER_TEMP 'tia-native-clients'
+          $resources = Join-Path $fixture 'resources'
+          New-Item -ItemType Directory -Force (Join-Path $resources 'client-runtime') | Out-Null
+          Copy-Item 'build/native/csore-start-*.exe' (Join-Path $resources 'client-runtime')
+          foreach ($architecture in @('x86', 'x64')) {
+            $target = if ($architecture -eq 'x86') { 'x86-windows-gnu' } else { 'x86_64-windows-gnu' }
+            & zig cc -target $target -O2 -s -municode '-Wl,--subsystem,windows' migration/windows/client-fixture.c -lshell32 -o (Join-Path $fixture "client-$architecture.exe")
+            if ($LASTEXITCODE -ne 0) { throw "Could not build the $architecture first-party client fixture" }
+          }
+          $env:TIA_NATIVE_FIXTURE_DIR = $fixture
+          $env:TIA_NATIVE_RESOURCE_DIR = $resources
+          cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --test game_install windows_real_native_helpers_initialize_both_architectures_and_forward_options -- --ignored --exact
       - name: Test Linux key recovery from real Electron
         if: runner.os == 'Linux'
         run: python3 migration/tests/run-linux-key-recovery.py
