@@ -45,9 +45,9 @@ fn main() {
         std::io::stdout().write_all(b"\n")?;
         Ok(())
     })();
-    if result.is_err() {
+    if let Err(error) = result {
         eprintln!(
-            "Migration could not be verified. Original launcher data has not been replaced. Stage: {stage}."
+            "Migration could not be verified. Original launcher data has not been replaced. Stage: {stage}. {error}"
         );
         std::process::exit(1)
     }

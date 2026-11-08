@@ -48,20 +48,27 @@ pub(super) fn recover(envelope: &Envelope) -> Result<Option<Zeroizing<[u8; 32]>>
     }
     #[cfg(target_os = "macos")]
     if blob.starts_with(b"v10") {
+        let mut lookup_status = Vec::new();
         for application in APPLICATIONS {
-            if let Ok((password, _item)) =
-                security_framework::os::macos::passwords::find_generic_password(
-                    None,
-                    &format!("{application} Safe Storage"),
-                    application,
-                )
-            {
-                let password = Zeroizing::new(password.as_ref().to_vec());
-                if let Ok(key) = candidate(envelope, &blob, &password, 1003) {
-                    return Ok(Some(key));
+            match security_framework::os::macos::passwords::find_generic_password(
+                None,
+                &format!("{application} Safe Storage"),
+                application,
+            ) {
+                Ok((password, _item)) => {
+                    let password = Zeroizing::new(password.as_ref().to_vec());
+                    if let Ok(key) = candidate(envelope, &blob, &password, 1003) {
+                        return Ok(Some(key));
+                    }
+                    lookup_status.push(format!("{application}: authentication failed"));
                 }
+                Err(error) => lookup_status.push(format!("{application}: {}", error.code())),
             }
         }
+        bail!(
+            "Legacy macOS key could not be verified ({})",
+            lookup_status.join(", ")
+        )
     }
     Ok(None)
 }
