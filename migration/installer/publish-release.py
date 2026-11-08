@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 
@@ -14,7 +15,10 @@ def publish(directory, bucket, endpoint, region):
     manifest = json.loads((root / "native/latest.json").read_text())
     if not manifest.get("platforms") or not manifest.get("version", "").startswith("2."):
         raise ValueError("Missing validated native release manifest")
-    client = boto3.client("s3", endpoint_url=endpoint, region_name=region)
+    client = boto3.client("s3", endpoint_url=endpoint, region_name=region, config=Config(
+        signature_version="s3v4", request_checksum_calculation="when_required",
+        response_checksum_validation="when_required", connect_timeout=10, read_timeout=120,
+        retries={"max_attempts": 3, "mode": "standard"}))
     artifacts, bridge_feeds, feeds = [], [], []
     for path in sorted(root.rglob("*")):
         if path.is_symlink():

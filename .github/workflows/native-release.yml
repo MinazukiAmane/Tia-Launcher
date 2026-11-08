@@ -176,5 +176,6 @@ jobs:
           TIA_S3_BUCKET: ${{ secrets.TIA_S3_BUCKET }}
           TIA_S3_ENDPOINT: ${{ secrets.TIA_S3_ENDPOINT }}
         run: |
-          python3 -m pip install --disable-pip-version-check boto3
-          python3 migration/installer/publish-release.py release/publish
+          python3 -m venv "$RUNNER_TEMP/tia-release-publisher"
+          "$RUNNER_TEMP/tia-release-publisher/bin/python" -m pip install --disable-pip-version-check --require-hashes -r migration/installer/publisher-requirements.txt
+          "$RUNNER_TEMP/tia-release-publisher/bin/python" migration/installer/publish-release.py release/publish

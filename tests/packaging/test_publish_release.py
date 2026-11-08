@@ -37,6 +37,7 @@ class PublishReleaseTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.storage = Storage()
         modules = {"boto3": types.SimpleNamespace(client=lambda *args, **kwargs: self.storage),
+                   "botocore.config": types.SimpleNamespace(Config=lambda **kwargs: kwargs),
                    "botocore.exceptions": types.SimpleNamespace(ClientError=ClientError)}
         with patch.dict(sys.modules, modules):
             spec = importlib.util.spec_from_file_location("publish_release", Path(__file__).parents[2] / "migration/installer/publish-release.py")
