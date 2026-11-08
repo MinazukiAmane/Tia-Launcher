@@ -13,6 +13,8 @@ jobs:
         os: [ubuntu-24.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Configure Git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
         with:
@@ -67,7 +69,9 @@ jobs:
       - name: Test macOS Electron key handoff
         if: runner.os == 'macOS'
         run: bash migration/tests/run-macos-key-recovery.sh
-      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Check Windows desktop build
+        if: runner.os == 'Windows'
+        run: cargo check --manifest-path src-tauri/Cargo.toml
       - name: Build Linux AppImage
         if: runner.os == 'Linux'
         env:
@@ -111,6 +115,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
+      - name: Configure Git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v7.0.1
       - name: Prepare clean Nix source
         run: |

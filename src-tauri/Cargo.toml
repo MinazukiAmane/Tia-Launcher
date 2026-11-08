@@ -55,7 +55,7 @@ url = "2"
 walkdir = "2"
 shell-words = "1"
 dirs = "6"
-tauri = { version = "2.11", optional = true, features = ["tray-icon", "protocol-asset"] }
+tauri = { version = "~2.11.6", optional = true, features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-dialog = { version = "2", optional = true }
 tauri-plugin-opener = { version = "2", optional = true }
 tauri-plugin-updater = { version = "2", optional = true }
