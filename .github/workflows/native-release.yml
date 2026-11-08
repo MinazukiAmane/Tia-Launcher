@@ -19,9 +19,6 @@ on:
         description: Publish validated artifacts and live update feeds
         type: boolean
         default: false
-  push:
-    branches: [tauri-migration]
-    paths: [.github/workflows/native-release.yml]
 permissions:
   contents: read
 concurrency:
@@ -92,7 +89,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           TIA_MIGRATION_SIGNING_KEY: ${{ secrets.TIA_MIGRATION_SIGNING_KEY }}
-          TIA_ASAR_KEY: ${{ secrets.TIA_ASAR_KEY }}
           TIA_OFFICIAL_MACOS: ${{ inputs.publish && '1' || '0' }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
@@ -128,6 +124,9 @@ jobs:
   assemble:
     needs: [build, checks]
     runs-on: ubuntu-24.04
+    concurrency:
+      group: ${{ inputs.publish && 'tia-launcher-production-publish' || format('native-assemble-{0}', github.run_id) }}
+      cancel-in-progress: false
     steps:
       - name: Configure Git default branch
         run: git config --global init.defaultBranch main

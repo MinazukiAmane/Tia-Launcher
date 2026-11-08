@@ -30,7 +30,8 @@ def publish(directory, bucket, endpoint, region):
             feeds.append((path, key))
         else:
             artifacts.append((path, key))
-    # Immutable payloads and bridge pointers must exist before changing live feeds.
+    # Publish the native marker before retiring the legacy feed.
+    feeds.sort(key=lambda item: item[1] != "native/latest.json")
     for path, key in artifacts + bridge_feeds + feeds:
         with path.open("rb") as source:
             digest = hashlib.file_digest(source, "sha256").hexdigest()

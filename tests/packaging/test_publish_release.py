@@ -60,6 +60,7 @@ class PublishReleaseTests(unittest.TestCase):
         keys = [item["Key"] for item in self.storage.uploaded]
         self.assertLess(keys.index("native/2.0.0/app.exe"), keys.index("bridge/1.19.0/latest.yml"))
         self.assertLess(keys.index("bridge/1.19.0/latest.yml"), keys.index("latest.yml"))
+        self.assertLess(keys.index("native/latest.json"), keys.index("latest.yml"))
         for item in self.storage.uploaded:
             immutable = item["Key"].startswith(("native/2.0.0/", "bridge/"))
             self.assertEqual(item.get("IfNoneMatch"), "*" if immutable else None)
