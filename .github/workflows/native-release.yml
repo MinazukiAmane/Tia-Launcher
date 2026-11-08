@@ -36,7 +36,6 @@ jobs:
     uses: ./.github/workflows/migration-check.yml
     secrets: inherit
   build:
-    needs: checks
     strategy:
       fail-fast: false
       matrix:
@@ -114,7 +113,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   assemble:
-    needs: build
+    needs: [build, checks]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7.0.1

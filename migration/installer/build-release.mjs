@@ -97,7 +97,7 @@ try {
     helper = join(root,'release/tia-migration-helper')
     execute('/usr/bin/lipo',['-create',...['aarch64-apple-darwin','x86_64-apple-darwin'].map(target=>join(root,`src-tauri/target/${target}/release/tia-migration-helper`)),'-output',helper])
     execute('/usr/bin/codesign',['--force','--options','runtime','--sign',official?process.env.APPLE_SIGNING_IDENTITY:'-',helper])
-    platforms = ['macos-x64','macos-arm64']; feed = 'latest-mac.yml'; bridgeTargets = Platform.MAC.createTarget('dmg',Arch.universal)
+    platforms = ['macos-x64','macos-arm64']; feed = 'latest-mac.yml'; bridgeTargets = Platform.MAC.createTarget(['dmg','zip'],Arch.universal)
   }
   if (!nativeOnly) {
   const pins = JSON.parse(await readFile(join(root,'src/shared/migrationKeys.json'),'utf8'))
@@ -120,12 +120,12 @@ try {
       {from:'build/icon.png',to:'icon.png'},
       {from:join(resources,'resources/migration'),to:'migration'}
     ],
-    artifactName:`Tia-Launcher-${bridgeVersion}-${platform === 'win32'?'win-x64.exe':platform === 'linux'?'linux-x86_64.AppImage':'mac-universal.dmg'}`,
+    artifactName:`Tia-Launcher-${bridgeVersion}-${platform === 'win32'?'win-x64.exe':platform === 'linux'?'linux-x86_64.AppImage':'mac-universal.${ext}'}`,
     publish:{provider:'generic',url:`https://tia-launcher.serenetia.com/api/updates/bridge/${bridgeVersion}`},
     ...(platform==='darwin'?{mac:{identity:process.env.TIA_OFFICIAL_MACOS==='1'?process.env.APPLE_SIGNING_IDENTITY:null}}:{})
   }
   await build({config:builder,targets:bridgeTargets,publish:'never'})
-  const suffix = platform==='win32'?'.exe':platform==='linux'?'.AppImage':'.dmg'
+  const suffix = platform==='win32'?'.exe':platform==='linux'?'.AppImage':'.zip'
   const bridge = await find(join(root,'release/bridge'),suffix)
   const name = bridge.split(/[\\/]/).at(-1)
   await copyFile(bridge,join(output,name)); definitions.bridge.push({file:name,feed})
