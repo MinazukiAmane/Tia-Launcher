@@ -21,6 +21,7 @@ export async function buildWindowsPackage({binary,output,version,flavor='product
  output=resolve(output);await mkdir(output,{recursive:true})
  const temporary=await mkdtemp(join(output,'.windows-')),stage=join(temporary,'stage')
  await mkdir(stage,{recursive:true})
+ await mkdir(join(stage,'resources'),{recursive:true})
  try{
   const bootstrap=join(root,'build/webview2/MicrosoftEdgeWebview2Setup.exe');await stat(bootstrap)
   await copyFile(resolve(binary),join(stage,identity.productName+'.exe'))
