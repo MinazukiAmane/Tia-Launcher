@@ -62,3 +62,12 @@ it('publishes later native updates without replacing the frozen Electron bridge'
   await expect(readFile(join(options.output,'latest.yml'))).rejects.toMatchObject({code:'ENOENT'})
   await expect(readFile(join(options.output,'bridge/1.19.0/latest.yml'))).rejects.toMatchObject({code:'ENOENT'})
 })
+
+it('keeps immutable bridge metadata identical when retrying the same release',async()=>{
+  const {root,definitions,options} = await fixture()
+  await writeFile(join(root,'release-artifacts.json'),JSON.stringify({...definitions,metadata:{version:'2.0.0',bridgeVersion:'1.19.0',commit:'a'.repeat(40),releaseDate:'2026-11-09T00:00:00.000Z'}}))
+  await releaseLayout({...options,now:new Date('2026-11-09T01:00:00Z')})
+  const first=await readFile(join(options.output,'bridge/1.19.0/latest.yml'),'utf8')
+  await releaseLayout({...options,now:new Date('2026-11-10T01:00:00Z')})
+  expect(await readFile(join(options.output,'bridge/1.19.0/latest.yml'),'utf8')).toBe(first)
+})

@@ -14,6 +14,7 @@ const [version, bridgeVersion, mode = 'migration'] = process.argv.slice(2)
 const nativeOnly = mode === 'native'
 if (!['native','migration'].includes(mode)) throw new Error('Unknown release mode.')
 if (!/^2\.\d+\.\d+$/.test(version) || !/^1\.\d+\.\d+$/.test(bridgeVersion)) throw new Error('Expected stable native 2.x and bridge 1.x versions.')
+if (JSON.parse(await readFile(join(root,'package.json'),'utf8')).version!==version) throw new Error('Bump the source version before creating a release so Nix and native packages stay consistent.')
 const platform = process.platform
 if (!['win32','linux','darwin'].includes(platform) || process.arch !== 'x64' && platform !== 'darwin') throw new Error('Unsupported release builder.')
 for (const name of ['TAURI_SIGNING_PRIVATE_KEY',...(!nativeOnly?['TIA_MIGRATION_SIGNING_KEY']:[])]) if (!process.env[name]) throw new Error(`Missing release secret: ${name}`)
@@ -31,7 +32,9 @@ async function replace(path, transform) {
   const original = await readFile(path,'utf8'); originals.set(path,original)
   await writeFile(path,transform(original))
 }
-const definitions = {native:[],migration:[],bridge:[],downloads:[]}
+const git = (...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8'}).trim()
+const metadata = {version,bridgeVersion,commit:git('rev-parse','HEAD'),releaseDate:new Date(git('show','-s','--format=%cI','HEAD')).toISOString()}
+const definitions = {metadata,native:[],migration:[],bridge:[],downloads:[]}
 async function artifact(source, name, targets, bridgeFeed) {
   const file = join(output,name); await copyFile(source,file)
   cli('signer','sign','--app-version',version,file)

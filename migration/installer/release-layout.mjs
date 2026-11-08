@@ -21,6 +21,11 @@ export async function releaseLayout({ input, output, version, bridgeVersion, bas
   const artifactURL = path => `${base.replace(/\/$/, '')}/${path.split('/').map(encodeURIComponent).join('/')}`
   const platforms = {}, bridgeFeeds = {}, rootFeeds = {}, checksums = []
   const definitions = JSON.parse(await readFile(join(root, 'release-artifacts.json'), 'utf8'))
+  if (definitions.metadata) {
+    if (definitions.metadata.version!==version || definitions.metadata.bridgeVersion!==bridgeVersion) throw new Error('Release metadata does not match the requested versions.')
+    now = new Date(definitions.metadata.releaseDate)
+  }
+  if (!Number.isFinite(now.getTime())) throw new Error('Invalid release timestamp.')
   async function stage(name, path) {
     if (typeof name !== 'string' || basename(name) !== name || !/^[A-Za-z0-9._-]+$/.test(name)) throw new Error('Invalid artifact filename.')
     const source = join(root, name), metadata = await hashFile(source)

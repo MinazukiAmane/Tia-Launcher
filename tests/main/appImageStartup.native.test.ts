@@ -1,16 +1,24 @@
 import { expect, it } from 'vitest'
 import { createHash, createHmac, randomBytes } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { DatabaseCipher } from '../../src/main/databaseCipher'
 import { startMigratedAppImage } from '../../migration/electron/appImageStartup'
 import { readAppImageContext, replaceAppImage } from '../../migration/electron/appImageMigration'
 
 it.skipIf(process.env.TIA_NATIVE_STARTUP_SMOKE !== '1' || process.platform !== 'linux')('receives readiness from the real Tauri WebView after reading existing encrypted preferences', async () => {
- const profile = await mkdtemp(join(tmpdir(), 'tia-native-startup-'))
+ const production = process.env.TIA_NATIVE_PRODUCTION_STARTUP === '1'
+ if (production && !process.env.XDG_CONFIG_HOME) throw new Error('Production startup tests require an isolated XDG configuration directory.')
+ const profile = production ? join(process.env.XDG_CONFIG_HOME!, 'tia-launcher-bootstrap') : await mkdtemp(join(tmpdir(), 'tia-native-startup-'))
+ if (production) {
+  const temporary = dirname(await realpath(process.env.XDG_CONFIG_HOME!))
+  if (!basename(temporary).startsWith('tia-native-desktop-') || ((await lstat(temporary)).mode&0o077)!==0) throw new Error('Refusing a configuration directory outside the private desktop test harness.')
+  await lstat(profile).then(()=>{throw new Error('Refusing to overwrite an existing launcher profile.')},error=>{if(error.code!=='ENOENT')throw error})
+ }
+ await mkdir(profile,{recursive:true,mode:0o700})
  let pid: number | undefined
  try {
   const key = randomBytes(32), data = key.toString('base64')
@@ -33,7 +41,7 @@ it.skipIf(process.env.TIA_NATIVE_STARTUP_SMOKE !== '1' || process.platform !== '
    WEBKIT_DISABLE_COMPOSITING_MODE:'1'
   }
   const launch = async (path: string): Promise<void> => {
-   const result = await startMigratedAppImage(path, ['--profile', profile], environment, 60_000, message => process.stderr.write(message))
+   const result = await startMigratedAppImage(path, production ? [] : ['--profile', profile], environment, 60_000, message => process.stderr.write(message))
    pid = result.pid
   }
   if (binary.endsWith('.AppImage')) {

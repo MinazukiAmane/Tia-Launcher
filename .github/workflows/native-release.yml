@@ -56,7 +56,7 @@ jobs:
           cache-on-failure: true
       - name: Install Linux packaging dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libarchive-tools zstd gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libarchive-tools zstd xvfb gnome-keyring dbus-x11 at-spi2-core pipewire rtkit xdg-desktop-portal-gtk gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
       - uses: actions/checkout@v7.0.1
         with:
           repository: MinazukiAmane/Tia-Launcher-Helpers
@@ -105,6 +105,14 @@ jobs:
       - name: Remove temporary signing material
         if: always() && runner.os == 'macOS' && inputs.publish
         run: python3 migration/installer/prepare-apple-signing.py --cleanup
+      - name: Test production AppImage readiness and rollback
+        if: runner.os == 'Linux'
+        env:
+          TIA_NATIVE_STARTUP_SMOKE: '1'
+          TIA_NATIVE_PRODUCTION_STARTUP: '1'
+        run: |
+          export TIA_NATIVE_STARTUP_BINARY="$PWD/release/candidate/Tia-Launcher-$NATIVE_VERSION-linux-x86_64.AppImage"
+          python3 migration/tests/run-linux-native-smoke.py
       - name: Package isolated Windows installation test
         if: runner.os == 'Windows'
         run: node migration/installer/build-windows-package.mjs src-tauri/target/release/tia-launcher.exe release/windows-install-test "${{ env.NATIVE_VERSION }}" --test
