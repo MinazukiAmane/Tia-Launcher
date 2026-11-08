@@ -26,3 +26,4 @@ build/native/*.exe
 /migration/STATUS.md
 
 .zig-cache/
+/src-tauri/gen/

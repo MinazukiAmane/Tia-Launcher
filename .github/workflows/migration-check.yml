@@ -57,7 +57,7 @@ jobs:
         if: runner.os == 'macOS'
         run: npx tauri icon build/icon.png --output src-tauri/icons
       - run: cargo test --manifest-path src-tauri/Cargo.toml --no-default-features
-      - run: cargo build --manifest-path src-tauri/Cargo.toml --no-default-features --bin tia-migration-helper
+      - run: cargo build --manifest-path src-tauri/Cargo.toml --no-default-features --features migration-helper --bin tia-migration-helper
       - name: Test encrypted database handoff
         run: npx vitest run --maxWorkers=2
       - name: Test real Electron safeStorage compatibility

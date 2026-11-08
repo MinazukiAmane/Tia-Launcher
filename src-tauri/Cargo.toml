@@ -17,9 +17,11 @@ required-features = ["desktop"]
 [[bin]]
 name = "tia-migration-helper"
 path = "src/bin/migration-helper.rs"
+required-features = ["migration-helper"]
 
 [features]
 default = ["desktop"]
+migration-helper = []
 desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-plugin-updater", "dep:tauri-plugin-single-instance"]
 
 [dependencies]

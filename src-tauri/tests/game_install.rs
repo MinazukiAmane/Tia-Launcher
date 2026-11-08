@@ -54,14 +54,10 @@ impl Server {
                     request.push(byte[0]);
                 }
                 let text = String::from_utf8_lossy(&request);
-                let path = text
-                    .split_whitespace()
-                    .nth(1)
-                    .unwrap_or("/")
-                    .split('?')
-                    .next()
-                    .unwrap()
-                    .to_owned();
+                let target = text.split_whitespace().nth(1).unwrap_or("/");
+                let path = url::Url::parse(target)
+                    .map(|url| url.path().to_owned())
+                    .unwrap_or_else(|_| target.split('?').next().unwrap_or("/").to_owned());
                 q.lock().unwrap().push(path.clone());
                 let item = r.lock().unwrap().get(&path).cloned();
                 if let Some((body, headers)) = item {
@@ -73,6 +69,7 @@ impl Server {
                     );
                     let _ = stream.write_all(&body);
                 } else {
+                    eprintln!("Test HTTP route not configured: {target}");
                     let _ = stream.write_all(
                         b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                     );
@@ -100,6 +97,13 @@ impl Drop for Server {
 }
 #[tokio::test]
 async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest() {
+    exercise_signed_install(false).await;
+}
+#[tokio::test]
+async fn signed_install_also_works_through_an_explicit_http_proxy() {
+    exercise_signed_install(true).await;
+}
+async fn exercise_signed_install(proxy: bool) {
     let server = Server::start();
     let directory = tempfile::tempdir().unwrap();
     let root = directory.path().join("Game");
@@ -137,13 +141,20 @@ async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest(
     let store = Arc::new(Mutex::new(
         Store::open(&directory.path().join("profile"), &[42; 32]).unwrap(),
     ));
-    let engine = Engine::with_keys(
+    let mut engine = Engine::with_keys(
         store,
         server.base.clone(),
         directory.path().join("resources"),
         vec![public],
     )
     .unwrap();
+    let client = reqwest::Client::builder().no_proxy();
+    let client = if proxy {
+        client.proxy(reqwest::Proxy::all(&server.base).unwrap())
+    } else {
+        client
+    };
+    Arc::get_mut(&mut engine).unwrap().client = client.build().unwrap();
     let game = Definition {
         biz: "csore_global".into(),
         executable: "Bin/client.exe".into(),
@@ -156,14 +167,14 @@ async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest(
             pause_control.pause();
         }
     });
-    assert_eq!(
-        engine
-            .update(&root, &game, pause_progress)
-            .await
-            .unwrap()
-            .status,
-        "paused"
+    let installed = engine.update(&root, &game, pause_progress).await;
+    assert!(
+        installed.is_ok(),
+        "initial install failed: {:?}; request paths: {:?}",
+        installed.as_ref().err(),
+        server.requests.lock().unwrap()
     );
+    assert_eq!(installed.unwrap().status, "paused");
     assert!(!engine.control.busy.load(Ordering::SeqCst));
     assert_eq!(
         engine
