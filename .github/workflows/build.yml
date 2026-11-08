@@ -94,18 +94,44 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    concurrency:
+      group: tia-launcher-production-publish
+      cancel-in-progress: false
 
     permissions:
       actions: write
       contents: read
     steps:
+      - name: Check whether Electron publication is retired
+        id: legacy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TIA_S3_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TIA_S3_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.TIA_S3_REGION }}
+          TIA_S3_BUCKET: ${{ secrets.TIA_S3_BUCKET }}
+          TIA_S3_ENDPOINT: ${{ secrets.TIA_S3_ENDPOINT }}
+        run: |
+          diagnostic="$(mktemp)"
+          trap 'rm -f "$diagnostic"' EXIT
+          if aws s3api head-object --bucket "$TIA_S3_BUCKET" --key native/latest.json \
+            --endpoint-url "$TIA_S3_ENDPOINT" >/dev/null 2>"$diagnostic"; then
+            echo 'allowed=false' >> "$GITHUB_OUTPUT"
+            echo 'Native migration is published; keeping the legacy bridge feed unchanged.'
+          elif rg -q '\(404\)|Not Found|NoSuchKey' "$diagnostic"; then
+            echo 'allowed=true' >> "$GITHUB_OUTPUT"
+          else
+            cat "$diagnostic"
+            exit 1
+          fi
       - uses: actions/download-artifact@v4
+        if: steps.legacy.outputs.allowed == 'true'
         with:
           pattern: installers-*
           merge-multiple: true
           path: installers
 
       - name: Upload installers to S3
+        if: steps.legacy.outputs.allowed == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TIA_S3_ACCESS_KEY }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TIA_S3_SECRET_KEY }}
@@ -123,7 +149,7 @@ jobs:
             --exclude "*" --include "latest*.yml" --no-progress
 
       - name: Delete build artifacts now that they're on S3
-        if: success()
+        if: success() && steps.legacy.outputs.allowed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -135,6 +161,7 @@ jobs:
           done
 
       - name: Warm CDN cache for published files
+        if: steps.legacy.outputs.allowed == 'true'
         env:
           UPDATES_BASE: ${{ vars.TIA_UPDATES_BASE }}
         run: |
