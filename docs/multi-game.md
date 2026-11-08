@@ -1,0 +1,130 @@
+# Tia 1.14: game profiles
+
+The launcher's API lookup uses `https://sg-tia-api.serenetia.com`. Requests select
+`game_biz=csore_global` or `game_biz=cedar_global`, and responses must contain a
+matching game entry before their package metadata is used.
+
+The sidebar selects CSO: Re-Server Edition or Silver Palace. The selected title
+is persisted. Switching is rejected while a game is starting/running or an
+install, verify, repair or move operation is active.
+
+Default installation folders are `Tia-CSORSE` and `Tia-SilverPalace`, created below
+the parent chosen by the player. A valid existing Silver Palace installation can
+be selected directly; its files are imported through the server repair manifest.
+Selected folders, installation confirmations and game launch options are saved
+per title. CSO's existing records retain their original locations. Install records
+for Silver Palace carry its game biz, preventing another profile from treating
+them as its own. Download/patch state is scoped to the installation path. Linux
+uses a separate Wine prefix for Silver Palace while sharing the Proton download.
+
+Silver Palace uses a separately implemented native bootstrap built from the
+existing private helper repository. Public Tia code contains its launch/report
+interface; it does not contain client offsets or runtime implementation scripts.
+Only its Windows GUI executable, runtime DLL and third-party license are included
+in installer resources. The build output directory is Git-ignored. No separate
+runtime artifact publication is added. Compiler diagnostics for private source
+are kept out of public CI output.
+
+The packaged runtime starts through the existing Windows/Proton/Sikarugir launch
+adapters and acknowledges success before Tia treats it as launched. Startup
+errors are returned to Tia. Native fixture tests exercise the silent executable,
+argument preservation, Unicode paths, initialization failure and unsupported-build
+handling. These tests do not establish full game or native Windows/macOS graphics
+compatibility; a real supported client still needs a device test.
+
+The Silver Palace image and optimized video are local assets; see media-sources.md.
+CSO media and game-specific options stay with the CSO profile. Launcher-wide
+settings, including user-selected custom backgrounds, remain shared.
+
+For an existing installation, select the directory containing `SilverPalace/`
+(and its Binaries/Win64 executable). The server's published repair manifest must
+be available. Import verifies existing assets once and downloads only missing or
+corrupt assets when Repair is used. Play reuses successful hashes for unchanged
+files; it does not rescan unknown files or delete extras. Logs are ignored.
+Silver Palace's `SilverPalace/Saved/`, `Engine/Saved/` and root/project/engine
+`DerivedDataCache/` trees are excluded even if an uploaded package accidentally
+contained them. Content, packaged Config, binaries and plugins remain checked.
+Runtime data in the user's AppData or Proton prefix is outside the install check.
+
+
+Silver Palace announcements use the same public notice feed as the game's Roze
+bulletin board. Its endpoint is supplied by the existing private-helper build in
+`launcher-services.json`, whitelisted as a data-only resource. Public launcher
+source and renderer IPC do not carry the endpoint. This keeps it out of the UI
+and public repository; it is not a secret once installed or used on a network.
+
+The main process independently polls every 15 minutes and refreshes on opening the
+Silver Palace page or pressing refresh. It enforces the notice schedule, removes
+deleted notices, orders priority/newest first, and retains the last good feed if
+a refresh fails. A successful empty feed clears old notices. The reader uses the
+launcher's selected language, then English, then the first available translation.
+Roze currently provides English, Simplified/Traditional Chinese, Japanese and
+Korean; Indonesian and Javanese fall back to English until the server adds them.
+
+Notices, Events and News are displayed on the Silver Palace page. Clicking a row
+opens Tia's own styled, scrollable reader with title, date and full content. It
+never opens the system browser, embeds a remote website, or executes notice HTML.
+The source's Unreal rich text is converted to ordinary text before React renders
+it. CSO continues to use its existing news provider and external article links.
+
+
+The lower-left grid opens the game library. Hovering or focusing a library card
+previews that title's local background without changing the active game or saved
+installation. Clicking the card opens that title's home page. The prior home page
+stays mounted while the library is visible, with its video paused and controls
+inert. Game switching and library entry remain disabled during active operations.
+Sidebar game icons show custom name tooltips and a white hover/selection frame.
+The upper-right gear remains the launcher-settings entry point.
+
+
+Notice artwork is optional launcher-only metadata from Roze. Tia opts in with
+`client=tia`, fetches only local `/notice-images/` paths from the configured
+service origin, validates PNG/JPEG/WebP signatures and bounded sizes, and passes
+image data to the renderer without the service URL. Image failures leave the
+notice text usable. The panel uses the CSO layout: large artwork on the left and
+categorized titles on the right. Illustrated notices rotate every five seconds,
+with hover/focus and an open reader pausing rotation; dots select a slide. Clicking
+the large image opens the corresponding internal detail reader and its full image.
+When no category images exist, local Silver Palace artwork is used as a fallback.
+
+
+Silver Palace discovery appears once for every profile that has not answered it,
+including first installs and existing users after updating. Both Interested and
+No thanks persist globally in the launcher database, so relaunching or switching
+games does not ask again. Interested opens a local illustrated overview. Visiting
+the Silver Palace page selects the game without starting an installation. The
+prompt waits for the launcher's version check and active operations to finish.
+Its text follows the launcher language.
+
+The overview is based on official game information:
+https://silverpalace.elementagames.com/en-us/newsDetail?id=1 and
+https://store.playstation.com/en-us/concept/10015692/ .
+
+DWProton keeps Tia's existing download and launch system. It is not included in
+the installer. The existing Dawn release API selects the current runtime, reuses
+an installed matching release for both games, and falls back to an installed
+runtime if release lookup fails. At verification on 2026-10-26 that API returned
+`dwproton-11.0-15`, already installed on the development device. There is no new
+version pin or alternate game execution path. The per-game Wine prefixes remain
+separate while sharing the runtime binaries.
+
+
+The illustrated overview now has separate sections for Silverium and the city,
+the detective role, companion combat and life beyond casework, with the expanded
+text translated into every supported launcher language. The copy scrolls while
+the action buttons stay visible; expanding the article does not reset an answer
+that was already saved.
+
+### Shared DWProton upgrades
+
+Linux uses one `runtimes/proton` cache for all games. Re-download checks fresh
+release metadata, installs the newest release, transfers `user_settings.py`,
+`dxvk.conf` and `vkd3d-proton.conf` when present, and then removes older engine
+versions. Existing overrides in the destination take precedence. Bundled engine
+files and protonfixes come from the new release. The installed version shown in
+Settings uses numeric version ordering and ignores incomplete installations.
+
+Each game's Wine prefix and launcher settings remain separate and are reused.
+A failed download, verification or settings transfer keeps the old engine.
+Re-downloading the same release also preserves its custom overrides. Runtime
+replacement is blocked while a game is running or starting.

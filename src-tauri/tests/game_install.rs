@@ -1,0 +1,398 @@
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use ed25519_dalek::{Signer, SigningKey, pkcs8::EncodePublicKey};
+use md5::{Digest, Md5};
+use serde_json::json;
+use std::{
+    collections::HashMap,
+    io::{Read, Write},
+    net::TcpListener,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
+    time::Duration,
+};
+use tia_launcher::{
+    game::{engine::Engine, model::Definition},
+    manifest::PublicKey,
+    store::Store,
+};
+fn hash(bytes: &[u8]) -> String {
+    hex::encode(Md5::digest(bytes))
+}
+struct Server {
+    base: String,
+    routes: Arc<Mutex<HashMap<String, (Vec<u8>, String)>>>,
+    requests: Arc<Mutex<Vec<String>>>,
+    stop: Arc<AtomicBool>,
+}
+impl Server {
+    fn start() -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let routes = Arc::new(Mutex::new(HashMap::<String, (Vec<u8>, String)>::new()));
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let stop = Arc::new(AtomicBool::new(false));
+        let (r, q, s) = (routes.clone(), requests.clone(), stop.clone());
+        thread::spawn(move || {
+            while !s.load(Ordering::SeqCst) {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    thread::sleep(Duration::from_millis(5));
+                    continue;
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut byte = [0];
+                while !request.ends_with(b"\r\n\r\n") && request.len() < 16384 {
+                    if stream.read(&mut byte).unwrap_or(0) == 0 {
+                        break;
+                    }
+                    request.push(byte[0]);
+                }
+                let text = String::from_utf8_lossy(&request);
+                let path = text
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap_or("/")
+                    .split('?')
+                    .next()
+                    .unwrap()
+                    .to_owned();
+                q.lock().unwrap().push(path.clone());
+                let item = r.lock().unwrap().get(&path).cloned();
+                if let Some((body, headers)) = item {
+                    let _ = write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n",
+                        body.len(),
+                        headers
+                    );
+                    let _ = stream.write_all(&body);
+                } else {
+                    let _ = stream.write_all(
+                        b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    );
+                }
+            }
+        });
+        Self {
+            base,
+            routes,
+            requests,
+            stop,
+        }
+    }
+    fn put(&self, path: &str, body: Vec<u8>, headers: String) {
+        self.routes
+            .lock()
+            .unwrap()
+            .insert(path.into(), (body, headers));
+    }
+}
+impl Drop for Server {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+    }
+}
+#[tokio::test]
+async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest() {
+    let server = Server::start();
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("Game");
+    std::fs::create_dir(&root).unwrap();
+    let content = b"first-party test client";
+    let mut archive = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    archive
+        .start_file("Bin/client.exe", zip::write::SimpleFileOptions::default())
+        .unwrap();
+    archive.write_all(content).unwrap();
+    let bytes = archive.finish().unwrap().into_inner();
+    let midpoint = bytes.len() / 2;
+    for (index, part) in [&bytes[..midpoint], &bytes[midpoint..]].iter().enumerate() {
+        server.put(&format!("/part{index}"), part.to_vec(), String::new());
+    }
+    server.put("/repair", content.to_vec(), String::new());
+    let key = SigningKey::from_bytes(&[31; 32]);
+    let public = PublicKey {
+        id: "test-key".into(),
+        public_key: key
+            .verifying_key()
+            .to_public_key_pem(Default::default())
+            .unwrap(),
+    };
+    let manifest=serde_json::to_vec(&json!({"version":"1.0","repair_supported":true,"files":[{"path":"Bin/client.exe","size":content.len(),"md5":hash(content),"url":format!("{}/repair",server.base)}]})).unwrap();
+    let mut message = b"Tia version manifest v1\0csore_global\0".to_vec();
+    message.extend(&manifest);
+    let headers = format!(
+        "X-Tia-Manifest-Key: test-key\r\nX-Tia-Manifest-Game: csore_global\r\nX-Tia-Manifest-Signature: {}\r\n",
+        STANDARD.encode(key.sign(&message).to_bytes())
+    );
+    server.put("/manifest", manifest.clone(), headers);
+    let parts:Vec<_>=[&bytes[..midpoint],&bytes[midpoint..]].iter().enumerate().map(|(index,part)|json!({"url":format!("{}/part{index}",server.base),"md5":hash(part),"size":part.len().to_string()})).collect();
+    server.put("/api/launcher_info",serde_json::to_vec(&json!({"retcode":0,"data":{"game_packages":[{"game":{"biz":"csore_global"},"main":{"major":{"version":"1.0","game_pkgs":parts,"res_list_url":format!("{}/manifest",server.base)}}}]}})).unwrap(),String::new());
+    let store = Arc::new(Mutex::new(
+        Store::open(&directory.path().join("profile"), &[42; 32]).unwrap(),
+    ));
+    let engine = Engine::with_keys(
+        store,
+        server.base.clone(),
+        directory.path().join("resources"),
+        vec![public],
+    )
+    .unwrap();
+    let game = Definition {
+        biz: "csore_global".into(),
+        executable: "Bin/client.exe".into(),
+        install_folder: "Tia-CSORSE".into(),
+    };
+    let progress = Arc::new(|_: &str, _: u64, _: u64| {});
+    let pause_control = engine.control.clone();
+    let pause_progress = Arc::new(move |phase: &str, processed: u64, _: u64| {
+        if phase == "downloading" && processed > 0 {
+            pause_control.pause();
+        }
+    });
+    assert_eq!(
+        engine
+            .update(&root, &game, pause_progress)
+            .await
+            .unwrap()
+            .status,
+        "paused"
+    );
+    assert!(!engine.control.busy.load(Ordering::SeqCst));
+    assert_eq!(
+        engine
+            .update(&root, &game, progress.clone())
+            .await
+            .unwrap()
+            .status,
+        "completed"
+    );
+    assert_eq!(std::fs::read(root.join("Bin/client.exe")).unwrap(), content);
+    assert!(engine.verify(&root, &game, true).await.unwrap().ok);
+    server.requests.lock().unwrap().clear();
+    std::fs::write(root.join("Bin/client.exe"), b"corrupted").unwrap();
+    assert_eq!(
+        engine
+            .repair(&root, &game, progress.clone())
+            .await
+            .unwrap()
+            .status,
+        "completed"
+    );
+    assert_eq!(std::fs::read(root.join("Bin/client.exe")).unwrap(), content);
+    let requests = server.requests.lock().unwrap().clone();
+    assert_eq!(
+        requests.iter().filter(|p| p.as_str() == "/repair").count(),
+        1
+    );
+    assert!(!requests.iter().any(|p| p.starts_with("/part")));
+    server.put("/manifest", manifest, String::new());
+    assert!(engine.update(&root, &game, progress).await.is_err());
+    assert!(!engine.control.busy.load(Ordering::SeqCst));
+    assert_eq!(std::fs::read(root.join("Bin/client.exe")).unwrap(), content);
+    let destination = directory.path().join("Moved Game");
+    std::fs::create_dir(&destination).unwrap();
+    std::fs::write(destination.join("unrelated.txt"), b"keep destination").unwrap();
+    assert!(
+        engine
+            .move_installation(
+                &root,
+                &destination,
+                &game,
+                "launcher",
+                Arc::new(|_, _, _| {})
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        std::fs::read(destination.join("unrelated.txt")).unwrap(),
+        b"keep destination"
+    );
+    std::fs::remove_file(destination.join("unrelated.txt")).unwrap();
+    let destination_scope = tia_launcher::paths::scope(&destination).unwrap();
+    engine
+        .store
+        .lock()
+        .unwrap()
+        .put(
+            &destination_scope,
+            "install",
+            &serde_json::json!({"version":"other"}),
+        )
+        .unwrap();
+    assert!(
+        engine
+            .move_installation(
+                &root,
+                &destination,
+                &game,
+                "launcher",
+                Arc::new(|_, _, _| {})
+            )
+            .await
+            .is_err()
+    );
+    assert!(root.join("Bin/client.exe").is_file());
+    assert!(std::fs::read_dir(&destination).unwrap().next().is_none());
+    engine
+        .store
+        .lock()
+        .unwrap()
+        .put(&destination_scope, "install", &serde_json::Value::Null)
+        .unwrap();
+    std::fs::write(root.join("personal.txt"), b"keep me").unwrap();
+    let moved = engine
+        .move_installation(
+            &root,
+            &destination,
+            &game,
+            "launcher",
+            Arc::new(|_, _, _| {}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(moved["installDir"], serde_json::json!(destination));
+    assert!(!root.exists());
+    assert_eq!(
+        std::fs::read(destination.join("Bin/client.exe")).unwrap(),
+        content
+    );
+    assert_eq!(
+        engine
+            .store
+            .lock()
+            .unwrap()
+            .get("launcher", "selectedInstallation")
+            .unwrap()
+            .unwrap()["installDir"],
+        serde_json::json!(destination)
+    );
+    engine
+        .uninstall_game(&destination, &game, "launcher")
+        .await
+        .unwrap();
+    assert!(!destination.join("Bin/client.exe").exists());
+    assert_eq!(
+        std::fs::read(destination.join("personal.txt")).unwrap(),
+        b"keep me"
+    );
+    assert!(!engine.control.busy.load(Ordering::SeqCst));
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn launch_waits_for_ready_and_preserves_runtime_environment_and_arguments() {
+    use std::os::unix::fs::PermissionsExt;
+    let directory = tempfile::tempdir().unwrap();
+    let profile = directory.path().join("profile");
+    let root = directory.path().join("Game");
+    let resources = directory.path().join("resources");
+    std::fs::create_dir_all(root.join("Bin")).unwrap();
+    std::fs::create_dir_all(resources.join("client-runtime")).unwrap();
+    std::fs::write(
+        resources.join("client-runtime/csore-start-x86.exe"),
+        b"opaque helper fixture",
+    )
+    .unwrap();
+    let mut executable = vec![0u8; 128];
+    executable[..2].copy_from_slice(b"MZ");
+    executable[60..64].copy_from_slice(&64u32.to_le_bytes());
+    executable[64..68].copy_from_slice(b"PE\0\0");
+    executable[68..70].copy_from_slice(&0x14cu16.to_le_bytes());
+    executable[84..86].copy_from_slice(&2u16.to_le_bytes());
+    executable[88..90].copy_from_slice(&0x10bu16.to_le_bytes());
+    std::fs::write(root.join("Bin/client.exe"), executable).unwrap();
+    let store = Arc::new(Mutex::new(Store::open(&profile, &[43; 32]).unwrap()));
+    let proton = profile.join("runtimes/proton/dwproton-fixture");
+    std::fs::create_dir_all(&proton).unwrap();
+    std::fs::write(proton.join("proton"), b"fixture").unwrap();
+    let umu = profile.join("runtimes/umu/umu-run");
+    std::fs::create_dir_all(umu.parent().unwrap()).unwrap();
+    std::fs::write(
+        &umu,
+        r#"#!/usr/bin/python3
+import sys, os, time
+if sys.argv[1:] == ['--version']:
+ print('umu-launcher version 1.4.4')
+ sys.exit(0)
+report=sys.argv[2][2:].replace('\\','/')
+with open(os.path.join(os.environ['WINEPREFIX'],'arguments.txt'),'w') as output:
+ output.write('\n'.join(sys.argv[3:])+'\n'+os.environ['STEAM_COMPAT_INSTALL_PATH'])
+with open(report,'w') as output: output.write('ready\nflags_before_resume: 1\n')
+time.sleep(0.2)
+"#,
+    )
+    .unwrap();
+    std::fs::set_permissions(&umu, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let engine = Engine::with_keys(store, "http://127.0.0.1:1".into(), resources, vec![]).unwrap();
+    let game = Definition {
+        biz: "csore_global".into(),
+        executable: "Bin/client.exe".into(),
+        install_folder: "Tia-CSORSE".into(),
+    };
+    let mut session = tia_launcher::game::launch::start(
+        &engine,
+        &root,
+        &game,
+        &json!({"lang":"na_id","launchCommand":"-port 30003"}),
+        Arc::new(|_, _, _| {}),
+    )
+    .await
+    .unwrap();
+    assert!(engine.control.running.load(Ordering::SeqCst));
+    assert!(session.child.wait().await.unwrap().success());
+    let args = std::fs::read_to_string(profile.join("runtimes/prefix/arguments.txt")).unwrap();
+    assert!(args.contains("-lang\nna_id\n-port\n30003"));
+    assert!(args.ends_with(root.join("Bin").to_str().unwrap()));
+    assert!(session.staging.join("status.txt").is_file());
+}
+
+#[cfg(windows)]
+#[tokio::test]
+async fn windows_real_native_helpers_initialize_both_architectures_and_forward_options() {
+    let Some(fixture_root) = std::env::var_os("TIA_NATIVE_FIXTURE_DIR") else {
+        return;
+    };
+    let Some(resources) = std::env::var_os("TIA_NATIVE_RESOURCE_DIR") else {
+        return;
+    };
+    for architecture in ["x86", "x64"] {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("Game");
+        std::fs::create_dir_all(root.join("Bin")).unwrap();
+        std::fs::copy(
+            std::path::Path::new(&fixture_root).join(format!("client-{architecture}.exe")),
+            root.join("Bin/client.exe"),
+        )
+        .unwrap();
+        let store = Arc::new(Mutex::new(
+            Store::open(&directory.path().join("profile"), &[61; 32]).unwrap(),
+        ));
+        let engine = Engine::with_keys(
+            store,
+            "http://127.0.0.1:1".into(),
+            resources.clone().into(),
+            vec![],
+        )
+        .unwrap();
+        let game = Definition {
+            biz: "csore_global".into(),
+            executable: "Bin/client.exe".into(),
+            install_folder: "Tia-CSORSE".into(),
+        };
+        let mut session=tia_launcher::game::launch::start(&engine,&root,&game,&json!({"lang":"na_id","classicUi":true,"fpsLimit":240,"launchCommand":"-ip server.example -port 30003 -name \"Player One\""}),Arc::new(|_,_,_|{})).await.unwrap();
+        assert!(session.child.wait().await.unwrap().success());
+        let report = std::fs::read_to_string(root.join("Bin/native-startup-result.txt")).unwrap();
+        assert_eq!(
+            report,
+            "flags=1\n-lang\nna_id\n--classicui\n+developer\n1\n+fps_max\n240\n-ip\nserver.example\n-port\n30003\n-name\nPlayer One\n"
+        );
+    }
+}

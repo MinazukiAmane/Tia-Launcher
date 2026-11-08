@@ -1,0 +1,13 @@
+{
+  "production": {
+    "appId": "com.serenetia.tia-launcher",
+    "guid": "9740b805-18aa-59a9-80e6-10324b8f739e",
+    "productName": "Tia Launcher",
+    "profileName": "tia-launcher-bootstrap"
+  },
+  "test": {
+    "appId": "com.serenetia.tia-launcher.migration-test",
+    "productName": "Tia Migration Test",
+    "profileName": "tia-launcher-migration-test"
+  }
+}

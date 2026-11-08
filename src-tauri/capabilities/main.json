@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Local launcher window events. File and process operations are handled by scoped Rust commands.",
+  "windows": ["main"],
+  "permissions": ["core:event:default"]
+}

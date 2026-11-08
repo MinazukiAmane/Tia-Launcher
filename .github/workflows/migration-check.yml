@@ -1,0 +1,97 @@
+name: Tauri migration checks
+on:
+  workflow_dispatch:
+  push:
+    branches: [tauri-migration]
+permissions:
+  contents: read
+jobs:
+  migration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring dbus-x11
+      - name: Check out private native helper
+        uses: actions/checkout@v4
+        with:
+          repository: MinazukiAmane/Tia-Launcher-Helpers
+          ref: edbd5d9fe15633e3251938213a4f2e428d4b66e3
+          ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
+          persist-credentials: false
+          path: .private-helper
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
+          use-cache: false
+      - name: Build native runtimes
+        run: node build-scripts/buildNativeLaunchers.cjs
+      - name: Remove private helper checkout
+        if: always()
+        shell: bash
+        run: rm -rf .private-helper
+      - run: npm ci
+      - run: npm run build
+      - name: Prepare macOS bundle icons
+        if: runner.os == 'macOS'
+        run: npx tauri icon build/icon.png --output src-tauri/icons
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --no-default-features
+      - run: cargo build --manifest-path src-tauri/Cargo.toml --no-default-features --bin tia-migration-helper
+      - name: Test encrypted database handoff
+        run: npx vitest run tests/main/tauriMigration.test.ts tests/main/tauriBridge.test.ts tests/main/tauriBridgePackaging.test.ts tests/main/appImageMigration.test.ts tests/main/appImageStartup.test.ts tests/main/frameworkMigration.linux.test.ts tests/main/macMigration.test.ts tests/main/updater.test.ts
+      - name: Test real Electron safeStorage compatibility
+        if: runner.os == 'Windows'
+        run: npx electron migration/windows/electron-key-smoke.cjs src-tauri/target/debug/tia-migration-helper.exe
+      - name: Test Linux key recovery from real Electron
+        if: runner.os == 'Linux'
+        run: python3 migration/tests/run-linux-key-recovery.py
+      - name: Test macOS key recovery from real Electron
+        if: runner.os == 'macOS'
+        run: bash migration/tests/run-macos-key-recovery.sh
+      - run: cargo check --manifest-path src-tauri/Cargo.toml
+      - name: Build Linux AppImage
+        if: runner.os == 'Linux'
+        env:
+          CARGO_BUILD_JOBS: '2'
+        run: |
+          cargo build --manifest-path src-tauri/Cargo.toml --bin tia-launcher --features tauri/custom-protocol
+          export GSTREAMER_PLUGINS_DIR="$(pkg-config --variable=pluginsdir gstreamer-1.0)"
+          export GSTREAMER_HELPERS_DIR="$(pkg-config --variable=pluginscannerdir gstreamer-1.0)"
+          npx tauri bundle --debug --bundles appimage --ci
+      - name: Test real AppImage startup and rollback
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          export TIA_NATIVE_STARTUP_SMOKE=1
+          export TIA_NATIVE_STARTUP_BINARY="$(find "$PWD/src-tauri/target/debug/bundle/appimage" -maxdepth 1 -name '*.AppImage' -print -quit)"
+          test -n "$TIA_NATIVE_STARTUP_BINARY"
+          xvfb-run -a npx vitest run tests/main/appImageStartup.native.test.ts --maxWorkers=1
+      - name: Build macOS universal DMG
+        if: runner.os == 'macOS'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '14.6'
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          npx tauri build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.macos.conf.json
+      - name: Upload macOS build
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tia-Launcher-mac-universal
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 7

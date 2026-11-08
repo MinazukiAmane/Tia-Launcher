@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tia Launcher Preview",
+  "version": "2.0.0-alpha.1",
+  "identifier": "com.serenetia.tia-launcher.preview",
+  "build": {
+    "beforeDevCommand": "npx vite --config vite.config.ts",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data: https://cso-rse.my.id; media-src 'self' asset: http://asset.localhost;",
+      "assetProtocol": {
+        "enable": true,
+        "scope": []
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "deb",
+      "appimage",
+      "dmg"
+    ],
+    "icon": [
+      "icons/icon.png"
+    ],
+    "shortDescription": "Tia Launcher Tauri migration preview",
+    "category": "Game",
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine"
+      }
+    },
+    "resources": {
+      "../build/native/csore-start-x86.exe": "client-runtime/csore-start-x86.exe",
+      "../build/native/csore-start-x64.exe": "client-runtime/csore-start-x64.exe",
+      "../build/native/cedar/": "game-runtime/",
+      "../build/licenses/Orbitron-OFL.txt": "licenses/Orbitron-OFL.txt"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "requireSignedVersion": true,
+      "allowDowngrades": false,
+      "pubkey": "",
+      "endpoints": []
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "bundle": {
+    "targets": [
+      "dmg"
+    ],
+    "icon": [
+      "icons/icon.icns"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "14.6",
+      "signingIdentity": "-"
+    }
+  }
+}

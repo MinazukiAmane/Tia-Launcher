@@ -1,0 +1,26 @@
+.worktrees/
+node_modules/
+out/
+release/
+dist/
+*.log
+*.tsbuildinfo
+release-test/
+ref/
+.private-helper/
+
+# Private runtime output: bundle only explicitly whitelisted binaries.
+build/native/cedar/
+
+# Native client launchers are built from private sources.
+build/native/*.exe
+
+/src-tauri/target/
+/dist/
+/node_modules/
+/migration-secrets/
+*.key
+
+/build/webview2/
+
+/migration/STATUS.md

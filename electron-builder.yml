@@ -1,0 +1,73 @@
+appId: com.serenetia.tia-launcher
+productName: Tia Launcher
+directories:
+  output: release
+  buildResources: build
+electronLanguages: [en-US, id, zh-CN, ko, ja]
+files:
+  - out/**/*
+  - package.json
+  - "!tests/**"
+  - "!**/*.test.*"
+
+afterPack: build-scripts/afterPack.js
+# afterPack replaces app.asar with encrypted app.dat.
+disableSanityCheckAsar: true
+
+publish:
+  provider: generic
+  url: https://tia-launcher.serenetia.com/api/updates
+  channel: latest
+
+extraResources:
+  - from: build/licenses/Orbitron-OFL.txt
+    to: licenses/Orbitron-OFL.txt
+  - from: build/native
+    to: client-runtime
+    filter:
+      - "csore-start-*.exe"
+  - from: build/native/cedar
+    to: game-runtime
+    filter:
+      - "cedar-start-x64.exe"
+      - "cedar-client-x64.dll"
+      - "LICENSE-Minhook.txt"
+      - "launcher-services.json"
+  - from: build/icon.png
+    to: icon.png
+
+artifactName: "Tia-Launcher-${version}-${os}-${arch}.${ext}"
+
+win:
+  target: nsis
+  # Deliberately NOT requestedExecutionLevel: requireAdministrator --
+  # this process downloads game files over the network, writes them to
+  # disk, and spawns the actual game binary. Running all of that
+  # elevated, on every single launch, would turn any verification bug,
+  # MITM, or compromised CDN into an admin-level compromise instead of a
+  # user-level one, and would run the (third-party) game binary itself
+  # with admin rights for no real benefit. See HANDOFF.md for the
+  # Program-Files-not-writable issue this was trying to solve -- a clear
+  # error message + folder picker already covers it without this.
+nsis:
+  include: build-scripts/install-scope.nsh
+  oneClick: false
+  # Preserve existing install scope/path; fresh installs default to Program Files.
+  perMachine: false
+  selectPerMachineByDefault: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+
+mac:
+  target: dmg
+  category: public.app-category.games
+
+linux:
+  target:
+    - AppImage
+    - deb
+    - pacman
+  category: Game
+  maintainer: Serenetia <amane@serenetia.com>
+  syncDesktopName: true
+  icon: build/icons

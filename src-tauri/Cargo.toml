@@ -1,0 +1,85 @@
+[package]
+name = "tia-launcher"
+version = "2.0.0-alpha.1"
+edition = "2024"
+rust-version = "1.88"
+default-run = "tia-launcher"
+
+[lib]
+name = "tia_launcher"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tia-launcher"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[[bin]]
+name = "tia-migration-helper"
+path = "src/bin/migration-helper.rs"
+
+[features]
+default = ["desktop"]
+desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-plugin-updater", "dep:tauri-plugin-single-instance"]
+
+[dependencies]
+aes-gcm = "0.10"
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+pbkdf2 = "0.12"
+minisign-verify = "0.2"
+semver = "1"
+tempfile = "3"
+sha1 = "0.10"
+anyhow = "1"
+base64 = "0.22"
+ed25519-dalek = { version = "2", features = ["pem"] }
+hex = "0.4"
+hmac = "0.12"
+md-5 = "0.10"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+rusqlite = { version = "0.37", features = ["bundled", "backup"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.10"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "process", "sync", "time"] }
+futures-util = "0.3"
+zeroize = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+zip = { version = "4", default-features = false, features = ["deflate", "bzip2", "zstd"] }
+bzip2 = "0.6"
+flate2 = "1"
+tar = "0.4"
+url = "2"
+walkdir = "2"
+shell-words = "1"
+dirs = "6"
+tauri = { version = "2.11", optional = true, features = ["tray-icon", "protocol-asset"] }
+tauri-plugin-dialog = { version = "2", optional = true }
+tauri-plugin-opener = { version = "2", optional = true }
+tauri-plugin-updater = { version = "2", optional = true }
+tauri-plugin-single-instance = { version = "2", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+xz2 = "0.1"
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+secret-service = { version = "4", features = ["rt-async-io-crypto-rust"] }
+zbus = "4.4"
+libc = "0.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "3"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Security_Cryptography", "Win32_System_Memory", "Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Storage_FileSystem", "Win32_System_Registry", "Win32_UI_Shell"] }
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dev-dependencies]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
