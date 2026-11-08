@@ -4886,7 +4886,7 @@ dependencies = [
 
 [[package]]
 name = "tia-launcher"
-version = "2.0.0-alpha.1"
+version = "2.0.0"
 dependencies = [
  "aes",
  "aes-gcm",

@@ -43,6 +43,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     steps:
+      - name: Configure Git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
@@ -106,6 +108,16 @@ jobs:
       - name: Remove temporary signing material
         if: always() && runner.os == 'macOS' && inputs.publish
         run: python3 migration/installer/prepare-apple-signing.py --cleanup
+      - name: Package isolated Windows installation test
+        if: runner.os == 'Windows'
+        run: node migration/installer/build-windows-package.mjs src-tauri/target/release/tia-launcher.exe release/windows-install-test "${{ env.NATIVE_VERSION }}" --test
+      - uses: actions/upload-artifact@v7.0.2
+        if: runner.os == 'Windows'
+        with:
+          name: windows-installation-test
+          path: release/windows-install-test/Tia-Migration-Test-*.exe
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: release-${{ runner.os }}
@@ -116,6 +128,8 @@ jobs:
     needs: [build, checks]
     runs-on: ubuntu-24.04
     steps:
+      - name: Configure Git default branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
         with:
