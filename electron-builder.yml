@@ -50,6 +50,7 @@ win:
   # Program-Files-not-writable issue this was trying to solve -- a clear
   # error message + folder picker already covers it without this.
 nsis:
+  include: build-scripts/install-scope.nsh
   oneClick: false
   # Preserve existing install scope/path; fresh installs default to Program Files.
   perMachine: false

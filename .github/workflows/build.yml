@@ -114,7 +114,7 @@ jobs:
 
           aws s3 sync installers/ "s3://${{ secrets.TIA_S3_BUCKET }}/" \
             --endpoint-url "${{ secrets.TIA_S3_ENDPOINT }}" \
-            --exclude "latest*.yml" --exclude "*.blockmap" --delete --no-progress
+            --exclude "native/*" --exclude "bridge/*" --exclude "latest*.yml" --exclude "*.blockmap" --delete --no-progress
           aws s3 sync installers/ "s3://${{ secrets.TIA_S3_BUCKET }}/" \
             --endpoint-url "${{ secrets.TIA_S3_ENDPOINT }}" \
             --exclude "*" --include "*.blockmap" --no-progress
