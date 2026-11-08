@@ -152,6 +152,8 @@ jobs:
         with:
           workspaces: src-tauri
           cache-on-failure: true
+      - name: Install verifier build dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - uses: actions/download-artifact@v8.0.2
         with:
           pattern: release-*
