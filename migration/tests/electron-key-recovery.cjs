@@ -4,7 +4,7 @@ const { randomBytes, createCipheriv, createDecipheriv, pbkdf2Sync, createHmac, c
 const { mkdtempSync, writeFileSync, readFileSync, rmSync } = require('node:fs')
 const { tmpdir } = require('node:os')
 const { resolve, join } = require('node:path')
-const { spawn } = require('node:child_process')
+const { spawn, spawnSync } = require('node:child_process')
 const assert = require('node:assert/strict')
 const scriptIndex = process.argv.findIndex(value => resolve(value) === __filename)
 const helper = resolve(process.argv[scriptIndex + 1])
@@ -21,6 +21,13 @@ app.whenReady().then(async()=>{
   assert(safeStorage.isEncryptionAvailable(),'safeStorage must be available in this isolated session')
   const key=randomBytes(32), data=safeStorage.encryptString(key.toString('hex')).toString('base64')
   if (process.platform === 'darwin') {
+   for (const args of [['default-keychain','-d','user'],['list-keychains','-d','user']]) {
+    const context=spawnSync('/usr/bin/security',args,{encoding:'utf8'})
+    console.error('Test keychain context:',context.status,context.stdout.trim())
+   }
+   const lookup=spawnSync('/usr/bin/security',['find-generic-password','-s','tia-launcher Safe Storage','-a','tia-launcher','-w'],{encoding:'utf8'})
+   assert.equal(lookup.status,0,'The isolated keychain must be readable before spawning the helper: '+lookup.stderr.trim())
+   assert.equal(lookup.stdout.replace(/\n$/,''),'isolated-keychain-password','The CLI must see the isolated entry')
    const blob=Buffer.from(data,'base64')
    assert.equal(blob.subarray(0,3).toString(),'v10','Unexpected macOS safeStorage format')
    const decipher=createDecipheriv('aes-128-cbc',pbkdf2Sync('isolated-keychain-password','saltysalt',1003,16,'sha1'),Buffer.alloc(16,32))

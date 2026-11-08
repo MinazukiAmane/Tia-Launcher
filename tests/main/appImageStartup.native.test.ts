@@ -23,7 +23,15 @@ it.skipIf(process.env.TIA_NATIVE_STARTUP_SMOKE !== '1' || process.platform !== '
   db.prepare('INSERT INTO records VALUES(?,?,?)').run('launcher','preferences',sealed)
   db.close()
   const binary = process.env.TIA_NATIVE_STARTUP_BINARY ?? resolve('src-tauri/target/debug/tia-launcher')
-  const environment = {...process.env,GDK_BACKEND:'x11',APPIMAGE_EXTRACT_AND_RUN:'1',NO_AT_BRIDGE:'1',LIBGL_ALWAYS_SOFTWARE:'1',WEBKIT_DISABLE_DMABUF_RENDERER:'1',WEBKIT_DISABLE_COMPOSITING_MODE:'1'}
+  const environment = {
+   ...process.env,
+   GDK_BACKEND:'x11',
+   APPIMAGE_EXTRACT_AND_RUN:'1',
+   NO_AT_BRIDGE:'1',
+   LIBGL_ALWAYS_SOFTWARE:'1',
+   WEBKIT_DISABLE_DMABUF_RENDERER:'1',
+   WEBKIT_DISABLE_COMPOSITING_MODE:'1'
+  }
   const launch = async (path: string): Promise<void> => {
    const result = await startMigratedAppImage(path, ['--profile', profile], environment, 60_000, message => process.stderr.write(message))
    pid = result.pid
