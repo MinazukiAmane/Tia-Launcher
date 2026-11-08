@@ -2,7 +2,7 @@
 name = "tia-launcher"
 version = "2.0.0-alpha.1"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.90"
 default-run = "tia-launcher"
 
 [lib]
@@ -55,10 +55,10 @@ url = "2"
 walkdir = "2"
 shell-words = "1"
 dirs = "6"
-tauri = { version = "~2.11.6", optional = true, features = ["tray-icon", "protocol-asset"] }
+tauri = { version = "~2.12.5", optional = true, features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-dialog = { version = "2", optional = true }
 tauri-plugin-opener = { version = "2", optional = true }
-tauri-plugin-updater = { version = "2", optional = true }
+tauri-plugin-updater = { version = "~2.14.1", optional = true }
 tauri-plugin-single-instance = { version = "2", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
