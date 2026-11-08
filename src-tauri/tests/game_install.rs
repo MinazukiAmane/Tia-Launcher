@@ -319,16 +319,17 @@ async fn launch_waits_for_ready_and_preserves_runtime_environment_and_arguments(
     std::fs::create_dir_all(umu.parent().unwrap()).unwrap();
     std::fs::write(
         &umu,
-        r#"#!/usr/bin/python3
-import sys, os, time
-if sys.argv[1:] == ['--version']:
- print('umu-launcher version 1.4.4')
- sys.exit(0)
-report=sys.argv[2][2:].replace('\\','/')
-with open(os.path.join(os.environ['WINEPREFIX'],'arguments.txt'),'w') as output:
- output.write('\n'.join(sys.argv[3:])+'\n'+os.environ['STEAM_COMPAT_INSTALL_PATH'])
-with open(report,'w') as output: output.write('ready\nflags_before_resume: 1\n')
-time.sleep(0.2)
+        r#"#!/bin/sh
+if [ "$1" = '--version' ]; then
+ printf '%s\n' 'umu-launcher version 1.4.4'
+ exit 0
+fi
+report=$(printf '%s' "${2#Z:}" | tr '\\' '/')
+shift 2
+printf '%s\n' "$@" > "$WINEPREFIX/arguments.txt"
+printf '%s' "$STEAM_COMPAT_INSTALL_PATH" >> "$WINEPREFIX/arguments.txt"
+printf 'ready\nflags_before_resume: 1\n' > "$report"
+sleep 0.2
 "#,
     )
     .unwrap();

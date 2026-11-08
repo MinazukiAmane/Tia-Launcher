@@ -50,19 +50,16 @@ pub(super) fn recover(envelope: &Envelope) -> Result<Option<Zeroizing<[u8; 32]>>
     if blob.starts_with(b"v10") {
         let mut lookup_status = Vec::new();
         for application in APPLICATIONS {
-            match security_framework::os::macos::passwords::find_generic_password(
-                None,
-                &format!("{application} Safe Storage"),
-                application,
-            ) {
-                Ok((password, _item)) => {
-                    let password = Zeroizing::new(password.as_ref().to_vec());
+            let service = format!("{application} Safe Storage");
+            let password = macos_password(&service, application);
+            match password {
+                Ok(password) => {
                     if let Ok(key) = candidate(envelope, &blob, &password, 1003) {
                         return Ok(Some(key));
                     }
                     lookup_status.push(format!("{application}: authentication failed"));
                 }
-                Err(error) => lookup_status.push(format!("{application}: {}", error.code())),
+                Err(error) => lookup_status.push(format!("{application}: {error}")),
             }
         }
         bail!(
@@ -71,6 +68,31 @@ pub(super) fn recover(envelope: &Envelope) -> Result<Option<Zeroizing<[u8; 32]>>
         )
     }
     Ok(None)
+}
+
+#[cfg(target_os = "macos")]
+fn macos_password(service: &str, account: &str) -> Result<Zeroizing<Vec<u8>>> {
+    use security_framework::os::macos::keychain::SecKeychain;
+    if let Ok(keychain) = SecKeychain::default() {
+        if let Ok((password, _item)) = keychain.find_generic_password(service, account) {
+            return Ok(Zeroizing::new(password.as_ref().to_vec()));
+        }
+    }
+    // The system client also handles legacy keychains outside an app bundle.
+    let output = std::process::Command::new("/usr/bin/security")
+        .args(["find-generic-password", "-s", service, "-a", account, "-w"])
+        .output()?;
+    let mut password = Zeroizing::new(output.stdout);
+    if !output.status.success() {
+        bail!("keychain lookup status {}", output.status);
+    }
+    if password.last() == Some(&b'\n') {
+        password.pop();
+    }
+    if password.is_empty() || password.len() > 4096 {
+        bail!("invalid keychain entry length");
+    }
+    Ok(password)
 }
 
 #[cfg(target_os = "linux")]
