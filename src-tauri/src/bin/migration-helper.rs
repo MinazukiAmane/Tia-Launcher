@@ -1,5 +1,6 @@
 use std::io::{Read, Write};
 fn main() {
+    let mut stage = "request";
     let result = (|| -> anyhow::Result<()> {
         let operation = std::env::args().nth(1).unwrap_or_default();
         if !matches!(
@@ -24,6 +25,7 @@ fn main() {
                 profile: std::path::PathBuf,
             }
             let request: Recover = serde_json::from_slice(&input)?;
+            stage = "legacy key recovery";
             let key = tia_launcher::legacy_key::recover(&request.profile)?.ok_or_else(|| {
                 anyhow::anyhow!("An Electron key handoff is required on this platform.")
             })?;
@@ -37,13 +39,14 @@ fn main() {
             serde_json::from_slice(&input)
                 .map_err(|_| anyhow::anyhow!("Invalid migration request."))?
         };
+        stage = "authenticated database import";
         let receipt = tia_launcher::migration::import(request, !cfg!(target_os = "macos"))?;
         serde_json::to_writer(std::io::stdout().lock(), &receipt)?;
         std::io::stdout().write_all(b"\n")?;
         Ok(())
     })();
     if result.is_err() {
-        eprintln!("Migration could not be verified. Original launcher data has not been replaced.");
+        eprintln!("Migration could not be verified. Original launcher data has not been replaced. Stage: {stage}.");
         std::process::exit(1)
     }
 }

@@ -1,6 +1,6 @@
 const { app, safeStorage } = require('electron')
 const { DatabaseSync } = require('node:sqlite')
-const { randomBytes, createCipheriv, createHmac, createHash } = require('node:crypto')
+const { randomBytes, createCipheriv, createDecipheriv, pbkdf2Sync, createHmac, createHash } = require('node:crypto')
 const { mkdtempSync, writeFileSync, readFileSync, rmSync } = require('node:fs')
 const { tmpdir } = require('node:os')
 const { resolve, join } = require('node:path')
@@ -20,6 +20,12 @@ app.whenReady().then(async()=>{
   if (backend==='basic') safeStorage.setUsePlainTextEncryption(true)
   assert(safeStorage.isEncryptionAvailable(),'safeStorage must be available in this isolated session')
   const key=randomBytes(32), data=safeStorage.encryptString(key.toString('hex')).toString('base64')
+  if (process.platform === 'darwin') {
+   const blob=Buffer.from(data,'base64')
+   assert.equal(blob.subarray(0,3).toString(),'v10','Unexpected macOS safeStorage format')
+   const decipher=createDecipheriv('aes-128-cbc',pbkdf2Sync('isolated-keychain-password','saltysalt',1003,16,'sha1'),Buffer.alloc(16,32))
+   assert.equal(Buffer.concat([decipher.update(blob.subarray(3)),decipher.final()]).toString(),key.toString('hex'),'Electron must use the isolated test keychain entry')
+  }
   const envelope={version:1,mode:'os',data,migrated:true,tag:createHmac('sha256',key).update(JSON.stringify([1,'os',data,true])).digest('hex')}
   writeFileSync(join(profile,'launcher.key'),JSON.stringify(envelope),{mode:0o600})
   const nonce=randomBytes(12), cipher=createCipheriv('aes-256-gcm',key,nonce)
@@ -33,12 +39,12 @@ app.whenReady().then(async()=>{
   const original=hash(),challenge=randomBytes(32).toString('hex')
   const receipt=await new Promise((resolve,reject)=>{
    const child=spawn(helper,['--recover-profile-stdin'],{stdio:['pipe','pipe','pipe'],windowsHide:true})
-   let output=''
+   let output='',diagnostic=''
    const timer=setTimeout(()=>{child.kill();reject(new Error('Native key recovery timed out'))},45_000)
    child.stdout.on('data',chunk=>{output+=chunk;if(output.length>16384)child.kill()})
-   child.stderr.resume()
+   child.stderr.on('data',chunk=>{if(diagnostic.length<4096)diagnostic+=chunk.toString().slice(0,4096-diagnostic.length)})
    child.on('error',reject)
-   child.on('close',code=>{clearTimeout(timer);if(code!==0)return reject(new Error('Native key recovery failed'));try{resolve(JSON.parse(output))}catch{reject(new Error('Invalid recovery receipt'))}})
+   child.on('close',code=>{clearTimeout(timer);if(code!==0)return reject(new Error('Native key recovery failed: '+diagnostic.trim()));try{resolve(JSON.parse(output))}catch{reject(new Error('Invalid recovery receipt'))}})
    child.stdin.on('error',()=>{})
    child.stdin.end(JSON.stringify({protocol:1,nonce:challenge,profile}))
   })

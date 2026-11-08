@@ -21,17 +21,20 @@ with tempfile.TemporaryDirectory(prefix='tia-key-session-') as directory:
     script = '''
 set -eu
 mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$GNOME_KEYRING_CONTROL"
-gnome-keyring-daemon --foreground --components=secrets --control-directory="$GNOME_KEYRING_CONTROL" >/dev/null 2>&1 &
+printf '%s' 'temporary-test-password' | gnome-keyring-daemon --foreground --unlock --components=secrets --control-directory="$GNOME_KEYRING_CONTROL" >/dev/null 2>&1 &
 keyring_pid=$!
 trap 'kill "$keyring_pid" 2>/dev/null || true; wait "$keyring_pid" 2>/dev/null || true' EXIT
-printf '%s' 'temporary-test-password' | gnome-keyring-daemon --unlock --components=secrets --control-directory="$GNOME_KEYRING_CONTROL" >/dev/null 2>&1
+for attempt in $(seq 1 50); do
+  if gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets/collection/login --method org.freedesktop.DBus.Properties.Get org.freedesktop.Secret.Collection Locked 2>/dev/null | grep -q false; then break; fi
+  sleep 0.1
+done
 electron_binary="$(node -p 'require("electron")')"
 for backend in basic gnome-libsecret; do
-  xvfb-run -a "$electron_binary" --ozone-platform=x11 migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper "$backend"
+  "$electron_binary" --ozone-platform=x11 migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper "$backend"
 done
 '''
     with (Path(directory) / 'session.log').open('w+') as log:
-        completed = subprocess.run(['dbus-run-session', '--', 'bash', '-c', script], cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, text=True, timeout=180)
+        completed = subprocess.run(['xvfb-run', '-a', 'dbus-run-session', '--', 'bash', '-c', script], cwd=root, env=env, stdout=log, stderr=subprocess.STDOUT, text=True, timeout=180)
         log.seek(0)
         output = log.read()
         reports = []
