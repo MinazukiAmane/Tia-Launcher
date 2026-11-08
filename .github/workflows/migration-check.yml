@@ -64,7 +64,7 @@ jobs:
       - name: Test Linux key recovery from real Electron
         if: runner.os == 'Linux'
         run: python3 migration/tests/run-linux-key-recovery.py
-      - name: Test macOS key recovery from real Electron
+      - name: Test macOS Electron key handoff
         if: runner.os == 'macOS'
         run: bash migration/tests/run-macos-key-recovery.sh
       - run: cargo check --manifest-path src-tauri/Cargo.toml
@@ -92,6 +92,13 @@ jobs:
         run: |
           rustup target add aarch64-apple-darwin x86_64-apple-darwin
           npx tauri build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.macos.conf.json
+      - name: Test real macOS migration and keychain persistence
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          export TIA_MACOS_NATIVE_BINARY="$(find "$PWD/src-tauri/target/universal-apple-darwin/release/bundle/macos" -path '*/Contents/MacOS/tia-launcher' -print -quit)"
+          test -n "$TIA_MACOS_NATIVE_BINARY"
+          bash migration/tests/run-macos-key-recovery.sh
       - name: Upload macOS build
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v7.0.2

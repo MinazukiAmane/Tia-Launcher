@@ -21,13 +21,23 @@ with tempfile.TemporaryDirectory(prefix='tia-key-session-') as directory:
     script = '''
 set -eu
 mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$GNOME_KEYRING_CONTROL"
-printf '%s' 'temporary-test-password' | gnome-keyring-daemon --foreground --unlock --components=secrets --control-directory="$GNOME_KEYRING_CONTROL" >/dev/null 2>&1 &
+chmod 700 "$GNOME_KEYRING_CONTROL"
+gnome-keyring-daemon --foreground --components=secrets --control-directory="$GNOME_KEYRING_CONTROL" >"$GNOME_KEYRING_CONTROL/daemon.log" 2>&1 &
 keyring_pid=$!
 trap 'kill "$keyring_pid" 2>/dev/null || true; wait "$keyring_pid" 2>/dev/null || true' EXIT
-for attempt in $(seq 1 50); do
-  if gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets/collection/login --method org.freedesktop.DBus.Properties.Get org.freedesktop.Secret.Collection Locked 2>/dev/null | grep -q false; then break; fi
+for attempt in $(seq 1 100); do
+  test ! -S "$GNOME_KEYRING_CONTROL/control" || break
   sleep 0.1
 done
+test -S "$GNOME_KEYRING_CONTROL/control" || { cat "$GNOME_KEYRING_CONTROL/daemon.log"; exit 1; }
+gdbus wait --session --timeout 10 org.freedesktop.secrets
+printf '%s' 'temporary-test-password' | gnome-keyring-daemon --unlock --components=secrets --control-directory="$GNOME_KEYRING_CONTROL" >/dev/null 2>&1
+keyring_unlocked=0
+for attempt in $(seq 1 50); do
+  if gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets/collection/login --method org.freedesktop.DBus.Properties.Get org.freedesktop.Secret.Collection Locked 2>/dev/null | grep -q false; then keyring_unlocked=1; break; fi
+  sleep 0.1
+done
+test "$keyring_unlocked" = 1 || { echo "The isolated keyring did not unlock"; cat "$GNOME_KEYRING_CONTROL/daemon.log"; exit 1; }
 electron_binary="$(node -p 'require("electron")')"
 for backend in basic gnome-libsecret; do
   "$electron_binary" --ozone-platform=x11 migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper "$backend"

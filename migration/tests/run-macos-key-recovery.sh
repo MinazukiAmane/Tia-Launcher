@@ -24,4 +24,6 @@ security list-keychains -d user -s "$keychain_file"
 security add-generic-password -a 'tia-launcher' -s 'tia-launcher Safe Storage' -w 'isolated-keychain-password' -A "$keychain_file"
 security find-generic-password -a 'tia-launcher' -s 'tia-launcher Safe Storage' -w "$keychain_file" >/dev/null
 security find-generic-password -a 'tia-launcher' -s 'tia-launcher Safe Storage' -w >/dev/null
-node_modules/.bin/electron migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper
+mkdir -p release-test/mac
+node_modules/.bin/esbuild migration/tests/electron-key-recovery.cjs --bundle --platform=node --target=node24 --external:electron --outfile=release-test/mac/electron-key-recovery.cjs
+node_modules/.bin/electron release-test/mac/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper
