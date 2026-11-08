@@ -2,6 +2,7 @@
   "productName": "Tia Launcher",
   "identifier": "com.serenetia.tia-launcher",
   "bundle": {
+    "publisher": "Serenetia",
     "shortDescription": "Tia Launcher game library",
     "createUpdaterArtifacts": false
   },

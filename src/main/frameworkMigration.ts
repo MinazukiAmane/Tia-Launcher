@@ -28,7 +28,16 @@ export function needsFrameworkMigration(current: string, target: string): boolea
 export async function prepareFrameworkMigration(installer: string, targetVersion: string, isBusy: () => boolean, install: (context: InstallContext) => void): Promise<void> {
   if (!['win32', 'linux', 'darwin'].includes(process.platform) || !['x64', 'arm64'].includes(process.arch) || (process.platform === 'win32' && process.arch !== 'x64')) throw new Error('This launcher migration is not available for your platform yet.')
   let signedRelease: SignedMigrationRelease
-  try { signedRelease = JSON.parse(await readFile(join(process.resourcesPath, 'migration', 'release.json'), 'utf8')) } catch { throw new Error('The framework migration component is missing. Reinstall the bridge release before updating.') }
+  try {
+    const platform = migrationPlatform(process.platform, process.arch)
+    let body: string
+    try { body = await readFile(join(process.resourcesPath, 'migration', `release-${platform}.json`), 'utf8') }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      body = await readFile(join(process.resourcesPath, 'migration', 'release.json'), 'utf8')
+    }
+    signedRelease = JSON.parse(body)
+  } catch { throw new Error('The framework migration component is missing. Reinstall the bridge release before updating.') }
   if (process.platform === 'darwin') {
     const platform = migrationPlatform(process.platform, process.arch)
     await macCoordinator.install({

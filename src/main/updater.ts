@@ -14,7 +14,7 @@ import { logInfo, logError, logDebug } from './logger'
 const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
 
 // Public update proxy (tia-launcher-site's /api/updates, in front of the launcher's S3 bucket).
-const UPDATE_FEED_URL = 'https://tia-launcher.serenetia.com/api/updates' + (migrationKeys.length ? '/bridge' : '')
+const UPDATE_FEED_URL = 'https://tia-launcher.serenetia.com/api/updates' + (migrationKeys.length ? `/bridge/${app.getVersion()}` : '')
 
 import { IPC_UPDATE } from '../shared/updateChannels'
 export { IPC_UPDATE } from '../shared/updateChannels'

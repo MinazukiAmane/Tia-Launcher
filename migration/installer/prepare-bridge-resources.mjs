@@ -32,6 +32,7 @@ export async function prepareBridgeResources({installer,helper,keyPath,output,br
  await copyFile(helper,helperPath)
  if(process.platform!=='win32')await chmod(helperPath,0o755)
  await writeFile(join(directory,'resources/migration/release.json'),JSON.stringify(signed))
+ await writeFile(join(directory,`resources/migration/release-${platform}.json`),JSON.stringify(signed))
  await writeFile(join(directory,'migrationKeys.json'),JSON.stringify([{id:keyId,publicKey:publicKey.export({type:'spki',format:'pem'}).toString()}],null,2)+'\n')
  return {keyId,output:directory}
 }

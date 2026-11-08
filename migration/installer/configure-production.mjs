@@ -32,5 +32,5 @@ if(existingPins.length&&!existingPins.some(pin=>pin.id===keyId))throw new Error(
 const endpoints=['https://tia-launcher.serenetia.com/api/updates/native/latest.json']
 await writeFile(join(root,'src/shared/migrationKeys.json'),JSON.stringify(pins,null,2)+'\n')
 await writeFile(join(root,'src-tauri/native-updates.json'),JSON.stringify({enabled:true,endpoints,publicKey},null,2)+'\n')
-await writeFile(join(root,'src-tauri/tauri.production.conf.json'),JSON.stringify({productName:'Tia Launcher',identifier:'com.serenetia.tia-launcher',bundle:{shortDescription:'Tia Launcher game library',createUpdaterArtifacts:false},plugins:{updater:{pubkey:publicKey,endpoints,requireSignedVersion:true,allowDowngrades:false}}},null,2)+'\n')
+await writeFile(join(root,'src-tauri/tauri.production.conf.json'),JSON.stringify({productName:'Tia Launcher',identifier:'com.serenetia.tia-launcher',bundle:{publisher:'Serenetia',shortDescription:'Tia Launcher game library',createUpdaterArtifacts:false},plugins:{updater:{pubkey:publicKey,endpoints,requireSignedVersion:true,allowDowngrades:false}}},null,2)+'\n')
 console.log('Production public pins configured. Private release keys remain in the ignored migration-secrets directory.')
