@@ -1,9 +1,14 @@
-{ lib, stdenv, rustPlatform, buildNpmPackage, importNpmLock, fetchurl, pkg-config
+{ lib, stdenv, rustPlatform, buildNpmPackage, importNpmLock, fetchurl, runCommand, pkg-config
 , wrapGAppsHook3, makeWrapper, gtk3, webkitgtk_4_1, libayatana-appindicator
 , gst_all_1, ffmpeg, umu-launcher, xdg-utils, appimageTools, nativeRuntimes
 }:
 let
   version = (builtins.fromJSON (builtins.readFile ../package.json)).version;
+  npmConfigHook = runCommand "tia-npm-config-hook" { } ''
+    mkdir -p "$out/nix-support"
+    substitute ${importNpmLock.npmConfigHook}/nix-support/setup-hook "$out/nix-support/setup-hook" \
+      --replace-fail 'export npm_config_nodedir=' 'export npm_package_config_node_gyp_nodedir='
+  '';
   source = lib.cleanSourceWith {
     src = ../.;
     filter = path: type: !(builtins.elem (baseNameOf path) [ ".git" ".idea" "node_modules" "target" "dist" "release" "release-test" "migration-secrets" ".private-helper" "ref" ]);
@@ -13,7 +18,7 @@ let
     inherit version;
     src = source;
     npmDeps = importNpmLock { npmRoot = source; };
-    npmConfigHook = importNpmLock.npmConfigHook;
+    inherit npmConfigHook;
     npmFlags = [ "--ignore-scripts" ];
     ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
     npmBuildScript = "build";
@@ -25,6 +30,7 @@ rustPlatform.buildRustPackage {
   pname = "tia-launcher";
   inherit version;
   src = source;
+  passthru.frontend = frontend;
   cargoLock.lockFile = ../src-tauri/Cargo.lock;
   cargoRoot = "src-tauri";
   buildAndTestSubdir = "src-tauri";
