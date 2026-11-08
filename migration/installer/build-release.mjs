@@ -48,6 +48,7 @@ try {
   const config = ['--config','src-tauri/tauri.production.conf.json']
   let migrationInstaller, helper, platforms, feed, bridgeTargets
   if (platform === 'win32') {
+    execute(process.execPath,['migration/installer/check-nsis-includes.mjs'])
     execute('powershell',['-NoProfile','-File','migration/windows/prepare-webview2.ps1'])
     cli('build','--no-bundle','--ci',...config)
     execute('cargo',['build','--release','--manifest-path','src-tauri/Cargo.toml','--no-default-features','--features','migration-helper','--bin','tia-migration-helper'])

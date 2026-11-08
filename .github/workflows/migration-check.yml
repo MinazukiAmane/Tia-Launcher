@@ -49,6 +49,9 @@ jobs:
         shell: bash
         run: rm -rf .private-helper
       - run: npm ci
+      - name: Check Windows installer includes
+        if: runner.os != 'macOS'
+        run: node migration/installer/check-nsis-includes.mjs
       - name: Prepare Electron migration test runtime
         run: node node_modules/electron/install.js
       - name: Configure Electron sandbox for Linux tests

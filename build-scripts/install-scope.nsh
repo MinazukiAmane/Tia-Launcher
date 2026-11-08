@@ -1,4 +1,5 @@
-!include "${__FILEDIR__}/webview2.nsh"
+!addincludedir "${__FILEDIR__}"
+!include "webview2.nsh"
 
 !macro tiaSelectInstallScope
   ReadRegStr $R8 HKCU "${INSTALL_REGISTRY_KEY}" "InstallLocation"
