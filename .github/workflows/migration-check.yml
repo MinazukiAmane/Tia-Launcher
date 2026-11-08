@@ -100,3 +100,19 @@ jobs:
           path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 7
+  nixos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Prepare clean Nix source
+        run: |
+          mkdir -p "$RUNNER_TEMP/tia-nix-source"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/tia-nix-source"
+      - name: Build and test NixOS package
+        run: |
+          docker run --rm --memory=6g --memory-swap=7g --cpus=2 \
+            -v "$RUNNER_TEMP/tia-nix-source:/workspace:ro" -w /workspace \
+            nixos/nix@sha256:f159a58f390677f41e8e900a74b6e2f9c7f27b364122ae6acf7a652ce6c551c0 \
+            nix --extra-experimental-features 'nix-command flakes' \
+            flake check --no-write-lock-file --print-build-logs --max-jobs 1 --cores 2 path:/workspace
