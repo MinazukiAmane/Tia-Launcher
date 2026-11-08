@@ -72,27 +72,9 @@ pub(super) fn recover(envelope: &Envelope) -> Result<Option<Zeroizing<[u8; 32]>>
 
 #[cfg(target_os = "macos")]
 fn macos_password(service: &str, account: &str) -> Result<Zeroizing<Vec<u8>>> {
-    use security_framework::os::macos::keychain::SecKeychain;
-    if let Ok(keychain) = SecKeychain::default() {
-        if let Ok((password, _item)) = keychain.find_generic_password(service, account) {
-            return Ok(Zeroizing::new(password.as_ref().to_vec()));
-        }
-    }
-    // The system client also handles legacy keychains outside an app bundle.
-    let output = std::process::Command::new("/usr/bin/security")
-        .args(["find-generic-password", "-s", service, "-a", account, "-w"])
-        .output()?;
-    let mut password = Zeroizing::new(output.stdout);
-    if !output.status.success() {
-        bail!("keychain lookup status {}", output.status);
-    }
-    if password.last() == Some(&b'\n') {
-        password.pop();
-    }
-    if password.is_empty() || password.len() > 4096 {
-        bail!("invalid keychain entry length");
-    }
-    Ok(password)
+    security_framework::passwords::get_generic_password(service, account)
+        .map(Zeroizing::new)
+        .map_err(|error| anyhow::anyhow!("keychain status {}", error.code()))
 }
 
 #[cfg(target_os = "linux")]

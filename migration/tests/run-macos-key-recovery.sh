@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-keychain_directory="$(mktemp -d -t tia-keychain)"
+keychain_directory="$(mktemp -d "${RUNNER_TEMP:-$TMPDIR}/tia-keychain.XXXXXXXX")"
+keychain_directory="$(cd "$keychain_directory" && pwd -P)"
 keychain_file="$keychain_directory/test.keychain-db"
 keychain_password='temporary-test-password'
 previous_keychain="$(security default-keychain -d user | tr -d '"' | xargs)"
@@ -21,4 +22,6 @@ security set-keychain-settings -lut 3600 "$keychain_file"
 security default-keychain -d user -s "$keychain_file"
 security list-keychains -d user -s "$keychain_file"
 security add-generic-password -a 'tia-launcher' -s 'tia-launcher Safe Storage' -w 'isolated-keychain-password' -A "$keychain_file"
+security find-generic-password -a 'tia-launcher' -s 'tia-launcher Safe Storage' -w "$keychain_file" >/dev/null
+security find-generic-password -a 'tia-launcher' -s 'tia-launcher Safe Storage' -w >/dev/null
 node_modules/.bin/electron migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper
