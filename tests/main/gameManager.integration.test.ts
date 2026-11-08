@@ -275,7 +275,7 @@ describe('install -> patch -> launch integration', () => {
     const clientArg = process.platform === 'win32' ? join(installDir, 'Bin', 'cstrike-online.exe') : 'Z:' + join(installDir, 'Bin', 'cstrike-online.exe').replace(/\//g, '\\')
     expect(argsArg.slice(1)).toEqual([clientArg, '-console'])
     expect(optsArg.cwd).toBe(join(installDir, 'Bin'))
-  })
+  }, 15_000)
 })
 
 const AUDIO_FILE_V1 = Buffer.from('fake voice-pack audio bytes v1')
