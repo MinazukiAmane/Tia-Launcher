@@ -26,6 +26,7 @@ rustPlatform.buildRustPackage {
   inherit version;
   src = source;
   cargoLock.lockFile = ../src-tauri/Cargo.lock;
+  cargoRoot = "src-tauri";
   buildAndTestSubdir = "src-tauri";
   nativeBuildInputs = [ pkg-config wrapGAppsHook3 makeWrapper ];
   buildInputs = [ gtk3 webkitgtk_4_1 libayatana-appindicator gst_all_1.gstreamer gst_all_1.gst-plugins-base gst_all_1.gst-plugins-good gst_all_1.gst-plugins-bad gst_all_1.gst-libav ];
@@ -40,7 +41,7 @@ rustPlatform.buildRustPackage {
   '';
   installPhase = ''
     runHook preInstall
-    install -Dm755 target/release/tia-launcher "$out/bin/tia-launcher"
+    install -Dm755 target/${stdenv.hostPlatform.rust.rustcTarget}/$cargoBuildType/tia-launcher "$out/bin/tia-launcher"
     mkdir -p "$out/lib/Tia Launcher"
     cp -r ${nativeRuntimes}/client-runtime ${nativeRuntimes}/game-runtime "$out/lib/Tia Launcher/"
     cp -r build/licenses "$out/lib/Tia Launcher/"

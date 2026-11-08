@@ -1,0 +1,7 @@
+{
+  "name": "temp",
+  "version": "0.9.4-tia.1",
+  "private": true,
+  "main": "index.cjs",
+  "description": "Node filesystem adapter for the Electron installer bridge"
+}

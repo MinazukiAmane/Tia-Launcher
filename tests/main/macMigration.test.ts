@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import AdmZip from 'adm-zip'
@@ -9,7 +9,7 @@ import { readMacContext, replaceMacBundle } from '../../migration/electron/macMi
 const directories:string[]=[]
 afterEach(async()=>{await Promise.all(directories.splice(0).map(path=>rm(path,{recursive:true,force:true})))})
 async function fixture(id='com.serenetia.tia-launcher',version='2.0.0') {
- const directory=await mkdtemp(join(tmpdir(),'tia-mac-bundle-'));directories.push(directory)
+ const directory=await realpath(await mkdtemp(join(tmpdir(),'tia-mac-bundle-')));directories.push(directory)
  const bundle=join(directory,"My Tia's Launcher.app"),executable=join(bundle,'Contents/MacOS/Tia Launcher')
  await mkdir(join(bundle,'Contents/MacOS'),{recursive:true});await writeFile(executable,'old launcher');await chmod(executable,0o755)
  const identity={id,version,executable:'Tia Launcher'}

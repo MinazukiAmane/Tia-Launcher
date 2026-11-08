@@ -25,8 +25,9 @@ gnome-keyring-daemon --foreground --components=secrets --control-directory="$GNO
 keyring_pid=$!
 trap 'kill "$keyring_pid" 2>/dev/null || true; wait "$keyring_pid" 2>/dev/null || true' EXIT
 printf '%s' 'temporary-test-password' | gnome-keyring-daemon --unlock --components=secrets --control-directory="$GNOME_KEYRING_CONTROL" >/dev/null 2>&1
+electron_binary="$(node -p 'require("electron")')"
 for backend in basic gnome-libsecret; do
-  xvfb-run -a node_modules/electron/dist/electron --ozone-platform=x11 migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper "$backend"
+  xvfb-run -a "$electron_binary" --ozone-platform=x11 migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper "$backend"
 done
 '''
     with (Path(directory) / 'session.log').open('w+') as log:

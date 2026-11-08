@@ -13,31 +13,29 @@ jobs:
         os: [ubuntu-24.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
           cache: npm
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav gnome-keyring dbus-x11
       - name: Check out private native helper
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           repository: MinazukiAmane/Tia-Launcher-Helpers
           ref: edbd5d9fe15633e3251938213a4f2e428d4b66e3
           ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
           persist-credentials: false
           path: .private-helper
-      - name: Install Zig
-        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
-        with:
-          version: 0.16.0
-          use-cache: false
+      - name: Install verified Zig toolchain
+        run: node build-scripts/prepareZig.mjs
       - name: Build native runtimes
         run: node build-scripts/buildNativeLaunchers.cjs
       - name: Remove private helper checkout
@@ -45,6 +43,8 @@ jobs:
         shell: bash
         run: rm -rf .private-helper
       - run: npm ci
+      - name: Prepare Electron migration test runtime
+        run: node node_modules/electron/install.js
       - run: npm run build
       - name: Prepare macOS bundle icons
         if: runner.os == 'macOS'
@@ -52,7 +52,7 @@ jobs:
       - run: cargo test --manifest-path src-tauri/Cargo.toml --no-default-features
       - run: cargo build --manifest-path src-tauri/Cargo.toml --no-default-features --bin tia-migration-helper
       - name: Test encrypted database handoff
-        run: npx vitest run tests/main/tauriMigration.test.ts tests/main/tauriBridge.test.ts tests/main/tauriBridgePackaging.test.ts tests/main/appImageMigration.test.ts tests/main/appImageStartup.test.ts tests/main/frameworkMigration.linux.test.ts tests/main/macMigration.test.ts tests/main/updater.test.ts
+        run: npx vitest run --maxWorkers=2
       - name: Test real Electron safeStorage compatibility
         if: runner.os == 'Windows'
         run: npx electron migration/windows/electron-key-smoke.cjs src-tauri/target/debug/tia-migration-helper.exe
@@ -89,7 +89,7 @@ jobs:
           npx tauri build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.macos.conf.json
       - name: Upload macOS build
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: Tia-Launcher-mac-universal
           path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg

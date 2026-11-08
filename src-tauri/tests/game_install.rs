@@ -258,7 +258,9 @@ async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest(
         )
         .await
         .unwrap();
-    assert_eq!(moved["installDir"], serde_json::json!(destination));
+    let expected_destination =
+        tia_launcher::paths::user_path(&std::fs::canonicalize(&destination).unwrap());
+    assert_eq!(moved["installDir"], serde_json::json!(expected_destination));
     assert!(!root.exists());
     assert_eq!(
         std::fs::read(destination.join("Bin/client.exe")).unwrap(),
@@ -272,7 +274,7 @@ async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest(
             .get("launcher", "selectedInstallation")
             .unwrap()
             .unwrap()["installDir"],
-        serde_json::json!(destination)
+        serde_json::json!(expected_destination)
     );
     engine
         .uninstall_game(&destination, &game, "launcher")

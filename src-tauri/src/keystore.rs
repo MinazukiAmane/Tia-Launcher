@@ -117,7 +117,10 @@ pub fn load_key(directory: &Path) -> Result<[u8; 32]> {
 pub fn load_or_create(directory: &Path) -> Result<[u8; 32]> {
     fs::create_dir_all(directory)?;
     if directory.join("launcher.tauri.key").exists() {
-        return load_key(directory);
+        let key = load_key(directory)?;
+        #[cfg(target_os = "macos")]
+        protect_after_handoff(directory, &key)?;
+        return Ok(key);
     }
     if directory.join("launcher.key").exists() {
         if let Some(key) = crate::legacy_key::recover(directory)? {
@@ -287,4 +290,22 @@ mod tests {
         assert!(load_or_create(dir.path()).is_err());
         assert!(!dir.path().join("launcher.tauri.key").exists());
     }
+}
+
+#[cfg(target_os = "macos")]
+fn protect_after_handoff(directory: &Path, key: &[u8; 32]) -> Result<()> {
+    let path = directory.join("launcher.tauri.key");
+    let saved: Envelope = serde_json::from_slice(&fs::read(&path)?)?;
+    if saved.mode == "file" {
+        if let Ok((mode, data)) = native_wrap(directory, key) {
+            let envelope = Envelope {
+                version: 1,
+                tag: key_tag(&mode, &data, key),
+                mode,
+                data,
+            };
+            atomic_private_file(&path, &serde_json::to_vec(&envelope)?)?;
+        }
+    }
+    Ok(())
 }

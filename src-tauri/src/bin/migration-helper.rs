@@ -37,7 +37,7 @@ fn main() {
             serde_json::from_slice(&input)
                 .map_err(|_| anyhow::anyhow!("Invalid migration request."))?
         };
-        let receipt = tia_launcher::migration::import(request, true)?;
+        let receipt = tia_launcher::migration::import(request, !cfg!(target_os = "macos"))?;
         serde_json::to_writer(std::io::stdout().lock(), &receipt)?;
         std::io::stdout().write_all(b"\n")?;
         Ok(())

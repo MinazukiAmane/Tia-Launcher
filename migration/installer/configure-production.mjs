@@ -6,13 +6,17 @@ const root=resolve(import.meta.dirname,'../..')
 const directory=join(root,'migration-secrets')
 await mkdir(directory,{recursive:true,mode:0o700});await chmod(directory,0o700)
 const native=join(directory,'native-updater.key'), migration=join(directory,'electron-migration.pem')
+const existingNative=JSON.parse(await readFile(join(root,'src-tauri/native-updates.json'),'utf8')).publicKey
+const existingPins=JSON.parse(await readFile(join(root,'src/shared/migrationKeys.json'),'utf8'))
 try{await stat(native)}catch(error){
  if(error.code!=='ENOENT')throw error
+ if(existingNative)throw new Error('Restore the original updater private key; it will not be rotated automatically.')
  execFileSync(join(root,'node_modules/.bin/tauri'),['signer','generate','--ci','--write-keys',native],{stdio:'pipe'})
 }
 await chmod(native,0o600)
 try{await stat(migration)}catch(error){
  if(error.code!=='ENOENT')throw error
+ if(existingPins.length)throw new Error('Restore the original migration signing key before configuring a release.')
  const pair=generateKeyPairSync('ed25519')
  await writeFile(migration,pair.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600,flag:'wx'})
 }
@@ -23,6 +27,8 @@ let proofKey
 try{proofKey=createPublicKey(raw)}finally{raw.fill(0)}
 const keyId=createHash('sha256').update(proofKey.export({type:'spki',format:'der'})).digest('hex')
 const pins=[{id:keyId,publicKey:proofKey.export({type:'spki',format:'pem'}).toString()}]
+if(existingNative&&existingNative!==publicKey)throw new Error('Updater key does not match the compiled public pin.')
+if(existingPins.length&&!existingPins.some(pin=>pin.id===keyId))throw new Error('Migration key does not match the compiled public pin.')
 const endpoints=['https://tia-launcher.serenetia.com/api/updates/native/latest.json']
 await writeFile(join(root,'src/shared/migrationKeys.json'),JSON.stringify(pins,null,2)+'\n')
 await writeFile(join(root,'src-tauri/native-updates.json'),JSON.stringify({enabled:true,endpoints,publicKey},null,2)+'\n')

@@ -24,3 +24,5 @@ build/native/*.exe
 /build/webview2/
 
 /migration/STATUS.md
+
+.zig-cache/
