@@ -240,10 +240,16 @@ pub fn start(path: &Path, startup: &Startup) -> Result<u32> {
     );
     let timeout = startup.timeout_ms.unwrap_or(90_000);
     ensure!((50..=90_000).contains(&timeout), "Invalid startup timeout");
-    let directory = tempfile::Builder::new().prefix("tia-ready-").tempdir()?;
+    let directory = tempfile::Builder::new()
+        .prefix("tia-ready-")
+        .tempdir_in("/tmp")
+        .context("The private startup socket directory could not be created")?;
     let socket = directory.path().join("ready.sock");
-    let listener = UnixListener::bind(&socket)?;
-    listener.set_nonblocking(true)?;
+    let listener =
+        UnixListener::bind(&socket).context("The startup socket could not be created")?;
+    listener
+        .set_nonblocking(true)
+        .context("The startup listener could not be configured")?;
     let nonce = format!(
         "{:032x}{:032x}",
         rand::random::<u128>(),
@@ -270,7 +276,10 @@ pub fn start(path: &Path, startup: &Startup) -> Result<u32> {
         let deadline = Instant::now() + Duration::from_millis(timeout);
         loop {
             ensure!(
-                child.try_wait()?.is_none(),
+                child
+                    .try_wait()
+                    .context("The updated launcher status could not be read")?
+                    .is_none(),
                 "The updated launcher closed before it was ready"
             );
             ensure!(
@@ -279,26 +288,36 @@ pub fn start(path: &Path, startup: &Startup) -> Result<u32> {
             );
             match listener.accept() {
                 Ok((mut pipe, _)) => {
-                    pipe.set_read_timeout(Some(
-                        deadline
-                            .saturating_duration_since(Instant::now())
-                            .min(Duration::from_secs(1)),
-                    ))?;
+                    pipe.set_nonblocking(true).context(
+                        "The startup acknowledgement connection could not be configured",
+                    )?;
+                    let peer_deadline = deadline.min(Instant::now() + Duration::from_secs(1));
                     let mut bytes = Vec::new();
                     loop {
                         ensure!(
-                            bytes.len() < 16384 && Instant::now() < deadline,
+                            bytes.len() < 16384 && Instant::now() < peer_deadline,
                             "The updated launcher sent an invalid startup acknowledgement"
                         );
                         let mut byte = [0];
-                        ensure!(
-                            pipe.read(&mut byte)? == 1,
-                            "Incomplete startup acknowledgement"
-                        );
-                        if byte[0] == b'\n' {
-                            break;
+                        match pipe.read(&mut byte) {
+                            Ok(0) => anyhow::bail!("Incomplete startup acknowledgement"),
+                            Ok(_) => {
+                                if byte[0] == b'\n' {
+                                    break;
+                                }
+                                bytes.push(byte[0]);
+                            }
+                            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                                std::thread::sleep(Duration::from_millis(10))
+                            }
+                            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {
+                                continue;
+                            }
+                            Err(error) => {
+                                return Err(error)
+                                    .context("The startup acknowledgement could not be read");
+                            }
                         }
-                        bytes.push(byte[0]);
                     }
                     #[derive(Deserialize)]
                     struct Ready {
@@ -313,7 +332,10 @@ pub fn start(path: &Path, startup: &Startup) -> Result<u32> {
                         "The updated launcher sent an invalid startup acknowledgement"
                     );
                     ensure!(
-                        child.try_wait()?.is_none(),
+                        child
+                            .try_wait()
+                            .context("The updated launcher status could not be read")?
+                            .is_none(),
                         "The updated launcher closed before it was ready"
                     );
                     return Ok(child.id());
@@ -321,7 +343,7 @@ pub fn start(path: &Path, startup: &Startup) -> Result<u32> {
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     std::thread::sleep(Duration::from_millis(10))
                 }
-                Err(e) => return Err(e.into()),
+                Err(e) => return Err(e).context("The startup acknowledgement connection failed"),
             }
         }
     })();

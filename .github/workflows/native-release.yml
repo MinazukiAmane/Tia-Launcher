@@ -137,6 +137,7 @@ jobs:
         env:
           TIA_NATIVE_STARTUP_SMOKE: '1'
           TIA_NATIVE_PRODUCTION_STARTUP: '1'
+          TIA_MIGRATION_HELPER: ${{ github.workspace }}/src-tauri/target/release/tia-migration-helper
         run: |
           export TIA_NATIVE_STARTUP_BINARY="$PWD/release/candidate/Tia-Launcher-$NATIVE_VERSION-linux-x86_64.AppImage"
           python3 migration/tests/run-linux-native-smoke.py
