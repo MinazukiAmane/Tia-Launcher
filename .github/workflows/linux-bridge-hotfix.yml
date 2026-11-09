@@ -36,6 +36,8 @@ jobs:
       - run: node node_modules/electron/install.js
       - name: Configure the Electron test sandbox
         run: sudo chown root:root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - name: Prepare hash-pinned client runtimes
+        run: node migration/installer/prepare-existing-runtimes.mjs
       - name: Build the migration helper and signature verifier
         env:
           CARGO_BUILD_JOBS: '2'
@@ -56,7 +58,6 @@ jobs:
         run: |
           node migration/installer/download-existing-linux.mjs "$NATIVE_VERSION"
           src-tauri/target/release/tia-release-verify release/existing-native "$NATIVE_VERSION"
-          node migration/installer/prepare-existing-runtimes.mjs
       - name: Build all Linux bridge package formats
         env:
           TIA_MIGRATION_SIGNING_KEY: ${{ secrets.TIA_MIGRATION_SIGNING_KEY }}
