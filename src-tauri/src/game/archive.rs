@@ -96,7 +96,8 @@ fn checked_zip<R: Read + Seek>(reader: R) -> Result<zip::ZipArchive<R>> {
     }
     for i in 0..zip.len() {
         let entry = zip.by_index(i)?;
-        let name = entry.name().trim_end_matches('/');
+        let entry_name = entry.name()?;
+        let name = entry_name.trim_end_matches('/');
         if name.is_empty() {
             bail!("The game archive has an invalid entry.")
         }
@@ -109,7 +110,7 @@ fn checked_zip<R: Read + Seek>(reader: R) -> Result<zip::ZipArchive<R>> {
         }) {
             bail!("Linked or special archive entries are not allowed.")
         }
-        if !names.insert(entry.name().to_owned()) {
+        if !names.insert(entry_name.into_owned()) {
             bail!("The game archive contains duplicate entries.")
         }
     }
@@ -171,7 +172,7 @@ pub fn extract(
     let mut total = 0u64;
     for i in 0..zip.len() {
         let e = zip.by_index(i)?;
-        if let Some(expected) = allowed.get(e.name()) {
+        if let Some(expected) = allowed.get(e.name()?.as_ref()) {
             if e.is_dir() || e.size() != expected.size {
                 bail!("Archive file size does not match the verified manifest.")
             }
@@ -186,7 +187,7 @@ pub fn extract(
     for i in 0..zip.len() {
         control.check()?;
         let mut entry = zip.by_index(i)?;
-        let Some(expected) = allowed.get(entry.name()).copied() else {
+        let Some(expected) = allowed.get(entry.name()?.as_ref()).copied() else {
             continue;
         };
         let destination = paths::within(root, &expected.path)?;

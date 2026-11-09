@@ -56,7 +56,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util
 futures-util = "0.3"
 zeroize = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
-zip = { version = "4", default-features = false, features = ["deflate", "bzip2", "zstd"] }
+zip = { version = "9.4.2", default-features = false, features = ["deflate", "bzip2", "zstd"] }
 bzip2 = "0.6"
 flate2 = "1"
 tar = "0.4"
@@ -92,3 +92,6 @@ tauri-build = { version = "2.6", features = [] }
 lto = "thin"
 codegen-units = 1
 strip = true
+
+[patch.crates-io]
+glib = { path = "vendor/glib" }
