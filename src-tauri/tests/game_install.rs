@@ -101,6 +101,22 @@ impl Drop for Server {
         self.stop.store(true, Ordering::SeqCst);
     }
 }
+#[test]
+fn incomplete_proxy_connections_are_not_routed_as_requests() {
+    let server = Server::start();
+    let mut connection =
+        std::net::TcpStream::connect(server.base.strip_prefix("http://").unwrap()).unwrap();
+    connection
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    connection.write_all(b"GET").unwrap();
+    connection.shutdown(std::net::Shutdown::Write).unwrap();
+    let mut response = Vec::new();
+    connection.read_to_end(&mut response).unwrap();
+    assert!(response.is_empty());
+    assert!(server.requests.lock().unwrap().is_empty());
+}
+
 #[tokio::test]
 async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest() {
     exercise_signed_install(false).await;
