@@ -1,9 +1,7 @@
-name: Tauri migration checks
+name: Launcher checks
 on:
   workflow_call:
   workflow_dispatch:
-  push:
-    branches: [master]
 permissions:
   contents: read
 concurrency:
