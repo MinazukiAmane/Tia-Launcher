@@ -20,7 +20,8 @@ const git = (...args)=>execFileSync('git',args,{encoding:'utf8'}).trim()
 const allowed = new Set([
   '.github/workflows/native-release.yml','.github/workflows/promote-native.yml','.github/workflows/migration-check.yml',
   'migration/installer/validate-candidate.mjs','migration/installer/publish-release.py','migration/installer/publisher-requirements.txt',
-  'migration/installer/merge-artifacts.mjs','migration/installer/release-layout.mjs'
+  'migration/installer/merge-artifacts.mjs','migration/installer/release-layout.mjs',
+  'migration/installer/download-candidate.mjs','migration/installer/extract-artifact.py'
 ])
 const changes = git('diff','--name-only',run.head_sha,'HEAD').split('\n').filter(Boolean)
 for (const path of changes) {

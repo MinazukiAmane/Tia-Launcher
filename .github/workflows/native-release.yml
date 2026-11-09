@@ -135,6 +135,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   assemble:
+    permissions:
+      contents: read
+      actions: read
     needs: [build, checks]
     runs-on: ubuntu-24.04
     concurrency:
@@ -154,11 +157,10 @@ jobs:
           cache-on-failure: true
       - name: Install verifier build dependencies
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
-      - uses: actions/download-artifact@v8.0.2
-        with:
-          pattern: release-*
-          merge-multiple: true
-          path: release/combined
+      - name: Download immutable artifacts and verify GitHub digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node migration/installer/download-candidate.mjs "$GITHUB_RUN_ID" release/combined
       - name: Verify signatures and generate separate update feeds
         run: |
           node migration/installer/merge-artifacts.mjs release/combined
@@ -167,6 +169,7 @@ jobs:
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: validated-release
+          if-no-files-found: error
           path: release/publish/
           retention-days: 14
       - name: Publish payloads before update metadata

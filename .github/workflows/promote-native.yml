@@ -41,14 +41,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
         run: node migration/installer/validate-candidate.mjs "$CANDIDATE_RUN"
-      - uses: actions/download-artifact@v8.0.2
-        with:
-          repository: ${{ github.repository }}
-          github-token: ${{ github.token }}
-          run-id: ${{ inputs.candidate_run_id }}
-          pattern: release-*
-          merge-multiple: true
-          path: release/combined
+      - name: Download immutable artifacts and verify GitHub digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run_id }}
+        run: node migration/installer/download-candidate.mjs "$CANDIDATE_RUN" release/combined
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -70,6 +67,7 @@ jobs:
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: validated-release
+          if-no-files-found: error
           path: release/publish/
           retention-days: 14
       - name: Publish tested artifacts before metadata
