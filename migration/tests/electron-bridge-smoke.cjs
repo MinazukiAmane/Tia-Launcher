@@ -3,10 +3,13 @@ const { mkdtempSync, rmSync } = require('node:fs')
 const { tmpdir } = require('node:os')
 const { join, resolve } = require('node:path')
 
+app.disableHardwareAcceleration()
+console.log('Starting isolated Electron bridge smoke test')
+
 const profile = mkdtempSync(join(tmpdir(), 'tia-bridge-smoke-'))
 app.setPath('appData', profile)
 const timer = setTimeout(() => { console.error('Bridge smoke test timed out'); app.exit(1) }, 15000)
-process.on('exit', () => { clearTimeout(timer); rmSync(profile, { recursive: true, force: true }) })
+process.on('exit', () => { clearTimeout(timer); try { rmSync(profile, { recursive: true, force: true }) } catch (error) { console.warn('Temporary test profile cleanup:', error.message) } })
 app.on('browser-window-created', (_event, window) => {
   window.webContents.once('did-finish-load', async () => {
     try {

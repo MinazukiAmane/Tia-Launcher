@@ -14,6 +14,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - name: Configure Git default branch
         run: git config --global init.defaultBranch master
@@ -78,9 +79,11 @@ jobs:
       - name: Build the isolated Electron migration bridge
         run: npm run build:bridge
       - name: Test the real Electron migration bridge on Linux
+        timeout-minutes: 2
         if: runner.os == 'Linux'
         run: xvfb-run -a node node_modules/electron/cli.js migration/tests/electron-bridge-smoke.cjs
       - name: Test the real Electron migration bridge
+        timeout-minutes: 2
         if: runner.os != 'Linux'
         run: node node_modules/electron/cli.js migration/tests/electron-bridge-smoke.cjs
       - name: Test release publication ordering
