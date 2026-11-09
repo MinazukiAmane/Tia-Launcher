@@ -1,6 +1,6 @@
 [package]
 name = "tia-launcher"
-version = "2.0.1"
+version = "2.0.2"
 edition = "2024"
 rust-version = "1.90"
 default-run = "tia-launcher"
@@ -29,7 +29,7 @@ default = ["desktop"]
 migration-helper = []
 release-tools = []
 migration-test = []
-desktop = ["dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-plugin-updater", "dep:tauri-plugin-single-instance"]
+desktop = ["dep:gtk", "dep:tauri", "dep:tauri-plugin-dialog", "dep:tauri-plugin-opener", "dep:tauri-plugin-updater", "dep:tauri-plugin-single-instance"]
 
 [dependencies]
 aes-gcm = "0.10"
@@ -71,6 +71,7 @@ tauri-plugin-updater = { version = "~2.14.1", optional = true }
 tauri-plugin-single-instance = { version = "2", optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+gtk = { version = "0.18", optional = true }
 xz2 = "0.1"
 keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
 secret-service = { version = "4", features = ["rt-async-io-crypto-rust"] }
@@ -78,6 +79,7 @@ zbus = "4.4"
 libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
 security-framework = "3"
 
 [target.'cfg(target_os = "windows")'.dependencies]

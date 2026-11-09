@@ -1,15 +1,8 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import { resolve } from 'node:path'
 
 export default defineConfig({
-  main: {
-    plugins: [externalizeDepsPlugin()]
-  },
-  preload: {
-    plugins: [externalizeDepsPlugin()]
-  },
-  renderer: {
-    plugins: [react(), tailwindcss()]
-  }
+  main: { plugins: [externalizeDepsPlugin()], build: { rollupOptions: { input: { index: resolve('migration/electron/main.ts') } } } },
+  preload: { plugins: [externalizeDepsPlugin()], build: { rollupOptions: { input: { index: resolve('migration/electron/preload.ts') } } } },
+  renderer: { root: 'migration/electron/ui', build: { rollupOptions: { input: { index: resolve('migration/electron/ui/index.html') } } } }
 })

@@ -1,6 +1,4 @@
 import { createHash, createPublicKey, verify } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { lstat } from 'node:fs/promises'
 
 export const MIGRATION_PLATFORMS = ['windows-x64', 'linux-x64', 'linux-arm64', 'macos-x64', 'macos-arm64'] as const
 export type MigrationPlatform = typeof MIGRATION_PLATFORMS[number]
@@ -33,12 +31,4 @@ export function authenticateRelease(signed: SignedMigrationRelease, keys: Migrat
   const release = JSON.parse(signed.body) as MigrationRelease
   if (release.protocol !== 1 || release.appId !== appId || release.bridgeVersion !== bridgeVersion || release.targetVersion !== targetVersion || !MIGRATION_PLATFORMS.includes(platform) || release.platform !== platform || !/^[A-Za-z0-9+/]{86}==$/.test(release.installerSha512) || !/^[a-f0-9]{64}$/.test(release.helperSha256)) throw new Error('This migration release does not match the installed launcher and downloaded update.')
   return release
-}
-
-export async function verifyInstaller(path: string, sha512: string): Promise<void> {
-  const info = await lstat(path)
-  if (!info.isFile() || info.isSymbolicLink()) throw new Error('The downloaded migration installer could not be verified.')
-  const digest = createHash('sha512')
-  for await (const chunk of createReadStream(path)) digest.update(chunk)
-  if (digest.digest('base64') !== sha512) throw new Error('The downloaded migration installer has changed. Download the update again.')
 }

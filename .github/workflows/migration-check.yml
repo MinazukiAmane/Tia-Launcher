@@ -75,6 +75,14 @@ jobs:
           sudo chown root:root node_modules/electron/dist/chrome-sandbox
           sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
       - run: npm run build
+      - name: Build the isolated Electron migration bridge
+        run: npm run build:bridge
+      - name: Test the real Electron migration bridge on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node node_modules/electron/cli.js migration/tests/electron-bridge-smoke.cjs
+      - name: Test the real Electron migration bridge
+        if: runner.os != 'Linux'
+        run: node node_modules/electron/cli.js migration/tests/electron-bridge-smoke.cjs
       - name: Test release publication ordering
         run: python -m unittest discover -s tests/packaging -p "test_*.py"
       - name: Prepare macOS bundle icons

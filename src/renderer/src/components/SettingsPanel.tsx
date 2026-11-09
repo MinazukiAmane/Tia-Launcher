@@ -225,7 +225,7 @@ export function SettingsPanel({
   const [uninstallError, setUninstallError] = useState<string | null>(null)
 
   // Platform-gated sections
-  const [platform, setPlatform] = useState<NodeJS.Platform | null>(null)
+  const [platform, setPlatform] = useState<import('../../../shared/launcherApiTypes').Platform | null>(null)
   const [dwprotonStatus, setDwprotonStatus] = useState<DWProtonStatus | null>(null)
   const [redownloading, setRedownloading] = useState(false)
   const [redownloadProgress, setRedownloadProgress] = useState<Progress | null>(null)

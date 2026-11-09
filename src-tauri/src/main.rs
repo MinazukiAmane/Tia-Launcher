@@ -1,5 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 fn main() {
+    #[cfg(target_os = "linux")]
+    if std::env::args().nth(1).as_deref() == Some("--launch-overlay") {
+        if let Err(error) = tia_launcher::overlay_linux::run() {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     let arguments: Vec<_> = std::env::args_os().collect();
     if arguments
         .get(1)

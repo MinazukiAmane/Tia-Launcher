@@ -79,7 +79,7 @@ gdbus wait --session --timeout 10 org.freedesktop.secrets
 "$TIA_PORTAL_BINARY" >"$XDG_RUNTIME_DIR/portal.log" 2>&1 &
 portal_pid=$!
 gdbus wait --session --timeout 20 org.freedesktop.portal.Desktop
-node node_modules/vitest/vitest.mjs run tests/main/appImageStartup.native.test.ts --maxWorkers=1
+node node_modules/vitest/vitest.mjs run tests/migration/appImageStartup.native.test.ts --maxWorkers=1
 '''
     completed = subprocess.run(['xvfb-run', '-a', 'dbus-run-session', '--', 'bash', '-c', script], cwd=root, env=env, timeout=240)
     raise SystemExit(completed.returncode)

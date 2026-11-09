@@ -38,7 +38,7 @@ impl VideoStream {
         let address = listener.local_addr()?;
         let entries = Arc::new(Mutex::new(HashMap::<String, Entry>::new()));
         let registry = entries.clone();
-        let permits = Arc::new(Semaphore::new(4));
+        let permits = Arc::new(Semaphore::new(8));
         let task = tokio::spawn(async move {
             while let Ok((socket, peer)) = listener.accept().await {
                 if !peer.ip().is_loopback() {
@@ -50,11 +50,7 @@ impl VideoStream {
                 let registry = registry.clone();
                 tokio::spawn(async move {
                     let _permit = permit;
-                    let _ = tokio::time::timeout(
-                        Duration::from_secs(120),
-                        serve(socket, address, registry),
-                    )
-                    .await;
+                    let _ = serve(socket, address, registry).await;
                 });
             }
         });

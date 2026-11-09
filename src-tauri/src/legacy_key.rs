@@ -49,6 +49,14 @@ fn verified_key(envelope: &Envelope, secret: &str) -> Result<Zeroizing<[u8; 32]>
     Ok(key)
 }
 
+pub fn verify_profile_key(directory: &Path, key: &[u8; 32]) -> Result<()> {
+    let envelope: Envelope =
+        serde_json::from_slice(&read_regular(&directory.join("launcher.key"))?)?;
+    let secret = Zeroizing::new(hex::encode(key));
+    verified_key(&envelope, &secret)?;
+    Ok(())
+}
+
 pub fn recover(directory: &Path) -> Result<Option<Zeroizing<[u8; 32]>>> {
     let envelope: Envelope =
         serde_json::from_slice(&read_regular(&directory.join("launcher.key"))?)?;

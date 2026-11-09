@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 :root { color-scheme: dark; font-family: Arial, Helvetica, sans-serif; }
-body { margin: 0; background: #333435; overflow: hidden; }
+html, body, #root { background: transparent; }
+body { margin: 0; background: transparent; overflow: hidden; }
 button, input { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
@@ -16,7 +17,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 *::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 .notices-list, .home-error, [class~="overflow-y-auto"] { scrollbar-gutter: stable; }
 
-.launcher-shell { width: 100vw; height: 100vh; display: flex; gap: 9px; padding: 9px; background: #373839; border-radius: 23px; color: white; }
+.launcher-shell { overflow: hidden; width: 100vw; height: 100vh; display: flex; gap: 9px; padding: 9px; background: #373839; border-radius: 23px; color: white; }
 .launcher-sidebar { position: relative; z-index: 40; display: flex; width: 70px; flex: 0 0 70px; flex-direction: column; align-items: center; border-radius: 18px; background: #1b1b1d; box-shadow: 0 2px 8px #0005; }
 .launcher-brand { width: 43px; height: 43px; object-fit: contain; margin-top: 20px; }
 .sidebar-games { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 14px; }
@@ -31,7 +32,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .sidebar-library { position: absolute; bottom: 22px; width: 36px; height: 36px; display: grid; place-items: center; color: #ddd; border-radius: 8px; }
 .sidebar-library:hover { background: #ffffff12; color: white; }
 .launcher-stage { flex: 1; min-width: 0; position: relative; overflow: hidden; border: 1px solid #ffffff30; border-radius: 18px; background: #101216; }
-.window-controls { position: absolute; z-index: 30; top: 14px; right: 15px; display: flex; align-items: center; gap: 10px; -webkit-app-region: no-drag; }
+.window-controls { position: absolute; z-index: 30; top: 14px; right: 15px; display: flex; align-items: center; gap: 10px; }
 .window-control { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #ffffff20; border-radius: 50%; color: #eee; background: #191a1ddd; box-shadow: 0 2px 4px #0005; transition: background .15s, border-color .15s; }
 .window-control:hover { background: #35363a; border-color: #ffffff60; }
 .window-control-close:hover { background: #a82f3c; }
@@ -144,7 +145,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .service-status button { flex-shrink: 0; color: white; text-decoration: underline; text-underline-offset: 3px; }
 
 .background-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-.background-switcher-zone { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 160px; height: 68px; z-index: 35; display: flex; justify-content: center; align-items: flex-start; -webkit-app-region: no-drag; }
+.background-switcher-zone { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 160px; height: 68px; z-index: 35; display: flex; justify-content: center; align-items: flex-start; }
 .background-switcher-zone[hidden] { display: none; }
 .background-switcher { display: flex; gap: 2px; padding: 4px; border: 1px solid #ffffff60; border-radius: 28px; background: #99999970; backdrop-filter: blur(12px); box-shadow: 0 2px 8px #0005; opacity: 0; transform: translateY(-6px); transition: opacity 160ms, transform 160ms; pointer-events: none; }
 .background-switcher-zone:hover .background-switcher, .background-switcher-zone:focus-within .background-switcher { opacity: 1; transform: none; pointer-events: auto; }

@@ -21,8 +21,6 @@ with tempfile.TemporaryDirectory(prefix='tia-native-version-') as temporary:
     copy = Path(temporary)
     shutil.copytree(root / 'src-tauri', copy / 'src-tauri', ignore=shutil.ignore_patterns('target'))
     shutil.copytree(root / 'src/shared', copy / 'src/shared')
-    (copy / 'src/main').mkdir(parents=True)
-    shutil.copy2(root / 'src/main/mediaConverterAssets.json', copy / 'src/main/mediaConverterAssets.json')
     shutil.copytree(root / 'dist', copy / 'dist')
     (copy / 'build/licenses').mkdir(parents=True)
     shutil.copy2(root / 'build/licenses/Orbitron-OFL.txt', copy / 'build/licenses/Orbitron-OFL.txt')
@@ -33,7 +31,7 @@ with tempfile.TemporaryDirectory(prefix='tia-native-version-') as temporary:
     for name in ['cedar-start-x64.exe', 'cedar-client-x64.dll', 'launcher-services.json', 'LICENSE-Minhook.txt']:
         shutil.copy2(root / 'build/native/cedar' / name, native / 'cedar' / name)
     manifest = copy / 'src-tauri/Cargo.toml'
-    text = re.sub(r'(?m)^version = "2\.0\.0-alpha\.\d+"$', f'version = "{arguments.version}"', manifest.read_text(), count=1)
+    text = re.sub(r'(?m)^version = "[^"\n]+"$', f'version = "{arguments.version}"', manifest.read_text(), count=1)
     manifest.write_text(text)
     config = copy / 'src-tauri/tauri.conf.json'
     value = json.loads(config.read_text())

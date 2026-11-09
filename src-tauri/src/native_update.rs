@@ -309,69 +309,13 @@ impl NativeUpdate {
 }
 #[cfg(windows)]
 fn windows_install_arguments(test: bool) -> Result<Vec<std::ffi::OsString>> {
-    use windows_sys::Win32::System::Registry::{
-        HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RRF_SUBKEY_WOW6432KEY,
-        RRF_SUBKEY_WOW6464KEY, RegGetValueW,
-    };
-    let executable = std::fs::canonicalize(std::env::current_exe()?)?;
-    let directory = executable.parent().context("Missing launcher directory")?;
     let guid = if test && cfg!(debug_assertions) {
         "4d6c4dce-8498-543d-b9ba-7708982fb33a"
     } else {
         "9740b805-18aa-59a9-80e6-10324b8f739e"
     };
-    let subkey: Vec<u16> = format!("Software\\{guid}")
-        .encode_utf16()
-        .chain(Some(0))
-        .collect();
-    let name: Vec<u16> = "InstallLocation".encode_utf16().chain(Some(0)).collect();
-    let mut matches = std::collections::HashSet::new();
-    for (root, scope) in [
-        (HKEY_CURRENT_USER, "/currentuser"),
-        (HKEY_LOCAL_MACHINE, "/allusers"),
-    ] {
-        for view in [RRF_SUBKEY_WOW6432KEY, RRF_SUBKEY_WOW6464KEY] {
-            let mut buffer = vec![0u16; 32768];
-            let mut size = (buffer.len() * 2) as u32;
-            let status = unsafe {
-                RegGetValueW(
-                    root,
-                    subkey.as_ptr(),
-                    name.as_ptr(),
-                    RRF_RT_REG_SZ | view,
-                    std::ptr::null_mut(),
-                    buffer.as_mut_ptr().cast(),
-                    &mut size,
-                )
-            };
-            if status != 0 || size < 2 || size as usize > buffer.len() * 2 || size % 2 != 0 {
-                continue;
-            }
-            let length = buffer.iter().position(|n| *n == 0).unwrap_or(buffer.len());
-            let path = String::from_utf16(&buffer[..length])?;
-            if std::fs::canonicalize(path).ok().as_deref() == Some(directory) {
-                matches.insert(scope);
-            }
-        }
-    }
-    if matches.len() != 1 {
-        bail!(
-            "The launcher installation scope could not be confirmed. Reinstall it in the same location before updating."
-        )
-    }
-    let text = directory.to_str().context("Unsupported launcher path")?;
-    let text = if let Some(unc) = text.strip_prefix("\\\\?\\UNC\\") {
-        format!("\\\\{unc}")
-    } else {
-        text.strip_prefix("\\\\?\\").unwrap_or(text).to_owned()
-    };
-    if text.contains(['"', '\r', '\n']) {
-        bail!("Unsupported launcher path.")
-    }
-    Ok(vec![
-        matches.into_iter().next().unwrap().into(),
-        format!("/D={text}").into(),
-    ])
+    let context = crate::installation::windows_context(&std::env::current_exe()?, guid)?;
+    Ok(crate::installation::preserve_arguments(Vec::new(), &context)?.into_iter().map(Into::into).collect())
 }
 
 #[cfg(target_os = "linux")]

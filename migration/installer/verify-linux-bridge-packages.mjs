@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 const directory=resolve(process.argv[2])
 const definition=JSON.parse(await readFile(join(directory,'artifacts-linux.json'),'utf8'))
 const pins=JSON.parse(await readFile('src/shared/migrationKeys.json','utf8'))
-const {authenticateRelease,verifyInstaller}=await import(pathToFileURL(resolve('release/bridge-verifier.mjs')).href)
+const {authenticateRelease}=await import(pathToFileURL(resolve('release/bridge-verifier.mjs')).href)
 for(const kind of ['AppImage','deb','pacman']) {
  const entries=definition.bridge.filter(a=>a.file.endsWith('.'+kind))
  if(entries.length!==1)throw new Error(`Expected one ${kind} bridge.`)
@@ -38,7 +38,7 @@ for(const kind of ['AppImage','deb','pacman']) {
   const proof=authenticateRelease(signed,pins,'com.serenetia.tia-launcher',definition.metadata.bridgeVersion,definition.metadata.version,'linux-x64')
   if(proof.helperSha256!==helperHash)throw new Error('The packaged migration helper hash changed.')
   const native=definition.native.find(a=>a.file.endsWith('.'+kind))
-  await verifyInstaller(join(directory,native.file),proof.installerSha512)
+  execFileSync(helper,['--bridge-operation-stdin'],{input:JSON.stringify({operation:'verify-installer',path:join(directory,native.file),sha512:proof.installerSha512}),stdio:['pipe','pipe','pipe'],timeout:300000})
   console.log(`Verified real ${kind} bridge package and signed native handoff.`)
  } finally {await rm(temporary,{recursive:true,force:true})}
 }

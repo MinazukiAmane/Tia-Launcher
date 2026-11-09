@@ -3,33 +3,54 @@
     await new Promise(resolve => setTimeout(resolve, 50))
   }
   const api = window.csore
+  if (window.__TIA_SMOKE_OVERLAY_ONLY__) {
+    await new Promise(resolve => setTimeout(resolve, 500))
+    const overlay = await window.__TAURI_INTERNALS__.invoke('launcher_request', {channel:'preview:overlayCheck',args:[]})
+    await window.__TAURI_INTERNALS__.invoke('launcher_request', {channel:'preview:smokeReport',args:[{ok:overlay.visible && overlay.x+overlay.width+overlay.margin===overlay.right && overlay.y+overlay.height+overlay.margin===overlay.bottom,overlay}]})
+    return
+  }
+  const play = async video => Promise.race([video.play(), new Promise((_, reject) => setTimeout(() => reject(new Error('Playback start timed out')), 5000))])
+  const progress = async step => window.__TAURI_INTERNALS__.invoke('launcher_request', { channel: 'preview:smokeReport', args: [{ step }] })
   let backgroundVideo = true
-  let backgroundVideoDetails = null
+  let backgroundVideoDetails = []
   if (await api.getPlatform() === 'linux') {
-    let video
-    for (let attempt = 0; attempt < 80; attempt++) {
-      video = document.querySelector('video.background-media')
-      if (video?.currentSrc?.startsWith('http://127.0.0.1:')) break
-      await new Promise(resolve => setTimeout(resolve, 50))
+    const wait = async (check, label, timeout = 5000) => {
+      const start = performance.now()
+      while (!check()) {
+        if (performance.now() - start > timeout) throw new Error(label)
+        await new Promise(resolve => setTimeout(resolve, 30))
+      }
     }
-    backgroundVideo = false
-    if (video?.currentSrc) {
-      const source = video.currentSrc
-      video = document.createElement('video')
-      video.muted = true
-      video.src = source
-      video.style.display = 'none'
-      document.body.append(video)
-      try {
-        await Promise.race([video.play(), new Promise((_, reject) => setTimeout(() => reject(new Error('Video timeout')), 4000))])
-        await new Promise(resolve => setTimeout(resolve, 300))
-        // Hidden windows can freeze the playback clock.
-        backgroundVideo = video.videoWidth > 0 && video.readyState >= 2 && !video.error
-        video.pause()
-      } catch (error) { backgroundVideoDetails = { error: String(error) } }
-      backgroundVideoDetails = { ...backgroundVideoDetails, src: video.currentSrc, ready: video.readyState, width: video.videoWidth, time: video.currentTime, mediaError: video.error?.code, userAgent: navigator.userAgent }
-      video.removeAttribute('src'); video.load(); video.remove()
+    const buttons = [...document.querySelectorAll('button.sidebar-game')]
+    const activeVideo = () => [...document.querySelectorAll('video.background-media')].find(video => getComputedStyle(video).visibility === 'visible')
+    const switchGame = async index => {
+      await wait(() => !buttons[index].disabled, 'Game switch locked')
+      buttons[index].click()
+      await wait(() => buttons[index].getAttribute('aria-pressed') === 'true', 'Game switch failed')
+      await wait(() => activeVideo()?.readyState >= 2, 'Video not ready')
+      return activeVideo()
     }
+    const originals = []
+    for (const index of [0, 1]) {
+      await progress(`switch ${index}`)
+      const video = await switchGame(index)
+      await progress(`ready ${index}`)
+      originals[index] = video
+      await play(video)
+      await wait(() => Number.isFinite(video.duration), 'No duration')
+      video.playbackRate = 8
+      await wait(() => video.currentTime > video.duration - 3, `Video cut short: ${index}`, 35000)
+      await wait(() => video.currentTime < 3 && !video.paused, 'Video did not loop', 5000)
+      video.playbackRate = 1
+      backgroundVideoDetails.push({ duration: video.duration, width: video.videoWidth, looped: true })
+    }
+    for (const index of [0, 1, 0, 1, 0]) {
+      const video = await switchGame(index)
+      if (video !== originals[index]) throw new Error('Video player recreated')
+      await play(video)
+      if (document.querySelectorAll('video.background-media').length !== 2) throw new Error('Unbounded video players')
+    }
+    backgroundVideo = originals.every(video => !video.error)
   }
   const catalog = await api.getGameCatalog()
   await api.selectGame('csore_global')
@@ -60,11 +81,11 @@
     introduction: introduction.eligible === false,
     unconfiguredUpdater: updateState.versionStatus === 'failed' && updateState.available === null,
     shortcuts: reloadBlocked && copyAllowed,
-    overlay: overlay.visible && overlay.x < overlay.right && overlay.y < overlay.bottom,
+    overlay: overlay.visible && overlay.x + overlay.width + overlay.margin === overlay.right && overlay.y + overlay.height + overlay.margin === overlay.bottom,
     platform: await api.getPlatform()
   }
   result.ok = result.ui && result.backgroundVideo && result.gameCount === 2 && result.separateGameSettings && result.preferences && result.introduction && result.unconfiguredUpdater && result.shortcuts && result.overlay
   await window.__TAURI_INTERNALS__.invoke('launcher_request', { channel: 'preview:smokeReport', args: [result] })
-})().catch(async () => {
-  await window.__TAURI_INTERNALS__.invoke('launcher_request', { channel: 'preview:smokeReport', args: [{ ok: false, error: 'Preview integration check failed' }] })
+})().catch(async error => {
+  await window.__TAURI_INTERNALS__.invoke('launcher_request', { channel: 'preview:smokeReport', args: [{ ok: false, error: String(error) }] })
 })

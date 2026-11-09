@@ -4864,7 +4864,7 @@ dependencies = [
 
 [[package]]
 name = "tia-launcher"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -4877,6 +4877,7 @@ dependencies = [
  "ed25519-dalek",
  "flate2",
  "futures-util",
+ "gtk",
  "hex",
  "hmac",
  "keyring",

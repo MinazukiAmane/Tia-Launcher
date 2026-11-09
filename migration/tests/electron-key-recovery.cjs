@@ -57,9 +57,10 @@ app.whenReady().then(async()=>{
   assert.equal(receipt.proof,createHmac('sha256',key).update(JSON.stringify(['tia-migration-v1',challenge,original,'1'])).digest('hex'))
   assert.equal(hash(),original)
   if (process.platform==='darwin' && nativeBinary) {
-   const {startMigratedAppImage}=require('../../migration/electron/appImageStartup')
+   const {NativeBridge}=require('../electron/nativeBridge')
+   const native=new NativeBridge(helper,createHash('sha256').update(readFileSync(helper)).digest('hex'))
    for (let attempt=0;attempt<2;attempt++) {
-    const {pid}=await startMigratedAppImage(resolve(nativeBinary),['--profile',profile],process.env,90_000,message=>process.stderr.write(message))
+    const {pid}=await native.start(resolve(nativeBinary),{args:['--profile',profile],environment:process.env,timeoutMs:90000})
     try {
      const saved=JSON.parse(readFileSync(join(profile,'launcher.tauri.key'),'utf8'))
      assert.equal(saved.mode,'keychain','The main app must protect its own key after handoff')

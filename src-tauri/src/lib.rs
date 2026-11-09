@@ -42,3 +42,15 @@ pub mod bridge_package;
 
 #[cfg(target_os = "linux")]
 pub mod video_stream;
+
+pub mod media_source;
+
+pub mod installation;
+
+pub mod bridge_ops;
+#[cfg(unix)]
+pub mod unix_update;
+
+pub mod placement;
+#[cfg(all(target_os="linux",feature="desktop"))]
+pub mod overlay_linux;

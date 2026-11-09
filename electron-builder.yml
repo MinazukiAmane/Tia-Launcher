@@ -10,29 +10,12 @@ files:
   - "!tests/**"
   - "!**/*.test.*"
 
-afterPack: build-scripts/afterPack.js
-# afterPack replaces app.asar with encrypted app.dat.
-disableSanityCheckAsar: true
-
 publish:
   provider: generic
   url: https://tia-launcher.serenetia.com/api/updates
   channel: latest
 
 extraResources:
-  - from: build/licenses/Orbitron-OFL.txt
-    to: licenses/Orbitron-OFL.txt
-  - from: build/native
-    to: client-runtime
-    filter:
-      - "csore-start-*.exe"
-  - from: build/native/cedar
-    to: game-runtime
-    filter:
-      - "cedar-start-x64.exe"
-      - "cedar-client-x64.dll"
-      - "LICENSE-Minhook.txt"
-      - "launcher-services.json"
   - from: build/icon.png
     to: icon.png
 
@@ -40,15 +23,6 @@ artifactName: "Tia-Launcher-${version}-${os}-${arch}.${ext}"
 
 win:
   target: nsis
-  # Deliberately NOT requestedExecutionLevel: requireAdministrator --
-  # this process downloads game files over the network, writes them to
-  # disk, and spawns the actual game binary. Running all of that
-  # elevated, on every single launch, would turn any verification bug,
-  # MITM, or compromised CDN into an admin-level compromise instead of a
-  # user-level one, and would run the (third-party) game binary itself
-  # with admin rights for no real benefit. See HANDOFF.md for the
-  # Program-Files-not-writable issue this was trying to solve -- a clear
-  # error message + folder picker already covers it without this.
 nsis:
   include: build-scripts/install-scope.nsh
   oneClick: false

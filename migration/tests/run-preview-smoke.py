@@ -23,10 +23,15 @@ with tempfile.TemporaryDirectory(prefix='tia-tauri-smoke-') as temporary:
     key_file.chmod(0o600)
     environment = os.environ.copy()
     environment['GDK_BACKEND'] = 'x11'
-    result = subprocess.run(
-        ['xvfb-run', '-a', str(binary), '--profile', str(profile), '--smoke-test'],
-        env=environment, capture_output=True, text=True, timeout=40,
-    )
+    try:
+        result = subprocess.run(
+            ['xvfb-run', '-a', '-s', '-screen 0 1280x800x24', str(binary), '--profile', str(profile), '--smoke-test'],
+            env=environment, capture_output=True, text=True, timeout=75,
+        )
+    except subprocess.TimeoutExpired as error:
+        print((error.stdout or b'').decode(errors='replace'))
+        print((error.stderr or b'').decode(errors='replace'))
+        raise SystemExit('Preview smoke test timed out')
     print(result.stdout, end='')
     reports = []
     for line in result.stdout.splitlines():
@@ -39,4 +44,15 @@ with tempfile.TemporaryDirectory(prefix='tia-tauri-smoke-') as temporary:
     success = result.returncode == 0 and bool(reports) and reports[-1].get('ok') is True
     if not success:
         print(result.stderr, end='')
-    raise SystemExit(0 if success else 1)
+        raise SystemExit(1)
+
+if success:
+    overlay = subprocess.run(
+        ['xvfb-run', '-a', '-s', '-screen 0 1280x800x24', str(binary), '--launch-overlay', '{"name":null,"x":0,"y":0}'],
+        env=environment, capture_output=True, text=True, timeout=10,
+    )
+    records = [json.loads(line) for line in overlay.stdout.splitlines() if line.startswith('{')]
+    record = next((row for row in records if row.get('ready')), None)
+    if overlay.returncode or not record or record['right'] - record['x'] - record['width'] != 24 or record['bottom'] - record['y'] - record['height'] != 24:
+        raise SystemExit('Native GTK overlay was not anchored to the screen corner: ' + overlay.stdout + overlay.stderr)
+    print(json.dumps({'nativeOverlay': record}))

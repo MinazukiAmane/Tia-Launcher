@@ -1,13 +1,10 @@
 import { GameServerStatus, useServerStatus } from './GameServerStatus'
 import { SilverNoticesPanel } from './SilverNoticesPanel'
 import { GAMES, type GameDefinition } from '../gameCatalog'
-import silverBackground from '../assets/silver-palace.jpg'
-import silverVideo from '../assets/silver-palace.mp4'
 import { userError } from '../userErrors'
 import { t } from '../i18n'
 import { migrateLegacyPreferences } from '../persistence'
 import { useEffect, useRef, useState } from 'react'
-import { LauncherBackground } from './LauncherBackground'
 import { NoticesPanel, CommunityLink } from './NoticesPanel'
 import { SystemNotificationModal } from './SystemNotificationModal'
 
@@ -101,15 +98,13 @@ interface HomeScreenProps {
   game?: GameDefinition
   onBusyChange?: (busy: boolean) => void
   installDir: string | null
-  // Player's custom launcher background (data: URL), or null for the default.
-  backgroundUrl: string | null
   onNeedInstallDir: () => void
   operationBusy: boolean
   settingsOpen: boolean
   onOpenGameSettings: () => void
 }
 
-export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgroundUrl, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
+export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
   const [state, setState] = useState<ActionState>('loading')
   const serverStatus = useServerStatus(game.biz === 'csore_global', settingsOpen)
   const maintenance = serverStatus === 'maintenance'
@@ -460,7 +455,6 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, backgrou
   return (
     <div className="home-screen">
       {game.biz === 'csore_global' && <GameServerStatus status={serverStatus} />}
-      <LauncherBackground customUrl={backgroundUrl} inactive={settingsOpen} fallbackUrl={game.biz === 'cedar_global' ? silverBackground : undefined} fallbackVideoUrl={game.biz === 'cedar_global' ? silverVideo : undefined} />
       <div className="home-shade" />
       {game.biz === 'csore_global' && <nav className="community-rail" aria-label={t("Community")}><CommunityLink /></nav>}
 

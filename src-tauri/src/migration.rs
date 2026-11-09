@@ -46,6 +46,7 @@ pub fn import(mut request: ImportRequest, native: bool) -> Result<Receipt> {
         .try_into()
         .map_err(|_| anyhow::anyhow!("Invalid migration key."))?;
     let key = Zeroizing::new(key);
+    crate::legacy_key::verify_profile_key(&root, &key)?;
     let cipher = RecordCipher::new(&key);
     let path = root.join("launcher.db");
     let info = std::fs::symlink_metadata(&path)?;
@@ -109,6 +110,35 @@ pub fn import(mut request: ImportRequest, native: bool) -> Result<Receipt> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rejects_tampered_key_envelope_before_importing_a_readable_database() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Connection::open(dir.path().join("launcher.db")).unwrap();
+        db.execute_batch(
+            "CREATE TABLE records(scope TEXT,name TEXT,value TEXT);PRAGMA user_version=2;",
+        )
+        .unwrap();
+        drop(db);
+        let before = std::fs::read(dir.path().join("launcher.db")).unwrap();
+        std::fs::write(dir.path().join("launcher.key"),serde_json::to_vec(&serde_json::json!({"version":1,"mode":"file","data":hex::encode([1;32]),"migrated":true,"tag":"0".repeat(64)})).unwrap()).unwrap();
+        assert!(
+            import(
+                ImportRequest {
+                    protocol: 1,
+                    nonce: "a".repeat(64),
+                    profile: dir.path().into(),
+                    root_key: hex::encode([1; 32])
+                },
+                false
+            )
+            .is_err()
+        );
+        assert!(!dir.path().join("launcher.tauri.key").exists());
+        assert_eq!(
+            std::fs::read(dir.path().join("launcher.db")).unwrap(),
+            before
+        );
+    }
     #[test]
     fn rejects_wrong_key_without_touching_source() {
         let dir = tempfile::tempdir().unwrap();

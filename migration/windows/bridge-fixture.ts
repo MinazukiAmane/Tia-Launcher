@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
 import { BridgeCoordinator } from '../electron/bridgeCoordinator'
 import { BridgeNsisUpdater } from '../electron/bridgeNsisUpdater'
-import { readWindowsInstallContext } from '../electron/installContext'
+import { NativeBridge } from '../electron/nativeBridge'
 
 const argumentsList=process.argv
 const profileIndex=argumentsList.indexOf('--profile')
@@ -62,7 +62,7 @@ app.whenReady().then(async()=>{
  let busy=false
  await new BridgeCoordinator().install({profile,helper:join(process.resourcesPath,'migration','tia-migration-helper.exe'),installer:paths[0],appId:configuration.appId,bridgeVersion:app.getVersion(),targetVersion:configuration.targetVersion,keys:configuration.keys,signedRelease,storage:safeStorage,
   acquireOperation:()=>{if(busy)throw new Error('Already migrating');busy=true;return()=>{busy=false}},
-  installation:()=>readWindowsInstallContext(process.execPath,configuration.guid),
-  install:context=>{updater.setMigrationContext(context);console.log(JSON.stringify({phase:'installer-dispatched',scope:context.scope,directory:context.directory,databaseSha256:createHash('sha256').update(readFileSync(join(profile,'launcher.db'))).digest('hex')}));updater.quitAndInstall(true,false)}
+  installation:release=>new NativeBridge(join(process.resourcesPath,'migration','tia-migration-helper.exe'),release.helperSha256).windowsContext(process.execPath,configuration.guid),
+  install:async(context,release)=>{await updater.setMigrationContext(context,new NativeBridge(join(process.resourcesPath,'migration','tia-migration-helper.exe'),release.helperSha256));console.log(JSON.stringify({phase:'installer-dispatched',scope:context.scope,directory:context.directory,databaseSha256:createHash('sha256').update(readFileSync(join(profile,'launcher.db'))).digest('hex')}));updater.quitAndInstall(true,false)}
  })
 }).catch(error=>{console.error(error instanceof Error?error.message:'Bridge test failed');app.exit(1)})

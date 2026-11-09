@@ -1,6 +1,7 @@
-import { authenticateRelease, verifyInstaller, type SignedMigrationRelease, type MigrationPublicKey, type MigrationPlatform } from './bridgeRelease'
+import { authenticateRelease, type SignedMigrationRelease, type MigrationPublicKey, type MigrationPlatform } from './bridgeRelease'
 import { handoffDatabaseKey } from './keyHandoff'
-import type { InstallContext } from './installContext'
+import { NativeBridge, type InstallContext } from './nativeBridge'
+import type { MigrationRelease } from './bridgeRelease'
 
 export interface BridgeDependencies<Context = InstallContext> {
   profile: string
@@ -14,8 +15,8 @@ export interface BridgeDependencies<Context = InstallContext> {
   signedRelease: SignedMigrationRelease
   storage: { decryptString(value: Buffer): string }
   acquireOperation(): () => void
-  installation(): Promise<Context>
-  install(context: Context): void | Promise<void>
+  installation(release: MigrationRelease): Promise<Context>
+  install(context: Context, release: MigrationRelease): void | Promise<void>
 }
 
 export class BridgeCoordinator<Context = InstallContext> {
@@ -30,12 +31,13 @@ export class BridgeCoordinator<Context = InstallContext> {
     const releaseOperation = dependencies.acquireOperation()
     try {
       const release = authenticateRelease(dependencies.signedRelease, dependencies.keys, dependencies.appId, dependencies.bridgeVersion, dependencies.targetVersion, dependencies.platform)
-      const context = await dependencies.installation()
-      await verifyInstaller(dependencies.installer, release.installerSha512)
+      const native = new NativeBridge(dependencies.helper, release.helperSha256)
+      const context = await dependencies.installation(release)
+      await native.verifyInstaller(dependencies.installer, release.installerSha512)
       await handoffDatabaseKey(dependencies.profile, dependencies.helper, release.helperSha256, dependencies.storage)
       // Recheck after the key handoff before allowing the installer to start.
-      await verifyInstaller(dependencies.installer, release.installerSha512)
-      await dependencies.install(context)
+      await native.verifyInstaller(dependencies.installer, release.installerSha512)
+      await dependencies.install(context, release)
     } finally { releaseOperation() }
   }
 }

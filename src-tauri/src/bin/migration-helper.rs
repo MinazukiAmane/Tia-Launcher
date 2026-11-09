@@ -3,6 +3,19 @@ fn main() {
     let mut stage = "request";
     let result = (|| -> anyhow::Result<()> {
         let operation = std::env::args().nth(1).unwrap_or_default();
+        if operation == "--bridge-operation-stdin" {
+            let mut input = Vec::new();
+            std::io::stdin().take(131073).read_to_end(&mut input)?;
+            anyhow::ensure!(input.len() <= 131072, "Bridge request too large");
+            let request = serde_json::from_slice(&input)?;
+            let result = tia_launcher::bridge_ops::run(request)?;
+            serde_json::to_writer(
+                std::io::stdout().lock(),
+                &serde_json::json!({"protocol":1,"result":result}),
+            )?;
+            std::io::stdout().write_all(b"\n")?;
+            return Ok(());
+        }
         #[cfg(target_os = "linux")]
         if operation == "--install-linux-package-stdin" {
             let mut input = Vec::new();

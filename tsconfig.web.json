@@ -1,9 +1,7 @@
 {
-  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.tsx",
-    "src/preload/*.d.ts",
     "src/shared/launcherLanguages.json",
     "src/shared/mediaMessages.json",
     "src/shared/games.json"
@@ -16,6 +14,21 @@
       "@renderer/*": [
         "src/renderer/src/*"
       ]
-    }
+    },
+    "target": "ES2021",
+    "lib": [
+      "ES2021",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": [
+      "vite/client"
+    ]
   }
 }

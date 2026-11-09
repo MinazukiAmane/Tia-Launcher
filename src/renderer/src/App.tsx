@@ -1,3 +1,6 @@
+import { LauncherBackground } from './components/LauncherBackground'
+import silverBackground from './assets/silver-palace.jpg'
+import silverVideo from './assets/silver-palace.mp4'
 import { SilverPalaceIntroduction } from './components/SilverPalaceIntroduction'
 import { GAMES, type GameDefinition, type GameId } from './gameCatalog'
 import { GAME_ARTWORK } from './gameArtwork'
@@ -159,19 +162,15 @@ export default function App(): React.JSX.Element {
         </button>
       </aside>
       <div className="launcher-stage">
-      {/* Frameless window (see src/main/index.ts's frame: false): this
-          strip is the only way to drag the window, and the buttons below
-          must opt back out of the drag region to stay clickable. */}
       <div
         className="absolute top-0 left-0 right-0 h-8 z-30"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        data-tauri-drag-region
       />
       {/* One unified row, matching the reference's top bar: everything
           window-chrome-related lives together instead of being split
           into separate floating groups at slightly different heights. */}
       <div
         className="window-controls"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         <button
           type="button"
@@ -211,7 +210,8 @@ export default function App(): React.JSX.Element {
       </div>
 
       <div className="game-home-page" hidden={libraryOpen} inert={libraryOpen}>
-        <HomeScreen key={selectedGame.biz} game={selectedGame} onBusyChange={setGameBusy} backgroundUrl={backgroundUrl} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || switchingGame || !storageReady} settingsOpen={settingsScope !== null || libraryOpen} onOpenGameSettings={() => openSettings('game')} />
+        <LauncherBackground gameId={selectedGame.biz} customUrl={backgroundUrl} inactive={settingsScope !== null || libraryOpen} fallbackUrl={selectedGame.biz === 'cedar_global' ? silverBackground : undefined} fallbackVideoUrl={selectedGame.biz === 'cedar_global' ? silverVideo : undefined} />
+        <HomeScreen key={selectedGame.biz} game={selectedGame} onBusyChange={setGameBusy} installDir={installDir} onNeedInstallDir={pickInstallDir} operationBusy={movingInstallation || switchingGame || !storageReady} settingsOpen={settingsScope !== null || libraryOpen} onOpenGameSettings={() => openSettings('game')} />
       </div>
       {libraryOpen && <GameLibrary selected={selectedGame.biz} disabled={switchingGame || movingInstallation || gameBusy || !storageReady} onSelect={biz => void switchGame(biz)} />}
       {storageError && (

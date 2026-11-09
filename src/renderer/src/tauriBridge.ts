@@ -1,4 +1,4 @@
-import { blocksBrowserShortcut } from '../../main/windowShortcuts'
+import { blocksBrowserShortcut } from './windowShortcuts'
 
 window.addEventListener('keydown', event => {
   if (blocksBrowserShortcut({ key: event.key, control: event.ctrlKey, meta: event.metaKey, shift: event.shiftKey, alt: event.altKey }, import.meta.env.PROD)) {
@@ -12,16 +12,12 @@ window.addEventListener('contextmenu', event => {
 })
 
 import { invoke, convertFileSrc } from '@tauri-apps/api/core'
+import { resolveVideoSource } from './mediaSource'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
 window.addEventListener('tia:storage-ready', () => {
   void invoke('launcher_request', { channel: 'launcher:ready', args: [] }).catch(console.error)
 })
-
-async function videoSource(path: string): Promise<string> {
-  if (navigator.userAgent.includes('Linux')) return invoke<string>('launcher_request', { channel: 'launcher:videoSource', args: [path] })
-  return convertFileSrc(path)
-}
 
 async function playableVideo(path: string): Promise<boolean> {
   return new Promise(resolve => {
@@ -38,7 +34,7 @@ async function playableVideo(path: string): Promise<boolean> {
     const timer = setTimeout(() => finish(false), 12_000)
     video.onloadeddata = () => finish(video.videoWidth > 0 && video.videoHeight > 0)
     video.onerror = () => finish(false)
-    void videoSource(path).then(url => { video.src = url }).catch(() => finish(false))
+    void resolveVideoSource(path).then(url => { video.src = url }).catch(() => finish(false))
   })
 }
 
@@ -53,14 +49,14 @@ const ipcRenderer = {
         while (candidate && !candidate.committed) {
           candidate = await invoke<any>('launcher_request', { channel: 'launcher:finishBackgroundVideo', args: [candidate.token, await playableVideo(candidate.path)] })
         }
-        return candidate ? videoSource(candidate.path) : null
+        return candidate ? resolveVideoSource(candidate.path) : null
       } catch (error) {
         await invoke('launcher_request', { channel: 'launcher:discardBackgroundVideo', args: [candidate?.token] }).catch(() => {})
         throw error
       }
     }
     if (channel === 'launcher:getBackground' || channel === 'launcher:chooseBackground') return value ? convertFileSrc(value) : null
-    if (channel === 'launcher:getBackgroundSources') return { image: value.image ? convertFileSrc(value.image) : null, video: value.video ? await videoSource(value.video) : null }
+    if (channel === 'launcher:getBackgroundSources') return { image: value.image ? convertFileSrc(value.image) : null, video: value.video ? await resolveVideoSource(value.video) : null }
     return value
   },
   send(channel: string, ...args: unknown[]): void { void this.invoke(channel, ...args).catch(console.error) },
@@ -78,28 +74,28 @@ const ipcRenderer = {
 import { IPC_UPDATE } from '../../shared/updateChannels'
 
 const gameApi = {
-  getServerStatus: (): Promise<import('../../main/serverStatus').ServerStatus> => ipcRenderer.invoke('game:serverStatus'),
+  getServerStatus: (): Promise<import('../../shared/launcherApiTypes').ServerStatus> => ipcRenderer.invoke('game:serverStatus'),
   getGameCatalog: (): Promise<{ games: readonly import('../../shared/gameDefinition').GameDefinition[]; selected: import('../../shared/gameDefinition').GameId }> => ipcRenderer.invoke('game:catalog'),
   selectGame: (biz: import('../../shared/gameDefinition').GameId): Promise<import('../../shared/gameDefinition').GameDefinition> => ipcRenderer.invoke('game:select', biz),
-  getPreferences: (): Promise<import('../../main/preferences').Preferences> => ipcRenderer.invoke('launcher:getPreferences'),
-  setPreferences: (update: Partial<import('../../main/preferences').Preferences>): Promise<import('../../main/preferences').Preferences> => ipcRenderer.invoke('launcher:setPreferences', update),
-  migrateLegacyPreferences: (legacy: Partial<import('../../main/preferences').Preferences> & { installDir: string | null }): Promise<import('../../main/preferences').Preferences> => ipcRenderer.invoke('launcher:migrateLegacyPreferences', legacy),
-  getLauncherInfo: (): Promise<import('../../main/launcherApi').GamePackageEntry> =>
+  getPreferences: (): Promise<import('../../shared/launcherApiTypes').Preferences> => ipcRenderer.invoke('launcher:getPreferences'),
+  setPreferences: (update: Partial<import('../../shared/launcherApiTypes').Preferences>): Promise<import('../../shared/launcherApiTypes').Preferences> => ipcRenderer.invoke('launcher:setPreferences', update),
+  migrateLegacyPreferences: (legacy: Partial<import('../../shared/launcherApiTypes').Preferences> & { installDir: string | null }): Promise<import('../../shared/launcherApiTypes').Preferences> => ipcRenderer.invoke('launcher:migrateLegacyPreferences', legacy),
+  getLauncherInfo: (): Promise<import('../../shared/launcherApiTypes').GamePackageEntry> =>
     ipcRenderer.invoke('game:getLauncherInfo'),
 
-  getInstallState: (installDir: string): Promise<import('../../main/ipc').InstallStateResponse | null> =>
+  getInstallState: (installDir: string): Promise<import('../../shared/launcherApiTypes').InstallStateResponse | null> =>
     ipcRenderer.invoke('game:getInstallState', installDir),
   getSelectedInstallDir: (): Promise<string | null> => ipcRenderer.invoke('game:getSelectedInstallDir'),
   chooseInstallFolder: (): Promise<string | null> => ipcRenderer.invoke('game:chooseInstallFolder'),
-  moveInstallation: (installDir: string): Promise<import('../../main/moveInstallation').MoveResult | null> =>
+  moveInstallation: (installDir: string): Promise<import('../../shared/launcherApiTypes').MoveResult | null> =>
     ipcRenderer.invoke('game:moveInstallation', installDir),
-  onMoveProgress: (callback: (progress: import('../../main/moveInstallation').MoveProgress) => void): (() => void) => {
-    const listener = (_event: unknown, progress: import('../../main/moveInstallation').MoveProgress): void => callback(progress)
+  onMoveProgress: (callback: (progress: import('../../shared/launcherApiTypes').MoveProgress) => void): (() => void) => {
+    const listener = (_event: unknown, progress: import('../../shared/launcherApiTypes').MoveProgress): void => callback(progress)
     ipcRenderer.on('game:moveProgress', listener)
     return () => ipcRenderer.removeListener('game:moveProgress', listener)
   },
 
-  getSettings: (): Promise<import('../../main/settings').Settings> => ipcRenderer.invoke('game:getSettings'),
+  getSettings: (): Promise<import('../../shared/launcherApiTypes').Settings> => ipcRenderer.invoke('game:getSettings'),
   chooseBackgroundVideo: (): Promise<string | null> => ipcRenderer.invoke('launcher:chooseBackgroundVideo'),
   clearBackgroundVideo: (): Promise<void> => ipcRenderer.invoke('launcher:clearBackgroundVideo'),
   chooseBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:chooseBackground'),
@@ -108,27 +104,27 @@ const gameApi = {
     ipcRenderer.invoke('launcher:uninstall', removeData),
   getBackgroundSources: (): Promise<{ image: string | null; video: string | null }> => ipcRenderer.invoke('launcher:getBackgroundSources'),
   getBackground: (): Promise<string | null> => ipcRenderer.invoke('launcher:getBackground'),
-  setSettings: (settings: import('../../main/settings').Settings): Promise<void> =>
+  setSettings: (settings: import('../../shared/launcherApiTypes').Settings): Promise<void> =>
     ipcRenderer.invoke('game:setSettings', settings),
-  launchGame: (installDir: string): Promise<import('../../main/ipc').LaunchGameResult> =>
+  launchGame: (installDir: string): Promise<import('../../shared/launcherApiTypes').LaunchGameResult> =>
     ipcRenderer.invoke('game:launch', installDir),
 
-  startInstallOrUpdate: (installDir: string): Promise<import('../../main/gameManager').InstallOperationResult> =>
+  startInstallOrUpdate: (installDir: string): Promise<import('../../shared/launcherApiTypes').InstallOperationResult> =>
     ipcRenderer.invoke('game:startInstallOrUpdate', installDir),
 
   pauseInstallOrUpdate: (): Promise<void> => ipcRenderer.invoke('game:pauseInstallOrUpdate'),
-  verifyInstall: (installDir: string): Promise<import('../../main/gameManager').VerifyResult> =>
+  verifyInstall: (installDir: string): Promise<import('../../shared/launcherApiTypes').VerifyResult> =>
     ipcRenderer.invoke('game:verifyInstall', installDir),
   // See startInstallOrUpdate's comment above -- same typed result shape.
-  repairInstall: (installDir: string): Promise<import('../../main/gameManager').InstallOperationResult> =>
+  repairInstall: (installDir: string): Promise<import('../../shared/launcherApiTypes').InstallOperationResult> =>
     ipcRenderer.invoke('game:repairInstall', installDir),
   uninstall: (installDir: string): Promise<void> => ipcRenderer.invoke('game:uninstall', installDir),
-  getDWProtonStatus: (): Promise<import('../../main/gameManager').DWProtonStatus> =>
+  getDWProtonStatus: (): Promise<import('../../shared/launcherApiTypes').DWProtonStatus> =>
     ipcRenderer.invoke('game:getDWProtonStatus'),
   redownloadDWProton: (): Promise<void> => ipcRenderer.invoke('game:redownloadDWProton'),
-  getSikarugirStatus: (): Promise<import('../../main/gameManager').SikarugirStatus> =>
+  getSikarugirStatus: (): Promise<import('../../shared/launcherApiTypes').SikarugirStatus> =>
     ipcRenderer.invoke('game:getSikarugirStatus'),
-  chooseSikarugirWrapper: (): Promise<import('../../main/gameManager').SikarugirStatus | null> =>
+  chooseSikarugirWrapper: (): Promise<import('../../shared/launcherApiTypes').SikarugirStatus | null> =>
     ipcRenderer.invoke('game:chooseSikarugirWrapper'),
   // Client log actions.
   getLogFilePath: (): Promise<string> => ipcRenderer.invoke('game:getLogFilePath'),
@@ -139,17 +135,17 @@ const gameApi = {
 
   clearDownloadCache: (installDir: string): Promise<void> =>
     ipcRenderer.invoke('game:clearDownloadCache', installDir),
-  onProgress: (callback: (update: import('../../main/gameManager').ProgressUpdate) => void): (() => void) => {
-    const listener = (_event: unknown, update: import('../../main/gameManager').ProgressUpdate): void => callback(update)
+  onProgress: (callback: (update: import('../../shared/launcherApiTypes').ProgressUpdate) => void): (() => void) => {
+    const listener = (_event: unknown, update: import('../../shared/launcherApiTypes').ProgressUpdate): void => callback(update)
     ipcRenderer.on('game:progress', listener)
     return () => ipcRenderer.removeListener('game:progress', listener)
   },
-  onNews: (callback: (items: import('../../main/news').NewsItem[]) => void): (() => void) => {
-    const listener = (_event: unknown, items: import('../../main/news').NewsItem[]): void => callback(items)
+  onNews: (callback: (items: import('../../shared/launcherApiTypes').NewsItem[]) => void): (() => void) => {
+    const listener = (_event: unknown, items: import('../../shared/launcherApiTypes').NewsItem[]): void => callback(items)
     ipcRenderer.on('news:update', listener)
     return () => ipcRenderer.removeListener('news:update', listener)
   },
-  getNews: (): Promise<import('../../main/news').NewsItem[]> => ipcRenderer.invoke('news:get'),
+  getNews: (): Promise<import('../../shared/launcherApiTypes').NewsItem[]> => ipcRenderer.invoke('news:get'),
   getSilverIntroduction: (): Promise<{ eligible: boolean }> => ipcRenderer.invoke('launcher:getSilverIntroduction'),
   setSilverIntroductionChoice: (choice: 'interested' | 'dismissed'): Promise<void> => ipcRenderer.invoke('launcher:setSilverIntroductionChoice', choice),
   getSilverNotices: (): Promise<import('../../shared/silverNotices').SilverNoticeFeed> => ipcRenderer.invoke('silver-notices:get'),
@@ -160,7 +156,7 @@ const gameApi = {
   },
   openExternal: (url: string): void => ipcRenderer.send('shell:open-external', url),
   getUserDataDir: (): Promise<string> => ipcRenderer.invoke('app:getUserDataDir'),
-  getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke('app:getPlatform'),
+  getPlatform: (): Promise<import('../../shared/launcherApiTypes').Platform> => ipcRenderer.invoke('app:getPlatform'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
   closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close')
@@ -168,14 +164,14 @@ const gameApi = {
 
 const updateApi = {
   onUpdateAvailable: (
-    callback: (info: import('../../main/updater').UpdateAvailableInfo) => void
+    callback: (info: import('../../shared/launcherApiTypes').UpdateAvailableInfo) => void
   ): (() => void) => {
-    const listener = (_event: unknown, info: import('../../main/updater').UpdateAvailableInfo): void => callback(info)
+    const listener = (_event: unknown, info: import('../../shared/launcherApiTypes').UpdateAvailableInfo): void => callback(info)
     ipcRenderer.on(IPC_UPDATE.AVAILABLE, listener)
     return () => ipcRenderer.removeListener(IPC_UPDATE.AVAILABLE, listener)
   },
-  onDownloadProgress: (callback: (progress: import('../../main/updater').UpdateDownloadProgress) => void): (() => void) => {
-    const listener = (_event: unknown, progress: import('../../main/updater').UpdateDownloadProgress): void => callback(progress)
+  onDownloadProgress: (callback: (progress: import('../../shared/launcherApiTypes').UpdateDownloadProgress) => void): (() => void) => {
+    const listener = (_event: unknown, progress: import('../../shared/launcherApiTypes').UpdateDownloadProgress): void => callback(progress)
     ipcRenderer.on(IPC_UPDATE.DOWNLOAD_PROGRESS, listener)
     return () => ipcRenderer.removeListener(IPC_UPDATE.DOWNLOAD_PROGRESS, listener)
   },
@@ -197,12 +193,12 @@ const updateApi = {
   checkForUpdate: (): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.CHECK),
   startUpdateDownload: (fullDownload = false): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.START_DOWNLOAD, fullDownload),
   quitAndInstallUpdate: (): Promise<void> => ipcRenderer.invoke(IPC_UPDATE.QUIT_AND_INSTALL),
-  onUpdateState: (callback: (state: import('../../main/updater').UpdateState) => void): (() => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, state: import('../../main/updater').UpdateState): void => callback(state)
+  onUpdateState: (callback: (state: import('../../shared/launcherApiTypes').UpdateState) => void): (() => void) => {
+    const listener = (_event: unknown, state: import('../../shared/launcherApiTypes').UpdateState): void => callback(state)
     ipcRenderer.on(IPC_UPDATE.STATE, listener)
     return () => { ipcRenderer.removeListener(IPC_UPDATE.STATE, listener) }
   },
-  getUpdateState: (): Promise<import('../../main/updater').UpdateState> => ipcRenderer.invoke(IPC_UPDATE.GET_STATE)
+  getUpdateState: (): Promise<import('../../shared/launcherApiTypes').UpdateState> => ipcRenderer.invoke(IPC_UPDATE.GET_STATE)
 }
 
 const api = {

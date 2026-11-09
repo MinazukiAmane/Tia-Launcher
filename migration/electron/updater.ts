@@ -1,0 +1,186 @@
+import { assertTrustedSender } from './ipcSecurity'
+import type { VersionStatus, UpdateState, UpdateAvailableInfo, UpdateDownloadProgress } from '../../src/shared/launcherApiTypes'
+import { currentWindow, type WindowSource } from './windowSource'
+import { app, ipcMain } from 'electron'
+import { BridgeNsisUpdater } from './bridgeNsisUpdater'
+import { NativeBridge } from './nativeBridge'
+import { join } from 'node:path'
+import { needsFrameworkMigration, prepareFrameworkMigration } from './frameworkMigration'
+import { win32 } from 'path'
+import { autoUpdater as defaultUpdater, type AppUpdater, type NsisUpdater } from 'electron-updater'
+import migrationKeys from '../../src/shared/migrationKeys.json'
+const autoUpdater = process.platform === 'win32' && migrationKeys.length > 0 ? new BridgeNsisUpdater() : defaultUpdater
+import { logInfo, logError, logDebug } from './logger'
+
+const CHECK_INTERVAL_MS = 60 * 60 * 1000 // hourly
+
+// Public update proxy (tia-launcher-site's /api/updates, in front of the launcher's S3 bucket).
+const UPDATE_FEED_URL = 'https://tia-launcher.serenetia.com/api/updates' + (migrationKeys.length ? `/bridge/${app.getVersion()}` : '')
+
+import { IPC_UPDATE } from '../../src/shared/updateChannels'
+export { IPC_UPDATE } from '../../src/shared/updateChannels'
+
+export function initialUpdateState(): UpdateState {
+  return { versionStatus: app.isPackaged ? 'checking' : 'current', available: null, progress: null, downloaded: false, downloading: false, downloadProgress: null, error: null }
+}
+
+export function configureUpdateInstallDirectory(
+  updater: AppUpdater, platform: NodeJS.Platform, packaged: boolean, executable: string
+): void {
+  if (platform === 'win32' && packaged) {
+    (updater as NsisUpdater).installDirectory = win32.dirname(executable)
+  }
+}
+
+export function initAutoUpdater(win: WindowSource, isGameRunning: () => boolean = () => false): void {
+  configureUpdateInstallDirectory(autoUpdater, process.platform, app.isPackaged, process.execPath)
+  autoUpdater.setFeedURL({ provider: 'generic', url: UPDATE_FEED_URL })
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
+
+  autoUpdater.logger = {
+    info: (...args) => logInfo(`updater: ${args.map(String).join(' ')}`),
+    warn: (...args) => logInfo(`updater warning: ${args.map(String).join(' ')}`),
+    error: (...args) => logError(`updater: ${args.map(String).join(' ')}`),
+    debug: (...args) => logDebug(`updater: ${args.map(String).join(' ')}`)
+  }
+
+  const state = initialUpdateState()
+
+  let checkRequest: Promise<void> | null = null
+  let downloadRequest: Promise<void> | null = null
+  let pendingIsInitialCheck = true
+  let downloadedInstaller: string | null = null
+
+  function broadcast(channel: string, ...args: unknown[]): void {
+    currentWindow(win)?.webContents.send(channel, ...args)
+  }
+
+  function setVersionStatus(value: VersionStatus): void {
+    state.versionStatus = value
+    broadcast(IPC_UPDATE.STATE, state)
+  }
+
+  function reportError(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error)
+    if (state.error === message && !state.downloading) return
+    state.error = message
+    state.downloading = false
+    state.progress = null
+    state.downloadProgress = null
+    logError('updater: update failed', { error: message })
+    setVersionStatus(state.available ? 'required' : 'failed')
+    broadcast(IPC_UPDATE.ERROR, message)
+  }
+
+  autoUpdater.on('error', reportError)
+
+  autoUpdater.on('update-available', (info) => {
+    const payload: UpdateAvailableInfo = { version: info.version, isInitialCheck: pendingIsInitialCheck }
+    if (state.available?.version !== payload.version) {
+      state.progress = null
+      state.downloadProgress = null
+      state.downloaded = false
+      state.downloading = false
+      downloadedInstaller = null
+    }
+    state.available = payload
+    state.error = null
+    setVersionStatus('required')
+    broadcast(IPC_UPDATE.AVAILABLE, payload)
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    const detail: UpdateDownloadProgress = {
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond,
+      updatedAt: Date.now()
+    }
+    state.progress = progress.percent
+    state.downloadProgress = detail
+    state.downloading = true
+    broadcast(IPC_UPDATE.DOWNLOAD_PROGRESS, detail)
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    if (typeof info?.downloadedFile === 'string' && info.downloadedFile) downloadedInstaller = info.downloadedFile
+    state.downloaded = true
+    state.downloading = false
+    state.progress = 100
+    state.error = null
+    broadcast(IPC_UPDATE.DOWNLOADED)
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    state.available = null
+    state.error = null
+    setVersionStatus('current')
+    broadcast(IPC_UPDATE.NOT_AVAILABLE)
+  })
+
+  function checkForUpdates(): Promise<void> {
+    if (downloadRequest) return Promise.resolve()
+    if (checkRequest) return checkRequest
+    state.error = null
+    setVersionStatus(state.available ? 'required' : state.versionStatus === 'current' || state.versionStatus === 'failed' ? state.versionStatus : 'checking')
+    const startupDeadline = setTimeout(() => {
+      if (state.versionStatus === 'checking' && !state.available) reportError(new Error('Launcher update service timed out. Installed games can still be played.'))
+    }, 5000)
+    checkRequest = Promise.resolve().then(() => autoUpdater.checkForUpdates())
+      .then(result => {
+        if (app.isPackaged && !result && state.versionStatus === 'checking') {
+          reportError(new Error('Could not verify the latest launcher version. Please retry.'))
+        }
+      })
+      .catch(reportError)
+      .finally(() => { clearTimeout(startupDeadline); pendingIsInitialCheck = false; checkRequest = null })
+    return checkRequest
+  }
+
+  ipcMain.handle(IPC_UPDATE.START_DOWNLOAD, (event, fullDownload?: boolean) => {
+    assertTrustedSender(win, event)
+    if (downloadRequest) return downloadRequest
+    if (state.downloaded) return Promise.resolve()
+    state.error = null
+    state.downloading = true
+    state.progress = 0
+    state.downloadProgress = { percent: 0, transferred: 0, total: 0, bytesPerSecond: 0, updatedAt: Date.now() }
+    broadcast(IPC_UPDATE.DOWNLOAD_PROGRESS, state.downloadProgress)
+    const previousMode = autoUpdater.disableDifferentialDownload
+    autoUpdater.disableDifferentialDownload = fullDownload === true || previousMode
+    logInfo('updater: download requested', { version: state.available?.version, fullDownload: fullDownload === true })
+    downloadRequest = Promise.resolve().then(() => autoUpdater.downloadUpdate())
+      .then(paths => { downloadedInstaller = paths[0] ?? downloadedInstaller })
+      .catch(error => { reportError(error); throw error })
+      .finally(() => { autoUpdater.disableDifferentialDownload = previousMode; downloadRequest = null })
+    return downloadRequest
+  })
+
+  ipcMain.handle(IPC_UPDATE.QUIT_AND_INSTALL, async (event) => {
+    assertTrustedSender(win, event)
+    if (isGameRunning()) {
+      throw new Error(
+        'Cannot restart to install the update: a game download or patch is still in progress. Please wait for it to finish.'
+      )
+    }
+    if (state.available && needsFrameworkMigration(app.getVersion(), state.available.version)) {
+      if (!state.downloaded || !downloadedInstaller) throw new Error('Download the launcher update before restarting.')
+      return prepareFrameworkMigration(downloadedInstaller, state.available.version, () => isGameRunning(), async (context, release) => {
+        if (!(autoUpdater instanceof BridgeNsisUpdater)) throw new Error('This migration is not supported on this platform yet.')
+        await autoUpdater.setMigrationContext(context, new NativeBridge(join(process.resourcesPath, 'migration/tia-migration-helper.exe'), release.helperSha256))
+        autoUpdater.quitAndInstall()
+      })
+    }
+    return autoUpdater.quitAndInstall()
+  })
+  ipcMain.handle(IPC_UPDATE.CHECK, event => { assertTrustedSender(win, event); return checkForUpdates() })
+  ipcMain.handle(IPC_UPDATE.GET_STATE, event => { assertTrustedSender(win, event); return state })
+
+  // Skip in dev -- no packaged installer / update feed to check against.
+  if (!app.isPackaged) return
+
+  checkForUpdates()
+  setInterval(checkForUpdates, CHECK_INTERVAL_MS)
+}

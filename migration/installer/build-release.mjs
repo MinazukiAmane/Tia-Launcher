@@ -121,7 +121,7 @@ try {
   }
   const verifierPath = join(root,'release/bridge-verifier.mjs')
   await bundleScript({entryPoints:[join(root,'migration/electron/bridgeRelease.ts')],outfile:verifierPath,bundle:true,platform:'node',format:'esm',target:'node24'})
-  const {authenticateRelease,verifyInstaller} = await import(pathToFileURL(verifierPath).href)
+  const {authenticateRelease} = await import(pathToFileURL(verifierPath).href)
   async function verifyPackagedBridge(context) {
     const directory = context.electronPlatformName==='darwin'
       ? join(context.appOutDir,context.packager.appInfo.productFilename+'.app','Contents/Resources/migration')
@@ -131,11 +131,10 @@ try {
       const proof = authenticateRelease(signed,pins,'com.serenetia.tia-launcher',bridgeVersion,version,target)
       const packagedHelper = join(directory,target==='windows-x64'?'tia-migration-helper.exe':'tia-migration-helper')
       if ((await hashFile(packagedHelper,'sha256','hex')).hash!==proof.helperSha256) throw new Error('Packaging changed the hash-pinned migration helper.')
-      await verifyInstaller(installer,proof.installerSha512)
+      execFileSync(helper,['--bridge-operation-stdin'],{input:JSON.stringify({operation:'verify-installer',path:installer,sha512:proof.installerSha512}),stdio:['pipe','pipe','pipe'],timeout:300000})
     }
   }
   await writeFile(join(root,'package.json'),JSON.stringify({...JSON.parse(originals.get(join(root,'package.json'))),version:bridgeVersion,name:'tia-launcher'},null,2)+'\n')
-  if (platform==='darwin') execute(process.execPath,['migration/installer/prepare-macos-bindings.mjs'])
   execute(process.execPath,[join(root,'node_modules/electron-vite/bin/electron-vite.js'),'build'])
   const builder = {
     extends:join(root,'electron-builder.yml'),
@@ -145,16 +144,13 @@ try {
     disableSanityCheckAsar:false,
     extraMetadata:{name:'tia-launcher',version:bridgeVersion,main:'./out/main/index.js',author:{name:'Serenetia',email:'amane@serenetia.com'}},
     extraResources:[
-      {from:'build/licenses/Orbitron-OFL.txt',to:'licenses/Orbitron-OFL.txt'},
-      {from:'build/native',to:'client-runtime',filter:['csore-start-*.exe']},
-      {from:'build/native/cedar',to:'game-runtime',filter:['cedar-start-x64.exe','cedar-client-x64.dll','launcher-services.json','LICENSE-Minhook.txt']},
       {from:'build/icon.png',to:'icon.png'},
       {from:join(resources,'resources/migration'),to:'migration'}
     ],
     artifactName:`Tia-Launcher-${bridgeVersion}-${platform === 'win32'?'win-x64.exe':platform === 'linux'?'linux-x86_64.AppImage':'mac-universal.${ext}'}`,
     ...(platform==='linux'?{linux:{executableName:'tia-launcher'},appImage:{artifactName:`Tia-Launcher-${bridgeVersion}-linux-x86_64.AppImage`},deb:{packageName:'tia-launcher',artifactName:`Tia-Launcher-${bridgeVersion}-linux-amd64.deb`},pacman:{packageName:'tia-launcher',artifactName:`Tia-Launcher-${bridgeVersion}-linux-x64.pacman`}}:{}),
     publish:{provider:'generic',url:`https://tia-launcher.serenetia.com/api/updates/bridge/${bridgeVersion}`},
-    ...(platform==='darwin'?{mac:{identity:process.env.TIA_OFFICIAL_MACOS==='1'?process.env.APPLE_SIGNING_IDENTITY:null,signIgnore:['Contents/Resources/migration/tia-migration-helper'],x64ArchFiles:'**/@bsdiff-rust/node-darwin-*/**',singleArchFiles:'**/@bsdiff-rust/node-darwin-*/**'}}:{})
+    ...(platform==='darwin'?{mac:{identity:process.env.TIA_OFFICIAL_MACOS==='1'?process.env.APPLE_SIGNING_IDENTITY:null,signIgnore:['Contents/Resources/migration/tia-migration-helper']}}:{})
   }
   await build({config:builder,targets:bridgeTargets,publish:'never'})
   const suffixes = platform==='win32'?['.exe']:platform==='linux'?['.AppImage','.deb','.pacman']:['.zip']

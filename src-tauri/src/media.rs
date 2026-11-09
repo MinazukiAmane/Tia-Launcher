@@ -244,7 +244,7 @@ pub async fn converter(engine: &Engine) -> Result<PathBuf> {
         _ => bail!("Video conversion is unavailable on this device."),
     };
     let assets: Value =
-        serde_json::from_str(include_str!("../../src/main/mediaConverterAssets.json"))?;
+        serde_json::from_str(include_str!("../../src/shared/mediaConverterAssets.json"))?;
     let entry = &assets[format!("{platform}-{architecture}")];
     if entry.is_null() {
         bail!("Video conversion is unavailable on this device.")

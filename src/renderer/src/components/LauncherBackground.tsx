@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { resolveVideoSource } from '../mediaSource'
 import { t } from '../i18n'
 import { useEffect, useRef, useState } from 'react'
 import heroBackground from '../assets/hero-background.png'
@@ -11,6 +11,27 @@ const frames = explicitFrames.length ? explicitFrames : orderedFrameUrls(imageAs
 const images = Object.entries(imageAssets).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true })).map(([, url]) => url)
 const videos = Object.entries(import.meta.glob<string>('../assets/backgrounds/videos/*.{mp4,webm}', { eager: true, query: '?url', import: 'default' })).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true })).map(([, url]) => url)
 type Mode = 'video' | 'image'
+
+function BackgroundVideo({ url, active, centered, onError }: { url: string; active: boolean; centered: boolean; onError: () => void }): React.JSX.Element {
+  const video = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    const element = video.current
+    if (!element) return
+    return () => { element.pause(); element.removeAttribute('src'); element.load() }
+  }, [url])
+  useEffect(() => {
+    const element = video.current
+    if (!element) return
+    if (active) void element.play().catch(() => {})
+    else element.pause()
+  }, [active, url])
+  return <video ref={video} className="background-media" style={{ visibility: active ? 'visible' : 'hidden', objectPosition: centered ? 'center' : 'left center' }} src={url} muted loop={!navigator.userAgent.includes('Linux')} onEnded={event => {
+    if (!active) return
+    const element = event.currentTarget
+    element.currentTime = 0
+    void element.play().catch(() => {})
+  }} playsInline preload="metadata" onError={onError} aria-hidden="true" />
+}
 
 function FrameAnimation({ active }: { active: boolean }): React.JSX.Element {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -46,23 +67,24 @@ function FrameAnimation({ active }: { active: boolean }): React.JSX.Element {
   return <canvas ref={canvas} className="background-media" aria-hidden="true" />
 }
 
-export function LauncherBackground({ customUrl, inactive, fallbackUrl, fallbackVideoUrl }: { customUrl: string | null; inactive: boolean; fallbackUrl?: string; fallbackVideoUrl?: string }): React.JSX.Element {
+export function LauncherBackground({ gameId, customUrl, inactive, fallbackUrl, fallbackVideoUrl }: { gameId: string; customUrl: string | null; inactive: boolean; fallbackUrl?: string; fallbackVideoUrl?: string }): React.JSX.Element {
   const [mode, setMode] = useState<Mode>(videos.length ? 'video' : 'image')
   const [sources, setSources] = useState<{ image: string | null; video: string | null }>({ image: null, video: null })
   const [visible, setVisible] = useState(!document.hidden)
   const [failedVideos, setFailedVideos] = useState<Set<string>>(() => new Set())
-  const video = useRef<HTMLVideoElement>(null)
+  const [players, setPlayers] = useState<Record<string, { url: string; original: string; centered: boolean }>>({})
+  const sourcesGame = useRef(gameId)
   useEffect(() => {
     let mounted = true
     let latest = 0
     const refresh = (): void => {
       const request = ++latest
-      window.csore.getBackgroundSources().then(value => { if (mounted && request === latest) { setSources(value); setFailedVideos(new Set()) } }).catch(() => {})
+      window.csore.getBackgroundSources().then(value => { if (mounted && request === latest) { sourcesGame.current = gameId; setSources(value); setFailedVideos(new Set()) } }).catch(() => {})
     }
     refresh()
     window.addEventListener('tia-background-sources-changed', refresh)
     return () => { mounted = false; window.removeEventListener('tia-background-sources-changed', refresh) }
-  }, [customUrl])
+  }, [customUrl, gameId])
   useEffect(() => {
     const change = (): void => setVisible(!document.hidden)
     document.addEventListener('visibilitychange', change)
@@ -77,39 +99,43 @@ export function LauncherBackground({ customUrl, inactive, fallbackUrl, fallbackV
     window.addEventListener('tia-background-mode-changed', update)
     return () => { mounted = false; window.removeEventListener('tia-background-mode-changed', update) }
   }, [])
-  const imageUrl = sources.image ?? (customUrl && !customUrl.startsWith('tia-background:') ? customUrl : null) ?? fallbackUrl ?? images[0] ?? frames[0] ?? heroBackground
-  const videoUrl = [sources.video, ...(fallbackVideoUrl ? [fallbackVideoUrl] : fallbackUrl ? [] : videos)].find(url => url && !failedVideos.has(url)) ?? null
-  const animatedFrames = !fallbackUrl && mode === 'image' && !sources.image && (!customUrl || customUrl.startsWith('tia-background:')) && frames.length > 1
+  const currentSources = sourcesGame.current === gameId ? sources : { image: null, video: null }
+  const imageUrl = currentSources.image ?? (customUrl && !customUrl.startsWith('tia-background:') ? customUrl : null) ?? fallbackUrl ?? images[0] ?? frames[0] ?? heroBackground
+  const videoUrl = [currentSources.video, ...(fallbackVideoUrl ? [fallbackVideoUrl] : fallbackUrl ? [] : videos)].find(url => url && !failedVideos.has(url)) ?? null
+  const animatedFrames = !fallbackUrl && mode === 'image' && !currentSources.image && (!customUrl || customUrl.startsWith('tia-background:')) && frames.length > 1
   const [resolvedVideo, setResolvedVideo] = useState<{ original: string; url: string } | null>(null)
   useEffect(() => {
     let canceled = false
-    if (!videoUrl || !('__TAURI_INTERNALS__' in window) || !navigator.userAgent.includes('Linux') || videoUrl.startsWith('http://127.0.0.1:') || import.meta.env.DEV) return
+    if (!videoUrl || !('__TAURI_INTERNALS__' in window) || !videoUrl.startsWith('/assets/') || import.meta.env.DEV) return
     const path = new URL(videoUrl, window.location.href).pathname
-    void invoke<string>('launcher_request', { channel: 'launcher:videoSource', args: [path] }).then(url => {
+    const cached = Object.values(players).find(player => player.original === videoUrl)
+    if (cached) { setResolvedVideo({ original: videoUrl, url: cached.url }); return }
+    const request = resolveVideoSource(path)
+    void request.then(url => {
       if (!canceled) setResolvedVideo({ original: videoUrl, url })
     }).catch(() => { if (!canceled) setFailedVideos(previous => new Set(previous).add(videoUrl)) })
     return () => { canceled = true }
   }, [videoUrl])
-  const requiresResolution = !!videoUrl && '__TAURI_INTERNALS__' in window && navigator.userAgent.includes('Linux') && !videoUrl.startsWith('http://127.0.0.1:') && !import.meta.env.DEV
+  const requiresResolution = !!videoUrl && '__TAURI_INTERNALS__' in window && videoUrl.startsWith('/assets/') && !import.meta.env.DEV
   const playbackUrl = requiresResolution ? (resolvedVideo?.original === videoUrl ? resolvedVideo.url : null) : videoUrl
   const playVideo = mode === 'video' && playbackUrl !== null
   const active = visible && !inactive
   useEffect(() => {
-    const element = video.current
-    if (!element) return
-    if (active && playVideo) void element.play().catch(() => {})
-    else element.pause()
-  }, [active, playVideo, playbackUrl])
+    if (!playbackUrl || !videoUrl) return
+    setPlayers(previous => previous[gameId]?.url === playbackUrl ? previous : {
+      ...previous, [gameId]: { url: playbackUrl, original: videoUrl, centered: videoUrl === currentSources.video || videoUrl === fallbackVideoUrl }
+    })
+  }, [gameId, playbackUrl, videoUrl, currentSources.video, fallbackVideoUrl])
   function select(value: Mode): void {
     const previous = mode
     setMode(value)
     void saveBackgroundMode(value).catch(() => setMode(previous))
   }
   return <>
-    <div className="home-background" style={{ backgroundImage: `url(${imageUrl})`, backgroundPosition: sources.image || fallbackUrl ? 'center' : 'left center' }} />
+    <div className="home-background" style={{ backgroundImage: `url(${imageUrl})`, backgroundPosition: currentSources.image || fallbackUrl ? 'center' : 'left center' }} />
     {animatedFrames && <FrameAnimation active={active} />}
-    {playVideo && <video ref={video} className="background-media" style={{ objectPosition: videoUrl === sources.video || videoUrl === fallbackVideoUrl ? 'center' : 'left center' }} src={playbackUrl ?? undefined} muted loop playsInline preload="metadata" onError={() => { if (videoUrl) setFailedVideos(previous => new Set(previous).add(videoUrl)) }} aria-hidden="true" />}
-    <div className="background-switcher-zone" hidden={inactive}>
+    {Object.entries(players).map(([id, player]) => <BackgroundVideo key={id + player.url} url={player.url} centered={player.centered} active={active && playVideo && id === gameId && player.url === playbackUrl} onError={() => { if (id === gameId) setFailedVideos(previous => new Set(previous).add(player.original)) }} />)}
+    <div data-tauri-drag-region="deep" className="background-switcher-zone" hidden={inactive}>
       <div className="background-switcher" role="group" aria-label={t("Background mode")}>
         <button type="button" aria-label={t("Video background")} aria-pressed={mode === 'video'} disabled={!videoUrl} title={videoUrl ? t("Video background") : t("No built-in video available")} onClick={() => select('video')}>
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg>

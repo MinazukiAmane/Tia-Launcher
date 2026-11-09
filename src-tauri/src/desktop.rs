@@ -201,6 +201,16 @@ async fn request(
                 let _ = send.send(crate::overlay::show(&handle).map_err(|e| e.to_string()));
             })?;
             receive.await?.map_err(anyhow::Error::msg)?;
+            #[cfg(all(target_os = "linux", debug_assertions))]
+            if app.get_webview_window("launch-overlay").is_none() {
+                for _ in 0..80 {
+                    if let Some(snapshot) = crate::overlay_linux::snapshot() {
+                        return Ok(snapshot);
+                    }
+                    tokio::time::sleep(Duration::from_millis(25)).await;
+                }
+                bail!("The native overlay did not become ready");
+            }
             tokio::time::sleep(Duration::from_millis(150)).await;
             let overlay = app
                 .get_webview_window("launch-overlay")
@@ -210,8 +220,9 @@ async fn request(
                 .current_monitor()?
                 .ok_or_else(|| anyhow::anyhow!("Overlay monitor unavailable"))?;
             let area = monitor.work_area();
+            let size = overlay.outer_size()?;
             Ok(
-                json!({"visible":overlay.is_visible()?,"x":position.x,"y":position.y,"right":area.position.x+area.size.width as i32,"bottom":area.position.y+area.size.height as i32}),
+                json!({"visible":overlay.is_visible()?,"x":position.x,"y":position.y,"width":size.width,"height":size.height,"margin":(24.0*monitor.scale_factor()).round() as i32,"right":area.position.x+area.size.width as i32,"bottom":area.position.y+area.size.height as i32}),
             )
         }
         "preview:smokeReport" => {
@@ -219,7 +230,9 @@ async fn request(
                 bail!("Unavailable command.")
             }
             println!("{}", arg(0));
-            app.exit(if arg(0)["ok"] == true { 0 } else { 1 });
+            if arg(0).get("ok").is_some() {
+                app.exit(if arg(0)["ok"] == true { 0 } else { 1 });
+            }
             Ok(Value::Null)
         }
         "ping" => Ok(json!("pong")),
@@ -547,42 +560,51 @@ async fn request(
             let source = value
                 .as_str()
                 .ok_or_else(|| anyhow::anyhow!("Invalid video source"))?;
+            let saved = settings(&state)?;
+            let selected = crate::media::saved_path(&state.engine, &saved["customVideo"], true)?;
+            let authorized = {
+                let pending = state.media_candidate.lock().unwrap();
+                crate::media_source::authorize(
+                    source,
+                    selected.as_deref(),
+                    pending.as_ref().map(|candidate| candidate.path.as_path()),
+                )?
+            };
             #[cfg(target_os = "linux")]
             {
-                if source.starts_with("/assets/")
-                    && !source.contains("..")
-                    && [".mp4", ".webm"].iter().any(|ext| source.ends_with(ext))
-                {
-                    if let Some(url) = state.video_stream.existing(source) {
-                        return Ok(json!(url));
+                match authorized {
+                    crate::media_source::VideoSource::Builtin(identity) => {
+                        if let Some(url) = state.video_stream.existing(&identity) {
+                            return Ok(json!(url));
+                        }
+                        let handle = app.clone();
+                        let asset_path = identity.clone();
+                        let bytes =
+                            tauri::async_runtime::spawn_blocking(move || -> Result<Vec<u8>> {
+                                let asset =
+                                    handle.asset_resolver().get(asset_path).ok_or_else(|| {
+                                        anyhow::anyhow!("The built-in video is missing")
+                                    })?;
+                                anyhow::ensure!(
+                                    asset.bytes.len() as u64 <= crate::media::VIDEO_LIMIT,
+                                    "Video too large"
+                                );
+                                Ok(asset.bytes)
+                            })
+                            .await??;
+                        Ok(json!(state.video_stream.bytes(bytes, &identity)))
                     }
-                    let asset = app
-                        .asset_resolver()
-                        .get(source.to_owned())
-                        .ok_or_else(|| anyhow::anyhow!("The built-in video is missing"))?;
-                    anyhow::ensure!(
-                        asset.bytes.len() as u64 <= crate::media::VIDEO_LIMIT,
-                        "Video too large"
-                    );
-                    return Ok(json!(state.video_stream.bytes(asset.bytes, source)));
+                    crate::media_source::VideoSource::File(path) => {
+                        Ok(json!(state.video_stream.file(path)))
+                    }
                 }
-                let path = PathBuf::from(source);
-                let saved = settings(&state)?;
-                let selected =
-                    crate::media::saved_path(&state.engine, &saved["customVideo"], true)?;
-                let pending = state.media_candidate.lock().unwrap();
-                anyhow::ensure!(
-                    selected.as_ref() == Some(&path)
-                        || pending
-                            .as_ref()
-                            .is_some_and(|candidate| candidate.path == path),
-                    "Choose a background video first"
-                );
-                Ok(json!(state.video_stream.file(path)))
             }
             #[cfg(not(target_os = "linux"))]
             {
-                Ok(json!(source))
+                match authorized {
+                    crate::media_source::VideoSource::Builtin(path) => Ok(json!(path)),
+                    crate::media_source::VideoSource::File(path) => Ok(json!(path)),
+                }
             }
         }
         "launcher:getBackground" | "launcher:getBackgroundSources" => {
@@ -856,7 +878,8 @@ fn create_window(app: &tauri::AppHandle, smoke: bool) -> Result<()> {
         .max_inner_size(1100.0, 650.0)
         .resizable(false)
         .decorations(false)
-        .visible(!smoke)
+        .transparent(true)
+        .visible(true)
         .devtools(cfg!(debug_assertions))
         .on_navigation(|url| {
             matches!(url.scheme(), "tauri" | "http" | "https")
@@ -868,6 +891,9 @@ fn create_window(app: &tauri::AppHandle, smoke: bool) -> Result<()> {
         .on_page_load(move |window, event| {
             if event.event() == tauri::webview::PageLoadEvent::Finished {
                 if smoke {
+                    if std::env::args().any(|arg| arg == "--smoke-overlay-only") {
+                        let _ = window.eval("window.__TIA_SMOKE_OVERLAY_ONLY__=true");
+                    }
                     let _ = window.eval(include_str!("smoke.js"));
                 }
                 #[cfg(debug_assertions)]
@@ -1010,7 +1036,7 @@ pub fn run() {
             if smoke {
                 let handle = app.handle().clone();
                 std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_secs(25));
+                    std::thread::sleep(Duration::from_secs(60));
                     handle.exit(2)
                 });
             }

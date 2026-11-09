@@ -13,7 +13,9 @@ const identity=JSON.parse(await readFile(join(root,'migration/installer/identity
 const guid=UUID.v5(identity.appId,UUID.parse('50e065bc-3134-11e6-9bab-38c9862bdaf3'))
 const native=join(root,'src-tauri/target/x86_64-pc-windows-gnu/debug/tia-launcher.exe')
 const helper=join(root,'src-tauri/target/x86_64-pc-windows-gnu/debug/tia-migration-helper.exe')
-const runtime=resolve(process.argv.slice(2).find(arg=>!arg.startsWith('--'))??join(root,'../CSORE-Launcher/release/win-unpacked'))
+const runtimeArgument=process.argv.slice(2).find(arg=>!arg.startsWith('--'))
+if(!runtimeArgument)throw new Error('Pass the prepared Windows Electron runtime directory for this migration test.')
+const runtime=resolve(runtimeArgument)
 const bridgeVersion='1.99.0'
 const targetVersion='2.0.0-alpha.1'
 await mkdir(output,{recursive:true})
