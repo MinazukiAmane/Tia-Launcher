@@ -27,3 +27,6 @@ build/native/*.exe
 
 .zig-cache/
 /src-tauri/gen/
+
+__pycache__/
+*.py[cod]

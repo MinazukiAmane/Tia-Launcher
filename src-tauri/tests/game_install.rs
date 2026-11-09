@@ -358,6 +358,11 @@ if [ "$1" = '--version' ]; then
  printf '%s\n' 'umu-launcher version 1.4.4'
  exit 0
 fi
+test -f "$1" || exit 41
+case "$1" in
+  */runtime-report-*/csore-start-x86.exe) ;;
+  *) exit 42 ;;
+esac
 report=$(printf '%s' "${2#Z:}" | tr '\\' '/')
 shift 2
 printf '%s\n' "$@" > "$WINEPREFIX/arguments.txt"
@@ -389,6 +394,10 @@ sleep 0.2
     assert!(args.contains("-lang\nna_id\n-port\n30003"));
     assert!(args.ends_with(root.join("Bin").to_str().unwrap()));
     assert!(session.staging.join("status.txt").is_file());
+    assert_eq!(
+        std::fs::read(session.staging.join("csore-start-x86.exe")).unwrap(),
+        b"opaque helper fixture"
+    );
 }
 
 #[cfg(windows)]

@@ -3,6 +3,15 @@ fn main() {
     let mut stage = "request";
     let result = (|| -> anyhow::Result<()> {
         let operation = std::env::args().nth(1).unwrap_or_default();
+        #[cfg(target_os = "linux")]
+        if operation == "--install-linux-package-stdin" {
+            let mut input = Vec::new();
+            std::io::stdin().take(32769).read_to_end(&mut input)?;
+            anyhow::ensure!(input.len() <= 32768, "Package migration request too large");
+            let request = serde_json::from_slice(&input)?;
+            tia_launcher::bridge_package::install(request)?;
+            return Ok(());
+        }
         if !matches!(
             operation.as_str(),
             "--import-key-stdin" | "--recover-profile-stdin"

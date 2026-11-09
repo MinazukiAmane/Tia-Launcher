@@ -214,6 +214,18 @@ pub async fn start(
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&staging, std::fs::Permissions::from_mode(0o700))?;
     }
+    #[cfg(target_os = "linux")]
+    let helper = {
+        // Steam's container replaces /usr; keep helpers in its visible user profile.
+        let destination = staging.join(helper.file_name().context("Invalid runtime filename")?);
+        std::fs::copy(&helper, &destination)?;
+        if game.biz == "cedar_global" {
+            for name in ["cedar-client-x64.dll", "launcher-services.json"] {
+                std::fs::copy(helper.parent().unwrap().join(name), staging.join(name))?;
+            }
+        }
+        destination
+    };
     let report = staging.join("status.txt");
     let mut helper_args = vec![windows_path(&report)?, windows_path(&exe)?];
     helper_args.extend(args);
@@ -355,6 +367,7 @@ pub async fn start(
                 break Ok(());
             }
             if status.starts_with("error:") {
+                engine.record(&format!("launch: runtime report: {}", status.trim()));
                 break Err(anyhow::anyhow!(
                     "The native client could not initialize. See client-runtime.log for details."
                 ));

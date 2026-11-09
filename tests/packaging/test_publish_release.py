@@ -1,4 +1,5 @@
 import hashlib
+import io
 import importlib.util
 import json
 from pathlib import Path
@@ -89,6 +90,39 @@ class PublishReleaseTests(unittest.TestCase):
     def test_linux_hotfix_rejects_a_native_payload_before_upload(self):
         with self.assertRaisesRegex(ValueError, "cannot change"):
             self.module.publish(self.root, "test-bucket", "https://example.com", "us-east-1", linux_bridge_only=True)
+        self.assertEqual(self.storage.uploaded, [])
+
+    def repair_feed(self):
+        urls = [f"https://tia-launcher.serenetia.com/api/updates/Tia-Launcher-1.19.2-linux-{name}" for name in ("x86_64.AppImage", "amd64.deb", "x64.pacman")]
+        return ("version: 1.19.2\nfiles:\n" + "".join("  - url: " + json.dumps(url) + "\n" for url in urls)).encode()
+
+    def test_repair_only_replaces_the_known_broken_feed_after_root_is_live(self):
+        replacement = self.repair_feed()
+        self.write("latest-linux.yml", replacement.decode())
+        with patch.object(self.storage, "get_object", create=True, side_effect=[
+            {"Body": io.BytesIO(replacement)}, {"Body": io.BytesIO(b"version: 2.0.0\n"), "ETag": '"original"'}
+        ]), patch.object(self.storage, "put_object") as put:
+            self.module.repair_linux_bridge(self.storage, "bucket", self.root)
+            self.assertEqual(put.call_args.kwargs["Key"], "bridge/1.19.1/latest-linux.yml")
+            self.assertEqual(put.call_args.kwargs["Body"], replacement)
+            self.assertEqual(put.call_args.kwargs["IfMatch"], '"original"')
+
+    def test_repair_refuses_unpublished_or_changed_feeds(self):
+        replacement = self.repair_feed()
+        self.write("latest-linux.yml", replacement.decode())
+        for root_feed, previous in [(b"version: 1.19.1\n", b"version: 2.0.0\n"), (replacement, b"version: 2.0.1\n")]:
+            with patch.object(self.storage, "get_object", create=True, side_effect=[
+                {"Body": io.BytesIO(root_feed)}, {"Body": io.BytesIO(previous), "ETag": '"original"'}
+            ]), patch.object(self.storage, "put_object") as put:
+                with self.assertRaises(ValueError):
+                    self.module.repair_linux_bridge(self.storage, "bucket", self.root)
+                put.assert_not_called()
+
+    def test_repair_rejects_arbitrary_target_and_missing_formats(self):
+        for feed in (self.repair_feed().replace(b"1.19.2", b"1.19.3"), b"version: 1.19.2\nfiles:\n"):
+            self.write("latest-linux.yml", feed.decode())
+            with self.assertRaises(ValueError):
+                self.module.repair_linux_bridge(self.storage, "bucket", self.root)
         self.assertEqual(self.storage.uploaded, [])
 
     def test_private_key_rejected_before_upload(self):

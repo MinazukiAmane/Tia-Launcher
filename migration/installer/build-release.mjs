@@ -69,6 +69,7 @@ try {
     await artifact(bridgeOnly?join(root,`release/existing-native/Tia-Launcher-${version}-linux-amd64.deb`):await find(join(root,'src-tauri/target/release/bundle/deb'),'.deb'),`Tia-Launcher-${version}-linux-amd64.deb`,['linux-x86_64-deb'])
     await artifact(bridgeOnly?join(root,`release/existing-native/Tia-Launcher-${version}-linux-x64.pacman`):await buildLinuxPackage({binary:join(root,'src-tauri/target/release/tia-launcher'),output:join(root,'release/linux'),version}),`Tia-Launcher-${version}-linux-x64.pacman`,['linux-x86_64-pacman'])
     helper = join(root,'src-tauri/target/release/tia-migration-helper')
+    execute('python3',['migration/installer/check-linux-abi.py',helper,...(!bridgeOnly?[join(root,'src-tauri/target/release/tia-launcher')]:[])])
     platforms = ['linux-x64']; feed = 'latest-linux.yml'; bridgeTargets = Platform.LINUX.createTarget(['AppImage','deb','pacman'],Arch.x64)
   } else {
     const official = process.env.TIA_OFFICIAL_MACOS === '1'

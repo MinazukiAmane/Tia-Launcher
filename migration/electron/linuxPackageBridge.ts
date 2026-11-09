@@ -1,4 +1,5 @@
-import { DebUpdater, PacmanUpdater } from 'electron-updater'
+import { spawn } from 'node:child_process'
+import type { SignedMigrationRelease } from './bridgeRelease'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -14,16 +15,15 @@ export function linuxPackageType(resources: string): LinuxPackageType | null {
   }
 }
 
-export class BridgeDebUpdater extends DebUpdater {
-  installNativePackage(): boolean {
-    this.quitAndInstallCalled = false
-    return this.install(true, false)
-  }
-}
-
-export class BridgePacmanUpdater extends PacmanUpdater {
-  installNativePackage(): boolean {
-    this.quitAndInstallCalled = false
-    return this.install(true, false)
-  }
+export async function installLinuxPackage(helper: string, artifact: string, kind: LinuxPackageType, release: SignedMigrationRelease): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('/usr/bin/pkexec', ['--disable-internal-agent', helper, '--install-linux-package-stdin'], { stdio: ['pipe', 'pipe', 'pipe'] })
+    let diagnostic = ''
+    child.stdout.on('data', () => {})
+    child.stderr.on('data', (chunk: Buffer) => { diagnostic = (diagnostic + chunk.toString()).slice(-4096) })
+    child.on('error', reject)
+    child.stdin.on('error', () => {})
+    child.on('close', code => code === 0 ? resolve() : reject(new Error(code === 126 || code === 127 ? 'Approve the system update prompt to finish updating the launcher.' : `The launcher package could not be installed. ${diagnostic.trim()}`)))
+    child.stdin.end(JSON.stringify({ artifact, kind, release }))
+  })
 }

@@ -6,10 +6,15 @@ import { join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { DatabaseCipher } from '../../src/main/databaseCipher'
 
-const mocks = vi.hoisted(() => ({ profile: '', keys: [] as {id:string;publicKey:string}[], quit: vi.fn(), start: vi.fn().mockResolvedValue({pid:123}) }))
+const mocks = vi.hoisted(() => ({ profile: '', keys: [] as {id:string;publicKey:string}[], quit: vi.fn(), install: vi.fn().mockResolvedValue(undefined), start: vi.fn().mockResolvedValue({pid:123}) }))
 vi.mock('electron', () => ({ app: {getPath: () => mocks.profile, getVersion: () => '1.99.0', quit: mocks.quit}, safeStorage: {decryptString: () => {throw new Error('Unexpected OS key access')}} }))
 vi.mock('../../src/shared/migrationKeys.json', () => ({ default: mocks.keys }))
 vi.mock('../../migration/electron/appImageStartup', () => ({startMigratedAppImage: mocks.start}))
+
+vi.mock('../../migration/electron/linuxPackageBridge', async importOriginal => ({
+ ...(await importOriginal<typeof import('../../migration/electron/linuxPackageBridge')>()),
+ installLinuxPackage: mocks.install
+}))
 
 const resourcesDescriptor = Object.getOwnPropertyDescriptor(process,'resourcesPath')
 const previousAppImage = process.env.APPIMAGE
@@ -84,13 +89,12 @@ for (const kind of ['deb','pacman']) {
   await copyFile(join(resources,'migration/release.json'),join(resources,`migration/release-linux-${process.arch}-${kind}.json`))
   const installer=f.installer+'.'+kind
   await copyFile(f.installer,installer)
-  const install=vi.fn(() => {
+  mocks.install.mockImplementationOnce(async () => {
    expect(mocks.start).not.toHaveBeenCalled()
-   return true
   })
   const {prepareFrameworkMigration}=await import('../../src/main/frameworkMigration')
-  await prepareFrameworkMigration(installer,'2.0.0',()=>false,()=>{throw new Error('Windows installer must not run')},install)
-  expect(install).toHaveBeenCalledOnce()
+  await prepareFrameworkMigration(installer,'2.0.0',()=>false,()=>{throw new Error('Windows installer must not run')})
+  expect(mocks.install).toHaveBeenCalledOnce()
   expect(mocks.start).toHaveBeenCalledWith('/usr/bin/tia-launcher')
   expect(mocks.quit).toHaveBeenCalledOnce()
   expect(await readFile(join(mocks.profile,'launcher.tauri.key'),'utf8')).toContain('"version":1')
@@ -100,9 +104,8 @@ for (const kind of ['deb','pacman']) {
 it.skipIf(process.platform !== 'linux')('refuses an AppImage proof for a pacman installation',async () => {
  const f=await fixture();delete process.env.APPIMAGE
  await writeFile(join(process.resourcesPath,'package-type'),'pacman\n')
- const install=vi.fn(()=>true)
  const {prepareFrameworkMigration}=await import('../../src/main/frameworkMigration')
- await expect(prepareFrameworkMigration(f.installer+'.pacman','2.0.0',()=>false,()=>{},install)).rejects.toThrow('component is missing')
- expect(install).not.toHaveBeenCalled()
+ await expect(prepareFrameworkMigration(f.installer+'.pacman','2.0.0',()=>false,()=>{})).rejects.toThrow('component is missing')
+ expect(mocks.install).not.toHaveBeenCalled()
  expect(mocks.quit).not.toHaveBeenCalled()
 })

@@ -11,7 +11,39 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 
-def publish(directory, bucket, endpoint, region, linux_bridge_only=False):
+def repair_linux_bridge(client, bucket, root):
+    """Route the broken 1.19.1 installer through its fixed bridge."""
+    replacement = (root / "latest-linux.yml").read_bytes()
+    if not replacement.startswith(b"version: 1.19.2\n") or len(replacement) > 32768:
+        raise ValueError("Bridge repair requires the validated 1.19.2 Linux feed")
+    urls = re.findall(rb"^  - url: (.+)$", replacement, re.MULTILINE)
+    expected = {f"https://tia-launcher.serenetia.com/api/updates/Tia-Launcher-1.19.2-linux-{name}" for name in ("x86_64.AppImage", "amd64.deb", "x64.pacman")}
+    if len(urls) != 3 or {json.loads(url) for url in urls} != expected:
+        raise ValueError("Bridge repair requires all three validated Linux packages")
+    live = client.get_object(Bucket=bucket, Key="latest-linux.yml")
+    with live["Body"] as body:
+        if body.read(32769) != replacement:
+            raise ValueError("Publish the fixed root Linux feed before repairing the bridge")
+    key = "bridge/1.19.1/latest-linux.yml"
+    previous = client.get_object(Bucket=bucket, Key=key)
+    with previous["Body"] as body:
+        original = body.read(32769)
+    if original == replacement:
+        print("Linux 1.19.1 bridge already repaired", flush=True)
+        return
+    if len(original) > 32768 or not original.startswith(b"version: 2.0.0\n"):
+        raise ValueError("The old bridge changed; review its replacement first")
+    if not previous.get("ETag"):
+        raise ValueError("The old bridge has no concurrency guard")
+    client.put_object(Bucket=bucket, Key=key, Body=replacement, ContentLength=len(replacement),
+                      ContentType="text/yaml", CacheControl="public, max-age=60",
+                      Metadata={"sha256": hashlib.sha256(replacement).hexdigest()}, IfMatch=previous["ETag"])
+    print("Repaired Linux 1.19.1 bridge: update through 1.19.2", flush=True)
+
+
+def publish(directory, bucket, endpoint, region, linux_bridge_only=False, repair_broken_bridge=False):
+    if repair_broken_bridge and not linux_bridge_only:
+        raise ValueError("Bridge repair is limited to the Linux hotfix workflow")
     root = Path(directory).resolve(strict=True)
     manifest = json.loads((root / "native/latest.json").read_text())
     if not manifest.get("platforms") or not manifest.get("version", "").startswith("2."):
@@ -76,6 +108,9 @@ def publish(directory, bucket, endpoint, region, linux_bridge_only=False):
             client.put_object(Body=body, **args)
         print(f"Published: {key}", flush=True)
 
+    if repair_broken_bridge:
+        repair_linux_bridge(client, bucket, root)
+
 
 if __name__ == "__main__":
-    publish(sys.argv[1], os.environ["TIA_S3_BUCKET"], os.environ["TIA_S3_ENDPOINT"], os.environ["AWS_DEFAULT_REGION"], linux_bridge_only="--linux-bridge-only" in sys.argv[2:])
+    publish(sys.argv[1], os.environ["TIA_S3_BUCKET"], os.environ["TIA_S3_ENDPOINT"], os.environ["AWS_DEFAULT_REGION"], linux_bridge_only="--linux-bridge-only" in sys.argv[2:], repair_broken_bridge="--repair-linux-1.19.1" in sys.argv[2:])

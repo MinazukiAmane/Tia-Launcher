@@ -15,6 +15,8 @@ pub struct State {
     pub catalog: Value,
     pub feeds: crate::feeds::Feeds,
     pub updater: crate::native_update::NativeUpdate,
+    #[cfg(target_os = "linux")]
+    pub video_stream: crate::video_stream::VideoStream,
     pub media_candidate: Mutex<Option<crate::media::Candidate>>,
 }
 fn selected(state: &State) -> Result<String> {
@@ -540,6 +542,49 @@ async fn request(
                 .put("launcher", "silverPalaceIntroduction", &arg(0))?;
             Ok(Value::Null)
         }
+        "launcher:videoSource" => {
+            let value = arg(0);
+            let source = value
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("Invalid video source"))?;
+            #[cfg(target_os = "linux")]
+            {
+                if source.starts_with("/assets/")
+                    && !source.contains("..")
+                    && [".mp4", ".webm"].iter().any(|ext| source.ends_with(ext))
+                {
+                    if let Some(url) = state.video_stream.existing(source) {
+                        return Ok(json!(url));
+                    }
+                    let asset = app
+                        .asset_resolver()
+                        .get(source.to_owned())
+                        .ok_or_else(|| anyhow::anyhow!("The built-in video is missing"))?;
+                    anyhow::ensure!(
+                        asset.bytes.len() as u64 <= crate::media::VIDEO_LIMIT,
+                        "Video too large"
+                    );
+                    return Ok(json!(state.video_stream.bytes(asset.bytes, source)));
+                }
+                let path = PathBuf::from(source);
+                let saved = settings(&state)?;
+                let selected =
+                    crate::media::saved_path(&state.engine, &saved["customVideo"], true)?;
+                let pending = state.media_candidate.lock().unwrap();
+                anyhow::ensure!(
+                    selected.as_ref() == Some(&path)
+                        || pending
+                            .as_ref()
+                            .is_some_and(|candidate| candidate.path == path),
+                    "Choose a background video first"
+                );
+                Ok(json!(state.video_stream.file(path)))
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                Ok(json!(source))
+            }
+        }
         "launcher:getBackground" | "launcher:getBackgroundSources" => {
             let saved = settings(&state)?;
             let image = crate::media::saved_path(&state.engine, &saved["customBackground"], false)?;
@@ -905,6 +950,10 @@ pub fn run() {
                 catalog,
                 feeds: crate::feeds::Feeds::default(),
                 updater: crate::native_update::NativeUpdate::default(),
+                #[cfg(target_os = "linux")]
+                video_stream: tauri::async_runtime::block_on(
+                    crate::video_stream::VideoStream::start(),
+                )?,
                 media_candidate: Mutex::new(None),
             });
             app.manage(state.clone());

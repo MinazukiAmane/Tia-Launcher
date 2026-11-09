@@ -18,6 +18,11 @@ window.addEventListener('tia:storage-ready', () => {
   void invoke('launcher_request', { channel: 'launcher:ready', args: [] }).catch(console.error)
 })
 
+async function videoSource(path: string): Promise<string> {
+  if (navigator.userAgent.includes('Linux')) return invoke<string>('launcher_request', { channel: 'launcher:videoSource', args: [path] })
+  return convertFileSrc(path)
+}
+
 async function playableVideo(path: string): Promise<boolean> {
   return new Promise(resolve => {
     const video = document.createElement('video')
@@ -33,7 +38,7 @@ async function playableVideo(path: string): Promise<boolean> {
     const timer = setTimeout(() => finish(false), 12_000)
     video.onloadeddata = () => finish(video.videoWidth > 0 && video.videoHeight > 0)
     video.onerror = () => finish(false)
-    video.src = convertFileSrc(path)
+    void videoSource(path).then(url => { video.src = url }).catch(() => finish(false))
   })
 }
 
@@ -48,14 +53,14 @@ const ipcRenderer = {
         while (candidate && !candidate.committed) {
           candidate = await invoke<any>('launcher_request', { channel: 'launcher:finishBackgroundVideo', args: [candidate.token, await playableVideo(candidate.path)] })
         }
-        return candidate ? convertFileSrc(candidate.path) : null
+        return candidate ? videoSource(candidate.path) : null
       } catch (error) {
         await invoke('launcher_request', { channel: 'launcher:discardBackgroundVideo', args: [candidate?.token] }).catch(() => {})
         throw error
       }
     }
     if (channel === 'launcher:getBackground' || channel === 'launcher:chooseBackground') return value ? convertFileSrc(value) : null
-    if (channel === 'launcher:getBackgroundSources') return { image: value.image ? convertFileSrc(value.image) : null, video: value.video ? convertFileSrc(value.video) : null }
+    if (channel === 'launcher:getBackgroundSources') return { image: value.image ? convertFileSrc(value.image) : null, video: value.video ? await videoSource(value.video) : null }
     return value
   },
   send(channel: string, ...args: unknown[]): void { void this.invoke(channel, ...args).catch(console.error) },

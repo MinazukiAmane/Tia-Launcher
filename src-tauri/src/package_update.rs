@@ -37,7 +37,7 @@ pub fn verify(bytes: &[u8], signature: &str, key: &str, target: &str, current: &
 }
 
 #[cfg(target_os = "linux")]
-fn read_regular(path: &Path, limit: u64) -> Result<Vec<u8>> {
+pub(crate) fn read_regular(path: &Path, limit: u64) -> Result<Vec<u8>> {
     use std::io::Read;
     use std::os::unix::fs::OpenOptionsExt;
     let file = std::fs::OpenOptions::new()

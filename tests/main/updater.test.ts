@@ -169,7 +169,7 @@ describe('updater download failures and retries', () => {
       })
       await mocks.handlers[IPC_UPDATE.START_DOWNLOAD](null, false)
       await mocks.handlers[IPC_UPDATE.QUIT_AND_INSTALL]()
-      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function), undefined)
+      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function))
     } finally { prepare.mockRestore() }
   })
 
@@ -187,7 +187,7 @@ describe('updater download failures and retries', () => {
       await mocks.handlers[IPC_UPDATE.START_DOWNLOAD](null, false)
       mocks.events['update-available']({ version: '2.0.0' })
       await mocks.handlers[IPC_UPDATE.QUIT_AND_INSTALL]()
-      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function), undefined)
+      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function))
     } finally { prepare.mockRestore() }
   })
 

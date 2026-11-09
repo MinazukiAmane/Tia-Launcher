@@ -3,11 +3,15 @@ on:
   workflow_dispatch:
     inputs:
       bridge_version:
-        default: '1.19.1'
+        default: '1.19.2'
         required: true
       native_version:
         default: '2.0.0'
         required: true
+      repair_broken_bridge:
+        description: Route installed Linux 1.19.1 clients through the fixed bridge
+        type: boolean
+        default: false
       publish:
         type: boolean
         default: false
@@ -43,6 +47,7 @@ jobs:
           CARGO_BUILD_JOBS: '2'
         run: |
           cargo build --release --manifest-path src-tauri/Cargo.toml --no-default-features --features migration-helper,release-tools --bin tia-migration-helper --bin tia-release-verify
+          python3 migration/installer/check-linux-abi.py src-tauri/target/release/tia-migration-helper
           mkdir -p src-tauri/target/debug
           cp src-tauri/target/release/tia-migration-helper src-tauri/target/debug/tia-migration-helper
       - name: Verify the Linux migration and updater regressions
@@ -104,7 +109,10 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.TIA_S3_REGION }}
           TIA_S3_BUCKET: ${{ secrets.TIA_S3_BUCKET }}
           TIA_S3_ENDPOINT: ${{ secrets.TIA_S3_ENDPOINT }}
+          REPAIR_BROKEN_BRIDGE: ${{ inputs.repair_broken_bridge }}
         run: |
           python3 -m venv "$RUNNER_TEMP/tia-bridge-publisher"
           "$RUNNER_TEMP/tia-bridge-publisher/bin/python" -m pip install --disable-pip-version-check --require-hashes -r migration/installer/publisher-requirements.txt
-          "$RUNNER_TEMP/tia-bridge-publisher/bin/python" migration/installer/publish-release.py release/publish --linux-bridge-only
+          args=(--linux-bridge-only)
+          if [[ "$REPAIR_BROKEN_BRIDGE" == true ]]; then args+=(--repair-linux-1.19.1); fi
+          "$RUNNER_TEMP/tia-bridge-publisher/bin/python" migration/installer/publish-release.py release/publish "${args[@]}"

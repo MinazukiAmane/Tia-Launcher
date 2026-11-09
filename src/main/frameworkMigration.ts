@@ -9,7 +9,7 @@ import { readMacContext, replaceMacBundle, type MacContext } from '../../migrati
 import { startMigratedAppImage } from '../../migration/electron/appImageStartup'
 import keys from '../shared/migrationKeys.json'
 import identities from '../../migration/installer/identity.json'
-import { linuxPackageType } from '../../migration/electron/linuxPackageBridge'
+import { installLinuxPackage, linuxPackageType } from '../../migration/electron/linuxPackageBridge'
 
 let migrating = false
 const coordinator = new BridgeCoordinator()
@@ -27,7 +27,7 @@ export function needsFrameworkMigration(current: string, target: string): boolea
   return /^1\./.test(current) && Number(target.match(/^(\d+)\./)?.[1]) >= 2
 }
 
-export async function prepareFrameworkMigration(installer: string, targetVersion: string, isBusy: () => boolean, install: (context: InstallContext) => void, installPackage?: () => boolean): Promise<void> {
+export async function prepareFrameworkMigration(installer: string, targetVersion: string, isBusy: () => boolean, install: (context: InstallContext) => void): Promise<void> {
   if (!['win32', 'linux', 'darwin'].includes(process.platform) || !['x64', 'arm64'].includes(process.arch) || (process.platform === 'win32' && process.arch !== 'x64')) throw new Error('This launcher migration is not available for your platform yet.')
   let signedRelease: SignedMigrationRelease
   const packageType = process.platform === 'linux' && !process.env.APPIMAGE ? linuxPackageType(process.resourcesPath) : null
@@ -59,14 +59,14 @@ export async function prepareFrameworkMigration(installer: string, targetVersion
   if (process.platform === 'linux') {
     const platform = migrationPlatform(process.platform, process.arch)
     if (packageType) {
-      if (!installPackage || !installer.endsWith(`.${packageType}`)) throw new Error('The launcher update package does not match this installation.')
+      if (!installer.endsWith(`.${packageType}`)) throw new Error('The launcher update package does not match this installation.')
       await packageCoordinator.install({
         platform, profile: app.getPath('userData'), helper: join(process.resourcesPath, 'migration/tia-migration-helper'),
         installer, appId: identities.production.appId, bridgeVersion: app.getVersion(), targetVersion, keys, signedRelease, storage: safeStorage,
         acquireOperation: () => acquireFrameworkMigration(isBusy),
         installation: async () => packageType,
         install: async () => {
-          if (!installPackage()) throw new Error('The launcher package could not be installed. Try again and approve the system update prompt.')
+          await installLinuxPackage(join(process.resourcesPath, 'migration/tia-migration-helper'), installer, packageType, signedRelease)
           await startMigratedAppImage('/usr/bin/tia-launcher')
           app.quit()
         }

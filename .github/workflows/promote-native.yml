@@ -27,7 +27,7 @@ jobs:
       group: ${{ inputs.publish && 'tia-launcher-production-publish' || format('native-promotion-{0}', github.run_id) }}
       cancel-in-progress: false
     steps:
-      - run: git config --global init.defaultBranch main
+      - run: git config --global init.defaultBranch master
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0

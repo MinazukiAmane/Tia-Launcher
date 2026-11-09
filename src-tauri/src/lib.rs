@@ -36,3 +36,9 @@ pub mod startup_ack;
 pub mod package_update;
 
 pub mod system_package;
+
+#[cfg(target_os = "linux")]
+pub mod bridge_package;
+
+#[cfg(target_os = "linux")]
+pub mod video_stream;
