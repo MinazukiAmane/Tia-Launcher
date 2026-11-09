@@ -8,9 +8,9 @@ on:
       mode:
         type: choice
         options: [migration, native]
-        default: migration
+        default: native
       bridge_version:
-        default: '1.19.0'
+        default: '1.19.2'
         required: true
       publish:
         description: Publish these exact tested artifacts and update feeds

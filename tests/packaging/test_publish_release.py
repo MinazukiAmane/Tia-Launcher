@@ -52,7 +52,7 @@ class PublishReleaseTests(unittest.TestCase):
     def write(self, name, body):
         path = self.root / name
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(body)
+        path.write_text(body, newline="\n")
 
     def publish(self):
         self.module.publish(self.root, "test-bucket", "https://example.com", "us-east-1")

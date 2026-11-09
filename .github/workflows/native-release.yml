@@ -4,17 +4,17 @@ on:
     inputs:
       version:
         description: Native stable version
-        default: '2.0.0'
+        default: '2.0.1'
         required: true
       bridge_version:
         description: Electron bridge version
-        default: '1.19.0'
+        default: '1.19.2'
         required: true
       mode:
         description: Migration bridge or subsequent native update
         type: choice
         options: [migration, native]
-        default: migration
+        default: native
       macos_signing:
         description: macOS signing policy
         type: choice
@@ -30,9 +30,9 @@ concurrency:
   group: native-release
   cancel-in-progress: false
 env:
-  RELEASE_MODE: ${{ inputs.mode || 'migration' }}
-  NATIVE_VERSION: ${{ inputs.version || '2.0.0' }}
-  BRIDGE_VERSION: ${{ inputs.bridge_version || '1.19.0' }}
+  RELEASE_MODE: ${{ inputs.mode || 'native' }}
+  NATIVE_VERSION: ${{ inputs.version || '2.0.1' }}
+  BRIDGE_VERSION: ${{ inputs.bridge_version || '1.19.2' }}
 jobs:
   checks:
     uses: ./.github/workflows/migration-check.yml

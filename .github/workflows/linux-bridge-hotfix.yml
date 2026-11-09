@@ -6,7 +6,7 @@ on:
         default: '1.19.2'
         required: true
       native_version:
-        default: '2.0.0'
+        default: '2.0.1'
         required: true
       repair_broken_bridge:
         description: Route installed Linux 1.19.1 clients through the fixed bridge
