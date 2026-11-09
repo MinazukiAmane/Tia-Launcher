@@ -7,7 +7,7 @@ import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { execFileSync } from 'node:child_process'
 
-const [run, output='release/combined'] = process.argv.slice(2)
+const [run, output='release/combined', selected] = process.argv.slice(2)
 const repository=process.env.GITHUB_REPOSITORY,token=process.env.GH_TOKEN
 if (!/^[1-9]\d*$/.test(run??'') || !/^[\w.-]+\/[\w.-]+$/.test(repository??'') || !token) throw new Error('Authenticated candidate context is required.')
 const headers={Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'}
@@ -16,7 +16,8 @@ const response=await fetch(`${base}/runs/${run}/artifacts?per_page=100`,{headers
 if (!response.ok) throw new Error(`Could not list candidate artifacts: HTTP ${response.status}`)
 const {artifacts}=await response.json()
 await mkdir(resolve(output),{recursive:true})
-for (const name of ['release-Linux','release-Windows','release-macOS']) {
+if(selected && selected!=='linux-bridge-hotfix')throw new Error('Unknown artifact selection.')
+for (const name of selected?[selected]:['release-Linux','release-Windows','release-macOS']) {
   const matches=artifacts.filter(artifact=>artifact.name===name&&!artifact.expired)
   if (matches.length!==1 || !/^sha256:[a-f0-9]{64}$/.test(matches[0].digest??'')) throw new Error(`Missing artifact or GitHub digest: ${name}`)
   const artifact=matches[0],directory=await mkdtemp(join(tmpdir(),'tia-artifact-')),file=join(directory,'artifact.zip')

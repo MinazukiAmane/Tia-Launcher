@@ -7,7 +7,11 @@ import { needsFrameworkMigration, prepareFrameworkMigration } from './frameworkM
 import { win32 } from 'path'
 import { autoUpdater as defaultUpdater, type AppUpdater, type NsisUpdater } from 'electron-updater'
 import migrationKeys from '../shared/migrationKeys.json'
-const autoUpdater = process.platform === 'win32' && migrationKeys.length > 0 ? new BridgeNsisUpdater() : defaultUpdater
+import { BridgeDebUpdater, BridgePacmanUpdater, linuxPackageType } from '../../migration/electron/linuxPackageBridge'
+const packageType = process.platform === 'linux' && migrationKeys.length && process.resourcesPath && !process.env.APPIMAGE ? linuxPackageType(process.resourcesPath) : null
+const autoUpdater = process.platform === 'win32' && migrationKeys.length > 0 ? new BridgeNsisUpdater()
+  : packageType === 'deb' ? new BridgeDebUpdater()
+    : packageType === 'pacman' ? new BridgePacmanUpdater() : defaultUpdater
 import { isOperationInProgress } from './gameManager'
 import { logInfo, logError, logDebug } from './logger'
 
@@ -194,7 +198,7 @@ export function initAutoUpdater(win: WindowSource, isGameRunning: () => boolean 
         if (!(autoUpdater instanceof BridgeNsisUpdater)) throw new Error('This migration is not supported on this platform yet.')
         autoUpdater.setMigrationContext(context)
         autoUpdater.quitAndInstall()
-      })
+      }, autoUpdater instanceof BridgeDebUpdater || autoUpdater instanceof BridgePacmanUpdater ? () => autoUpdater.installNativePackage() : undefined)
     }
     return autoUpdater.quitAndInstall()
   })

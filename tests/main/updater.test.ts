@@ -41,6 +41,8 @@ vi.mock('../../src/main/logger', () => ({ logInfo: vi.fn(), logError: vi.fn(), l
 
 vi.mock('electron-updater', () => ({
   NsisUpdater: class {},
+  DebUpdater: class {},
+  PacmanUpdater: class {},
   autoUpdater: {
     on: vi.fn((event: string, callback: (...args: any[]) => void) => { mocks.events[event] = callback }),
     disableDifferentialDownload: false,
@@ -167,7 +169,7 @@ describe('updater download failures and retries', () => {
       })
       await mocks.handlers[IPC_UPDATE.START_DOWNLOAD](null, false)
       await mocks.handlers[IPC_UPDATE.QUIT_AND_INSTALL]()
-      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function))
+      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function), undefined)
     } finally { prepare.mockRestore() }
   })
 
@@ -185,7 +187,7 @@ describe('updater download failures and retries', () => {
       await mocks.handlers[IPC_UPDATE.START_DOWNLOAD](null, false)
       mocks.events['update-available']({ version: '2.0.0' })
       await mocks.handlers[IPC_UPDATE.QUIT_AND_INSTALL]()
-      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function))
+      expect(prepare).toHaveBeenCalledWith('/cache/Tia Launcher.zip', '2.0.0', expect.any(Function), expect.any(Function), undefined)
     } finally { prepare.mockRestore() }
   })
 

@@ -74,3 +74,35 @@ it.skipIf(process.platform !== 'linux')('restores the previous AppImage and rele
  expect(mocks.quit).not.toHaveBeenCalled()
  expect(isFrameworkMigrationInProgress()).toBe(false)
 })
+
+for (const kind of ['deb','pacman']) {
+ it.skipIf(process.platform !== 'linux')(`hands off the encrypted profile before installing a ${kind} package and starts the native executable`,async () => {
+  const f=await fixture()
+  delete process.env.APPIMAGE
+  const resources=process.resourcesPath
+  await writeFile(join(resources,'package-type'),kind+'\n')
+  await copyFile(join(resources,'migration/release.json'),join(resources,`migration/release-linux-${process.arch}-${kind}.json`))
+  const installer=f.installer+'.'+kind
+  await copyFile(f.installer,installer)
+  const install=vi.fn(() => {
+   expect(mocks.start).not.toHaveBeenCalled()
+   return true
+  })
+  const {prepareFrameworkMigration}=await import('../../src/main/frameworkMigration')
+  await prepareFrameworkMigration(installer,'2.0.0',()=>false,()=>{throw new Error('Windows installer must not run')},install)
+  expect(install).toHaveBeenCalledOnce()
+  expect(mocks.start).toHaveBeenCalledWith('/usr/bin/tia-launcher')
+  expect(mocks.quit).toHaveBeenCalledOnce()
+  expect(await readFile(join(mocks.profile,'launcher.tauri.key'),'utf8')).toContain('"version":1')
+  expect(await readFile(f.current,'utf8')).toBe('previous launcher')
+ })
+}
+it.skipIf(process.platform !== 'linux')('refuses an AppImage proof for a pacman installation',async () => {
+ const f=await fixture();delete process.env.APPIMAGE
+ await writeFile(join(process.resourcesPath,'package-type'),'pacman\n')
+ const install=vi.fn(()=>true)
+ const {prepareFrameworkMigration}=await import('../../src/main/frameworkMigration')
+ await expect(prepareFrameworkMigration(f.installer+'.pacman','2.0.0',()=>false,()=>{},install)).rejects.toThrow('component is missing')
+ expect(install).not.toHaveBeenCalled()
+ expect(mocks.quit).not.toHaveBeenCalled()
+})

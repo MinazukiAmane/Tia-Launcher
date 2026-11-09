@@ -1,0 +1,109 @@
+name: Linux package migration bridge
+on:
+  workflow_dispatch:
+    inputs:
+      bridge_version:
+        default: '1.19.1'
+        required: true
+      native_version:
+        default: '2.0.0'
+        required: true
+      publish:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+      - run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config libgtk-3-0t64 libnss3 libasound2t64 libarchive-tools zstd xvfb gnome-keyring dbus-x11
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - name: Configure the Electron test sandbox
+        run: sudo chown root:root node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - name: Build the migration helper and signature verifier
+        env:
+          CARGO_BUILD_JOBS: '2'
+        run: |
+          cargo build --release --manifest-path src-tauri/Cargo.toml --no-default-features --features migration-helper,release-tools --bin tia-migration-helper --bin tia-release-verify
+          mkdir -p src-tauri/target/debug
+          cp src-tauri/target/release/tia-migration-helper src-tauri/target/debug/tia-migration-helper
+      - name: Verify the Linux migration and updater regressions
+        run: |
+          node node_modules/typescript/bin/tsc --noEmit -p tsconfig.node.json
+          npm run build
+          node node_modules/vitest/vitest.mjs run --maxWorkers=2
+          python3 migration/tests/run-linux-key-recovery.py
+          python3 -m unittest discover -s tests/packaging -p "test_*.py"
+      - name: Download and authenticate the existing native packages
+        env:
+          NATIVE_VERSION: ${{ inputs.native_version }}
+        run: |
+          node migration/installer/download-existing-linux.mjs "$NATIVE_VERSION"
+          src-tauri/target/release/tia-release-verify release/existing-native "$NATIVE_VERSION"
+          node migration/installer/prepare-existing-runtimes.mjs
+      - name: Build all Linux bridge package formats
+        env:
+          TIA_MIGRATION_SIGNING_KEY: ${{ secrets.TIA_MIGRATION_SIGNING_KEY }}
+          NATIVE_VERSION: ${{ inputs.native_version }}
+          BRIDGE_VERSION: ${{ inputs.bridge_version }}
+        run: |
+          node migration/installer/build-release.mjs "$NATIVE_VERSION" "$BRIDGE_VERSION" bridge-linux
+          cp release/existing-native/live-feed.json release/candidate/live-feed.json
+          node migration/installer/verify-linux-bridge-packages.mjs release/candidate
+          node migration/installer/linux-bridge-layout.mjs release/candidate release/preview-publish release/candidate/live-feed.json
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: linux-bridge-hotfix
+          path: release/candidate/*
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    if: inputs.publish
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: tia-launcher-production-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+      - name: Download the exact tested bridge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node migration/installer/download-candidate.mjs "$GITHUB_RUN_ID" release/combined linux-bridge-hotfix
+      - name: Prepare Linux-only update feeds
+        run: |
+          node -e 'const m=require("./release/combined/artifacts-linux.json").metadata;if(m.commit!==process.env.GITHUB_SHA)throw Error("Bridge source does not match this workflow")'
+          node migration/installer/linux-bridge-layout.mjs release/combined release/publish release/combined/live-feed.json
+      - name: Publish package payloads before updating the Linux feed
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TIA_S3_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TIA_S3_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.TIA_S3_REGION }}
+          TIA_S3_BUCKET: ${{ secrets.TIA_S3_BUCKET }}
+          TIA_S3_ENDPOINT: ${{ secrets.TIA_S3_ENDPOINT }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/tia-bridge-publisher"
+          "$RUNNER_TEMP/tia-bridge-publisher/bin/python" -m pip install --disable-pip-version-check --require-hashes -r migration/installer/publisher-requirements.txt
+          "$RUNNER_TEMP/tia-bridge-publisher/bin/python" migration/installer/publish-release.py release/publish --linux-bridge-only

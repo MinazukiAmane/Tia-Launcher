@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import sys
 
@@ -10,7 +11,7 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 
 
-def publish(directory, bucket, endpoint, region):
+def publish(directory, bucket, endpoint, region, linux_bridge_only=False):
     root = Path(directory).resolve(strict=True)
     manifest = json.loads((root / "native/latest.json").read_text())
     if not manifest.get("platforms") or not manifest.get("version", "").startswith("2."):
@@ -28,6 +29,12 @@ def publish(directory, bucket, endpoint, region):
         key = path.relative_to(root).as_posix()
         if path.suffix in (".pem", ".key") or "secret" in key.lower():
             raise ValueError("Unexpected private release file")
+        if linux_bridge_only:
+            if key == "native/latest.json":
+                continue
+            allowed = key == "latest-linux.yml" or re.fullmatch(r"bridge/1\.\d+\.\d+/(latest-linux\.yml|SHA256SUMS)", key) or re.fullmatch(r"Tia-Launcher-1\.\d+\.\d+-linux-(x86_64\.AppImage|amd64\.deb|x64\.pacman)", key)
+            if not allowed:
+                raise ValueError("Linux bridge publication cannot change native, Windows or macOS releases")
         if key.startswith("bridge/") and path.suffix == ".yml":
             bridge_feeds.append((path, key))
         elif key == "native/latest.json" or "/" not in key and path.suffix == ".yml":
@@ -71,4 +78,4 @@ def publish(directory, bucket, endpoint, region):
 
 
 if __name__ == "__main__":
-    publish(sys.argv[1], os.environ["TIA_S3_BUCKET"], os.environ["TIA_S3_ENDPOINT"], os.environ["AWS_DEFAULT_REGION"])
+    publish(sys.argv[1], os.environ["TIA_S3_BUCKET"], os.environ["TIA_S3_ENDPOINT"], os.environ["AWS_DEFAULT_REGION"], linux_bridge_only="--linux-bridge-only" in sys.argv[2:])

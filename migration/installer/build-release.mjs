@@ -12,12 +12,14 @@ import { hashFile } from './release-layout.mjs'
 const root = resolve(import.meta.dirname, '../..')
 const [version, bridgeVersion, mode = 'migration'] = process.argv.slice(2)
 const nativeOnly = mode === 'native'
-if (!['native','migration'].includes(mode)) throw new Error('Unknown release mode.')
+const bridgeOnly = mode === 'bridge-linux'
+if (!['native','migration','bridge-linux'].includes(mode)) throw new Error('Unknown release mode.')
 if (!/^2\.\d+\.\d+$/.test(version) || !/^1\.\d+\.\d+$/.test(bridgeVersion)) throw new Error('Expected stable native 2.x and bridge 1.x versions.')
 if (JSON.parse(await readFile(join(root,'package.json'),'utf8')).version!==version) throw new Error('Bump the source version before creating a release so Nix and native packages stay consistent.')
 const platform = process.platform
+if(bridgeOnly && platform!=='linux')throw new Error('Linux bridge-only builds require Linux.')
 if (!['win32','linux','darwin'].includes(platform) || process.arch !== 'x64' && platform !== 'darwin') throw new Error('Unsupported release builder.')
-for (const name of ['TAURI_SIGNING_PRIVATE_KEY',...(!nativeOnly?['TIA_MIGRATION_SIGNING_KEY']:[])]) if (!process.env[name]) throw new Error(`Missing release secret: ${name}`)
+for (const name of [...(!bridgeOnly?['TAURI_SIGNING_PRIVATE_KEY']:[]),...(!nativeOnly?['TIA_MIGRATION_SIGNING_KEY']:[])]) if (!process.env[name]) throw new Error(`Missing release secret: ${name}`)
 const output = join(root, 'release/candidate'), resources = join(root, 'release/bridge-resources')
 await mkdir(output, {recursive:true})
 const execute = (program, args, env = {}) => execFileSync(program, args, {cwd:root, stdio:'inherit', env:{...process.env,...env}})
@@ -37,7 +39,8 @@ const metadata = {version,bridgeVersion,commit:git('rev-parse','HEAD'),releaseDa
 const definitions = {metadata,native:[],migration:[],bridge:[],downloads:[]}
 async function artifact(source, name, targets, bridgeFeed) {
   const file = join(output,name); await copyFile(source,file)
-  cli('signer','sign','--app-version',version,file)
+  if(bridgeOnly)await copyFile(source+'.sig',file+'.sig')
+  else cli('signer','sign','--app-version',version,file)
   definitions.native.push({file:name,targets,...(bridgeFeed?{bridgeFeed}:{})})
   return file
 }
@@ -60,13 +63,13 @@ try {
     helper = join(root,'src-tauri/target/release/tia-migration-helper.exe')
     platforms = ['windows-x64']; feed = 'latest.yml'; bridgeTargets = Platform.WINDOWS.createTarget('nsis',Arch.x64)
   } else if (platform === 'linux') {
-    cli('build','--bundles','appimage,deb','--ci',...config,'--config','src-tauri/tauri.linux.conf.json')
+    if(!bridgeOnly)cli('build','--bundles','appimage,deb','--ci',...config,'--config','src-tauri/tauri.linux.conf.json')
     execute('cargo',['build','--release','--manifest-path','src-tauri/Cargo.toml','--no-default-features','--features','migration-helper','--bin','tia-migration-helper'])
-    migrationInstaller = await artifact(await find(join(root,'src-tauri/target/release/bundle/appimage'),'.AppImage'),`Tia-Launcher-${version}-linux-x86_64.AppImage`,['linux-x86_64'],'latest-linux.yml')
-    await artifact(await find(join(root,'src-tauri/target/release/bundle/deb'),'.deb'),`Tia-Launcher-${version}-linux-amd64.deb`,['linux-x86_64-deb'])
-    await artifact(await buildLinuxPackage({binary:join(root,'src-tauri/target/release/tia-launcher'),output:join(root,'release/linux'),version}),`Tia-Launcher-${version}-linux-x64.pacman`,['linux-x86_64-pacman'])
+    migrationInstaller = await artifact(bridgeOnly?join(root,`release/existing-native/Tia-Launcher-${version}-linux-x86_64.AppImage`):await find(join(root,'src-tauri/target/release/bundle/appimage'),'.AppImage'),`Tia-Launcher-${version}-linux-x86_64.AppImage`,['linux-x86_64'],'latest-linux.yml')
+    await artifact(bridgeOnly?join(root,`release/existing-native/Tia-Launcher-${version}-linux-amd64.deb`):await find(join(root,'src-tauri/target/release/bundle/deb'),'.deb'),`Tia-Launcher-${version}-linux-amd64.deb`,['linux-x86_64-deb'])
+    await artifact(bridgeOnly?join(root,`release/existing-native/Tia-Launcher-${version}-linux-x64.pacman`):await buildLinuxPackage({binary:join(root,'src-tauri/target/release/tia-launcher'),output:join(root,'release/linux'),version}),`Tia-Launcher-${version}-linux-x64.pacman`,['linux-x86_64-pacman'])
     helper = join(root,'src-tauri/target/release/tia-migration-helper')
-    platforms = ['linux-x64']; feed = 'latest-linux.yml'; bridgeTargets = Platform.LINUX.createTarget('AppImage',Arch.x64)
+    platforms = ['linux-x64']; feed = 'latest-linux.yml'; bridgeTargets = Platform.LINUX.createTarget(['AppImage','deb','pacman'],Arch.x64)
   } else {
     const official = process.env.TIA_OFFICIAL_MACOS === '1'
     if (official && (!process.env.APPLE_SIGNING_IDENTITY || !process.env.APPLE_API_KEY || !process.env.APPLE_API_KEY_ID || !process.env.APPLE_API_ISSUER)) throw new Error('Official macOS releases require Developer ID and notarization credentials.')
@@ -109,8 +112,10 @@ try {
   }
   if (!nativeOnly) {
   const pins = JSON.parse(await readFile(join(root,'src/shared/migrationKeys.json'),'utf8'))
-  for (const target of platforms) {
-    const proof = await prepareBridgeResources({installer:migrationInstaller,helper,keyPath:secret,output:resources,bridgeVersion,targetVersion:version,platform:target})
+  const proofs = platforms.map(platform=>({platform,installer:migrationInstaller}))
+  if(platform==='linux')for(const packageType of ['deb','pacman'])proofs.push({platform:'linux-x64',packageType,installer:join(output,definitions.native.find(a=>a.file.endsWith('.'+packageType)).file)})
+  for (const {platform:target,installer,packageType} of proofs) {
+    const proof = await prepareBridgeResources({installer,helper,keyPath:secret,output:resources,bridgeVersion,targetVersion:version,platform:target,packageType})
     if (!pins.some(pin=>pin.id===proof.keyId)) throw new Error('Migration signing key does not match the compiled public pin.')
   }
   const verifierPath = join(root,'release/bridge-verifier.mjs')
@@ -120,15 +125,15 @@ try {
     const directory = context.electronPlatformName==='darwin'
       ? join(context.appOutDir,context.packager.appInfo.productFilename+'.app','Contents/Resources/migration')
       : join(context.appOutDir,'resources/migration')
-    for (const target of platforms) {
-      const signed = JSON.parse(await readFile(join(directory,`release-${target}.json`),'utf8'))
+    for (const {platform:target,installer,packageType} of proofs) {
+      const signed = JSON.parse(await readFile(join(directory,`release-${target}${packageType?`-${packageType}`:''}.json`),'utf8'))
       const proof = authenticateRelease(signed,pins,'com.serenetia.tia-launcher',bridgeVersion,version,target)
       const packagedHelper = join(directory,target==='windows-x64'?'tia-migration-helper.exe':'tia-migration-helper')
       if ((await hashFile(packagedHelper,'sha256','hex')).hash!==proof.helperSha256) throw new Error('Packaging changed the hash-pinned migration helper.')
-      await verifyInstaller(migrationInstaller,proof.installerSha512)
+      await verifyInstaller(installer,proof.installerSha512)
     }
   }
-  await writeFile(join(root,'package.json'),JSON.stringify({...JSON.parse(originals.get(join(root,'package.json'))),version:bridgeVersion},null,2)+'\n')
+  await writeFile(join(root,'package.json'),JSON.stringify({...JSON.parse(originals.get(join(root,'package.json'))),version:bridgeVersion,name:'tia-launcher'},null,2)+'\n')
   if (platform==='darwin') execute(process.execPath,['migration/installer/prepare-macos-bindings.mjs'])
   execute(process.execPath,[join(root,'node_modules/electron-vite/bin/electron-vite.js'),'build'])
   const builder = {
@@ -137,7 +142,7 @@ try {
     afterPack:verifyPackagedBridge,
     afterSign:verifyPackagedBridge,
     disableSanityCheckAsar:false,
-    extraMetadata:{version:bridgeVersion,main:'./out/main/index.js',author:{name:'Serenetia',email:'amane@serenetia.com'}},
+    extraMetadata:{name:'tia-launcher',version:bridgeVersion,main:'./out/main/index.js',author:{name:'Serenetia',email:'amane@serenetia.com'}},
     extraResources:[
       {from:'build/licenses/Orbitron-OFL.txt',to:'licenses/Orbitron-OFL.txt'},
       {from:'build/native',to:'client-runtime',filter:['csore-start-*.exe']},
@@ -146,14 +151,17 @@ try {
       {from:join(resources,'resources/migration'),to:'migration'}
     ],
     artifactName:`Tia-Launcher-${bridgeVersion}-${platform === 'win32'?'win-x64.exe':platform === 'linux'?'linux-x86_64.AppImage':'mac-universal.${ext}'}`,
+    ...(platform==='linux'?{linux:{executableName:'tia-launcher'},appImage:{artifactName:`Tia-Launcher-${bridgeVersion}-linux-x86_64.AppImage`},deb:{packageName:'tia-launcher',artifactName:`Tia-Launcher-${bridgeVersion}-linux-amd64.deb`},pacman:{packageName:'tia-launcher',artifactName:`Tia-Launcher-${bridgeVersion}-linux-x64.pacman`}}:{}),
     publish:{provider:'generic',url:`https://tia-launcher.serenetia.com/api/updates/bridge/${bridgeVersion}`},
     ...(platform==='darwin'?{mac:{identity:process.env.TIA_OFFICIAL_MACOS==='1'?process.env.APPLE_SIGNING_IDENTITY:null,signIgnore:['Contents/Resources/migration/tia-migration-helper'],x64ArchFiles:'**/@bsdiff-rust/node-darwin-*/**',singleArchFiles:'**/@bsdiff-rust/node-darwin-*/**'}}:{})
   }
   await build({config:builder,targets:bridgeTargets,publish:'never'})
-  const suffix = platform==='win32'?'.exe':platform==='linux'?'.AppImage':'.zip'
-  const bridge = await find(join(root,'release/bridge'),suffix)
-  const name = bridge.split(/[\\/]/).at(-1)
-  await copyFile(bridge,join(output,name)); definitions.bridge.push({file:name,feed})
+  const suffixes = platform==='win32'?['.exe']:platform==='linux'?['.AppImage','.deb','.pacman']:['.zip']
+  for(const suffix of suffixes){
+    const bridge = await find(join(root,'release/bridge'),suffix)
+    const name = bridge.split(/[\\/]/).at(-1)
+    await copyFile(bridge,join(output,name)); definitions.bridge.push({file:name,feed})
+  }
   }
   await writeFile(join(output,`artifacts-${platform}.json`),JSON.stringify(definitions,null,2)+'\n')
   console.log(`Built native ${version} and Electron bridge ${bridgeVersion} for ${platform}.`)

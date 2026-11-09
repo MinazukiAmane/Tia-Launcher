@@ -12,7 +12,8 @@ const backend = process.argv[scriptIndex + 2]
 const temporary = mkdtempSync(join(tmpdir(),'tia-key-recovery-'))
 const nativeBinary=process.env.TIA_MACOS_NATIVE_BINARY
 const profile=temporary
-app.setName('tia-launcher')
+const application=process.argv[scriptIndex + 3] || 'tia-launcher'
+app.setName(application)
 app.setPath('userData',profile)
 app.disableHardwareAcceleration()
 if (process.platform === 'linux' && backend) app.commandLine.appendSwitch('password-store', backend)
@@ -84,7 +85,7 @@ app.whenReady().then(async()=>{
    }
   }
   key.fill(0)
-  console.log(JSON.stringify({ok:true,platform:process.platform,backend:process.platform==='linux'?safeStorage.getSelectedStorageBackend():'keychain'}))
+  console.log(JSON.stringify({ok:true,application,platform:process.platform,backend:process.platform==='linux'?safeStorage.getSelectedStorageBackend():'keychain'}))
   clearTimeout(deadline);app.exit(0)
  } catch(error){console.error(error.message);clearTimeout(deadline);app.exit(1)}
 })

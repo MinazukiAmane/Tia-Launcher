@@ -13,6 +13,14 @@ export async function hashFile(path, algorithm = 'sha512', encoding = 'base64') 
   for await (const chunk of createReadStream(path)) hash.update(chunk)
   return { hash: hash.digest(encoding), size: info.size }
 }
+export function updaterFeed(version, entries, now) {
+  const file = entries[0]
+  if(!file)throw new Error('An update feed requires an artifact.')
+  return `version: ${version}\nfiles:\n${entries.map(entry => `  - url: ${JSON.stringify(entry.url)}\n    sha512: ${entry.sha512}\n    size: ${entry.size}`).join('\n')}\npath: ${JSON.stringify(file.url)}\nsha512: ${file.sha512}\nreleaseDate: ${now.toISOString()}\n`
+}
+export function requireLinuxFormats(entries) {
+  for(const extension of ['.AppImage','.deb','.pacman'])if(!entries?.some(entry=>new URL(entry.url).pathname.endsWith(extension)))throw new Error(`Missing Linux update format: ${extension}`)
+}
 export async function releaseLayout({ input, output, version, bridgeVersion, base, migration = true, now = new Date() }) {
   if (!stable(version) || !version.startsWith('2.') || !stable(bridgeVersion) || !bridgeVersion.startsWith('1.')) throw new Error('Release requires stable native 2.x and bridge 1.x versions.')
   const url = new URL(base)
@@ -34,10 +42,6 @@ export async function releaseLayout({ input, output, version, bridgeVersion, bas
     checksums.push(`${(await hashFile(source, 'sha256', 'hex')).hash}  ${path}`)
     return metadata
   }
-  function yaml(version, entries) {
-    const file = entries[0]
-    return `version: ${version}\nfiles:\n${entries.map(entry => `  - url: ${JSON.stringify(entry.url)}\n    sha512: ${entry.sha512}\n    size: ${entry.size}`).join('\n')}\npath: ${JSON.stringify(file.url)}\nsha512: ${file.sha512}\nreleaseDate: ${now.toISOString()}\n`
-  }
   for (const artifact of definitions.native) {
     if (!Array.isArray(artifact.targets) || !artifact.targets.length) throw new Error('Missing native target.')
     const path = `native/${version}/${artifact.file}`
@@ -50,9 +54,10 @@ export async function releaseLayout({ input, output, version, bridgeVersion, bas
       if (!platformKeys.has(target) || platforms[target]) throw new Error('Unknown or duplicate native target.')
       platforms[target] = { url: artifactURL(path), signature }
     }
-    if (migration && artifact.bridgeFeed) {
-      if (!['latest.yml', 'latest-linux.yml', 'latest-mac.yml'].includes(artifact.bridgeFeed) || bridgeFeeds[artifact.bridgeFeed]) throw new Error('Invalid or duplicate bridge feed.')
-      bridgeFeeds[artifact.bridgeFeed] = yaml(version, [{url:artifactURL(path),sha512:metadata.hash,size:metadata.size}])
+    const bridgeFeed = artifact.bridgeFeed ?? (artifact.targets.some(target=>['linux-x86_64-deb','linux-x86_64-pacman'].includes(target)) ? 'latest-linux.yml' : null)
+    if (migration && bridgeFeed) {
+      if (!['latest.yml', 'latest-linux.yml', 'latest-mac.yml'].includes(bridgeFeed) || bridgeFeed!=='latest-linux.yml' && bridgeFeeds[bridgeFeed]) throw new Error('Invalid or duplicate bridge feed.')
+      ;(bridgeFeeds[bridgeFeed] ??= []).push({url:artifactURL(path),sha512:metadata.hash,size:metadata.size})
     }
   }
   // A macOS bridge consumes ZIP; native Tauri updates consume tar.gz.
@@ -60,19 +65,20 @@ export async function releaseLayout({ input, output, version, bridgeVersion, bas
     const path = `native/${version}/${artifact.file}`
     const metadata = await stage(artifact.file, path)
     if (artifact.bridgeFeed !== 'latest-mac.yml' || bridgeFeeds[artifact.bridgeFeed]) throw new Error('Invalid migration archive feed.')
-    bridgeFeeds[artifact.bridgeFeed] = yaml(version, [{url:artifactURL(path),sha512:metadata.hash,size:metadata.size}])
+    bridgeFeeds[artifact.bridgeFeed] = [{url:artifactURL(path),sha512:metadata.hash,size:metadata.size}]
   }
   for (const artifact of migration ? definitions.bridge : []) {
     const metadata = await stage(artifact.file, artifact.file)
-    if (!['latest.yml', 'latest-linux.yml', 'latest-mac.yml'].includes(artifact.feed) || rootFeeds[artifact.feed]) throw new Error('Invalid or duplicate legacy feed.')
-    rootFeeds[artifact.feed] = yaml(bridgeVersion, [{url:artifactURL(artifact.file),sha512:metadata.hash,size:metadata.size}])
+    if (!['latest.yml', 'latest-linux.yml', 'latest-mac.yml'].includes(artifact.feed) || artifact.feed!=='latest-linux.yml' && rootFeeds[artifact.feed]) throw new Error('Invalid or duplicate legacy feed.')
+    ;(rootFeeds[artifact.feed] ??= []).push({url:artifactURL(artifact.file),sha512:metadata.hash,size:metadata.size})
   }
   for (const artifact of definitions.downloads ?? []) await stage(artifact.file, `native/${version}/${artifact.file}`)
   for (const key of platformKeys) if (!platforms[key]) throw new Error(`Missing release target: ${key}`)
   for (const feed of migration ? ['latest.yml', 'latest-linux.yml', 'latest-mac.yml'] : []) if (!rootFeeds[feed] || !bridgeFeeds[feed]) throw new Error(`Missing update continuity feed: ${feed}`)
+  if(migration){requireLinuxFormats(rootFeeds['latest-linux.yml']);requireLinuxFormats(bridgeFeeds['latest-linux.yml'])}
   await mkdir(join(destination, `bridge/${bridgeVersion}`), {recursive:true})
-  for (const [name, body] of Object.entries(rootFeeds)) await writeFile(join(destination, name), body)
-  for (const [name, body] of Object.entries(bridgeFeeds)) await writeFile(join(destination, `bridge/${bridgeVersion}`, name), body)
+  for (const [name, entries] of Object.entries(rootFeeds)) await writeFile(join(destination, name), updaterFeed(bridgeVersion,entries,now))
+  for (const [name, entries] of Object.entries(bridgeFeeds)) await writeFile(join(destination, `bridge/${bridgeVersion}`, name), updaterFeed(version,entries,now))
   await writeFile(join(destination, 'native/latest.json'), JSON.stringify({version,notes:'Tia Launcher',pub_date:now.toISOString(),platforms},null,2)+'\n')
   await writeFile(join(destination, `native/${version}/SHA256SUMS`),checksums.sort().join('\n')+'\n')
   return {version,bridgeVersion,targets:Object.keys(platforms)}

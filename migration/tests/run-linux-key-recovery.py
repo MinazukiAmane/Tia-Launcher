@@ -39,8 +39,10 @@ for attempt in $(seq 1 50); do
 done
 test "$keyring_unlocked" = 1 || { echo "The isolated keyring did not unlock"; cat "$GNOME_KEYRING_CONTROL/daemon.log"; gdbus call --session --dest org.freedesktop.secrets --object-path /org/freedesktop/secrets --method org.freedesktop.Secret.Service.ReadAlias default; exit 1; }
 electron_binary="$(node -p 'require("electron")')"
-for backend in basic gnome-libsecret; do
-  "$electron_binary" --ozone-platform=x11 migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper "$backend"
+for application in tia-launcher tia-launcher-bootstrap; do
+  for backend in basic gnome-libsecret; do
+    "$electron_binary" --ozone-platform=x11 migration/tests/electron-key-recovery.cjs src-tauri/target/debug/tia-migration-helper "$backend" "$application"
+  done
 done
 '''
     with (Path(directory) / 'session.log').open('w+') as log:
@@ -53,7 +55,7 @@ done
                 value = json.loads(line)
                 if isinstance(value, dict) and value.get('ok') is True: reports.append(value)
             except json.JSONDecodeError: pass
-        if completed.returncode or {value.get('backend') for value in reports} != {'basic_text', 'gnome_libsecret'}:
+        if completed.returncode or {(value.get('application'),value.get('backend')) for value in reports} != {(app,backend) for app in ('tia-launcher','tia-launcher-bootstrap') for backend in ('basic_text','gnome_libsecret')}:
             print(output, end='')
             raise SystemExit(completed.returncode or 1)
         for report in reports: print(json.dumps(report))

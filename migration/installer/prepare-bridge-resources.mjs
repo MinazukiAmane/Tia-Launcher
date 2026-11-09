@@ -11,9 +11,10 @@ async function digest(path, algorithm, encoding) {
  for await(const chunk of createReadStream(path))hash.update(chunk)
  return hash.digest(encoding)
 }
-export async function prepareBridgeResources({installer,helper,keyPath,output,bridgeVersion,targetVersion,platform='windows-x64'}) {
+export async function prepareBridgeResources({installer,helper,keyPath,output,bridgeVersion,targetVersion,platform='windows-x64',packageType}) {
  if(!/^1\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(bridgeVersion)||!/^2\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[A-Za-z0-9.-]+)?$/.test(targetVersion))throw new Error('Expected a stable Electron 1.x bridge and a Tauri 2.x target.')
  if(!['windows-x64','linux-x64','linux-arm64','macos-x64','macos-arm64'].includes(platform))throw new Error('Unsupported migration platform.')
+ if(packageType && (!platform.startsWith('linux-') || !['deb','pacman'].includes(packageType)))throw new Error('Invalid Linux migration package type.')
  const keyInfo=await lstat(keyPath)
  if(!keyInfo.isFile()||keyInfo.isSymbolicLink()||keyInfo.size>16384||(process.platform!=='win32'&&(keyInfo.mode&0o077)!==0))throw new Error('The release signing key must be a private, regular file.')
  const raw=await readFile(keyPath)
@@ -31,8 +32,8 @@ export async function prepareBridgeResources({installer,helper,keyPath,output,br
  const helperPath=join(directory,'resources/migration',helperName)
  await copyFile(helper,helperPath)
  if(process.platform!=='win32')await chmod(helperPath,0o755)
- await writeFile(join(directory,'resources/migration/release.json'),JSON.stringify(signed))
- await writeFile(join(directory,`resources/migration/release-${platform}.json`),JSON.stringify(signed))
+ if(!packageType)await writeFile(join(directory,'resources/migration/release.json'),JSON.stringify(signed))
+ await writeFile(join(directory,`resources/migration/release-${platform}${packageType?`-${packageType}`:''}.json`),JSON.stringify(signed))
  await writeFile(join(directory,'migrationKeys.json'),JSON.stringify([{id:keyId,publicKey:publicKey.export({type:'spki',format:'pem'}).toString()}],null,2)+'\n')
  return {keyId,output:directory}
 }

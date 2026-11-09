@@ -20,6 +20,7 @@ import { findGameExecutable } from './launcher/windows'
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'tia-background', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } }])
 
+app.setName('tia-launcher-bootstrap')
 app.setPath('userData', join(app.getPath('appData'), 'tia-launcher-bootstrap'))
 configureDatabaseDirectory(app.getPath('userData'))
 

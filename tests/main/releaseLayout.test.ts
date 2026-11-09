@@ -16,7 +16,7 @@ async function fixture() {
     {file:'native.tar.gz',targets:['darwin-x86_64','darwin-aarch64']}
   ]
   const migration = [{file:'native.zip',bridgeFeed:'latest-mac.yml'}]
-  const bridge = ['latest.yml','latest-linux.yml','latest-mac.yml'].map((feed,index)=>({file:`bridge-${index}.bin`,feed}))
+  const bridge = [{file:'bridge.exe',feed:'latest.yml'},...['AppImage','deb','pacman'].map(extension=>({file:`bridge.${extension}`,feed:'latest-linux.yml'})),{file:'bridge.zip',feed:'latest-mac.yml'}]
   for (const artifact of [...native,...migration,...bridge]) await writeFile(join(root,artifact.file),artifact.file)
   for (const artifact of native) await writeFile(join(root,artifact.file+'.sig'),Buffer.from('trusted comment: timestamp:1\tversion:2.0.0\tfile:test').toString('base64'))
   const definitions = {native,migration,bridge}
@@ -29,7 +29,7 @@ it('keeps skipped Electron releases on the bridge and separates native package f
   await releaseLayout(options)
   const legacy = await readFile(join(options.output,'latest.yml'),'utf8')
   expect(legacy).toContain('version: 1.19.0')
-  expect(legacy).toContain('/bridge-0.bin')
+  expect(legacy).toContain('/bridge.exe')
   const bridge = await readFile(join(options.output,'bridge/1.19.0/latest.yml'),'utf8')
   expect(bridge).toContain('version: 2.0.0')
   expect(bridge).toContain('/native/2.0.0/native.exe')
@@ -70,4 +70,22 @@ it('keeps immutable bridge metadata identical when retrying the same release',as
   const first=await readFile(join(options.output,'bridge/1.19.0/latest.yml'),'utf8')
   await releaseLayout({...options,now:new Date('2026-11-10T01:00:00Z')})
   expect(await readFile(join(options.output,'bridge/1.19.0/latest.yml'),'utf8')).toBe(first)
+})
+
+it('includes the package formats selected by real Electron Linux updaters',async()=>{
+ const {options}=await fixture()
+ await releaseLayout(options)
+ const {load}=await import('js-yaml')
+ const {findFile}=await import('electron-updater/out/providers/Provider')
+ for(const path of ['latest-linux.yml','bridge/1.19.0/latest-linux.yml']) {
+  const data=load(await readFile(join(options.output,path),'utf8')) as {files:{url:string;sha512:string;size:number}[]}
+  const files=data.files.map(info=>({url:new URL(info.url),info}))
+  for(const extension of ['pacman','deb','AppImage'])expect(findFile(files,extension,['rpm'])?.url.pathname.endsWith('.'+extension)).toBe(true)
+ }
+})
+it('rejects an AppImage-only legacy Linux feed before publication',async()=>{
+ const {root,definitions,options}=await fixture()
+ definitions.bridge=definitions.bridge.filter(file=>!file.file.endsWith('.pacman'))
+ await writeFile(join(root,'release-artifacts.json'),JSON.stringify(definitions))
+ await expect(releaseLayout(options)).rejects.toThrow('Missing Linux update format: .pacman')
 })

@@ -73,6 +73,24 @@ class PublishReleaseTests(unittest.TestCase):
             self.publish()
         self.assertEqual(self.storage.uploaded, [])
 
+    def test_linux_hotfix_never_rewrites_native_or_other_platforms(self):
+        (self.root / "native/2.0.0/app.exe").unlink()
+        (self.root / "bridge/1.19.0/latest.yml").unlink()
+        (self.root / "latest.yml").unlink()
+        self.write("latest-linux.yml", "version: 1.19.1")
+        self.write("bridge/1.19.1/latest-linux.yml", "version: 2.0.0")
+        self.write("Tia-Launcher-1.19.1-linux-x64.pacman", "signed bridge fixture")
+        self.module.publish(self.root, "test-bucket", "https://example.com", "us-east-1", linux_bridge_only=True)
+        keys = [item["Key"] for item in self.storage.uploaded]
+        self.assertNotIn("native/latest.json", keys)
+        self.assertEqual(keys[-1], "latest-linux.yml")
+        self.assertLess(keys.index("Tia-Launcher-1.19.1-linux-x64.pacman"), keys.index("bridge/1.19.1/latest-linux.yml"))
+
+    def test_linux_hotfix_rejects_a_native_payload_before_upload(self):
+        with self.assertRaisesRegex(ValueError, "cannot change"):
+            self.module.publish(self.root, "test-bucket", "https://example.com", "us-east-1", linux_bridge_only=True)
+        self.assertEqual(self.storage.uploaded, [])
+
     def test_private_key_rejected_before_upload(self):
         self.write("signing.key", "private fixture")
         with self.assertRaisesRegex(ValueError, "private"):
