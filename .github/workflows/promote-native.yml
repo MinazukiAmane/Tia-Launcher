@@ -12,6 +12,10 @@ on:
       bridge_version:
         default: '1.19.2'
         required: true
+      align_legacy_bridges:
+        description: Route old Electron bridges through 1.19.2 on every platform
+        type: boolean
+        default: false
       publish:
         description: Publish these exact tested artifacts and update feeds
         type: boolean
@@ -78,7 +82,10 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.TIA_S3_REGION }}
           TIA_S3_BUCKET: ${{ secrets.TIA_S3_BUCKET }}
           TIA_S3_ENDPOINT: ${{ secrets.TIA_S3_ENDPOINT }}
+          ALIGN_LEGACY_BRIDGES: ${{ inputs.align_legacy_bridges }}
         run: |
           python3 -m venv "$RUNNER_TEMP/tia-release-publisher"
           "$RUNNER_TEMP/tia-release-publisher/bin/python" -m pip install --disable-pip-version-check --require-hashes -r migration/installer/publisher-requirements.txt
-          "$RUNNER_TEMP/tia-release-publisher/bin/python" migration/installer/publish-release.py release/publish
+          args=()
+          if [[ "$ALIGN_LEGACY_BRIDGES" == true ]]; then args+=(--align-legacy-bridges); fi
+          "$RUNNER_TEMP/tia-release-publisher/bin/python" migration/installer/publish-release.py release/publish "${args[@]}"

@@ -125,6 +125,39 @@ class PublishReleaseTests(unittest.TestCase):
                 self.module.repair_linux_bridge(self.storage, "bucket", self.root)
         self.assertEqual(self.storage.uploaded, [])
 
+    def legacy_feed_fixture(self):
+        feeds = {}
+        for _, feed, packages in self.module.LEGACY_ROUTES:
+            feeds[feed] = ("version: 1.19.2\nfiles:\n" + "".join("  - url: " + json.dumps(f"https://tia-launcher.serenetia.com/api/updates/Tia-Launcher-1.19.2-{name}") + "\n" for name in packages)).encode()
+            self.write(feed, feeds[feed].decode())
+        self.write("native/latest.json", json.dumps({"version":"2.0.1"}))
+        return feeds
+
+    def test_all_platforms_align_to_the_same_bridge(self):
+        feeds = self.legacy_feed_fixture()
+        def get(**args):
+            key = args["Key"]
+            return {"Body": io.BytesIO(feeds.get(key, b"version: 2.0.0\n")), "ETag": json.dumps(key)}
+        with patch.object(self.storage, "get_object", create=True, side_effect=get), patch.object(self.storage, "put_object") as put:
+            self.module.repair_legacy_bridges(self.storage, "bucket", self.root)
+            self.assertEqual({call.kwargs["Key"] for call in put.call_args_list}, {route[0] for route in self.module.LEGACY_ROUTES})
+            for call in put.call_args_list:
+                self.assertEqual(call.kwargs["IfMatch"], json.dumps(call.kwargs["Key"]))
+                self.assertTrue(call.kwargs["Body"].startswith(b"version: 1.19.2\n"))
+
+    def test_changed_platform_feed_prevents_all_legacy_route_writes(self):
+        feeds = self.legacy_feed_fixture()
+        def get(**args):
+            key = args["Key"]
+            data = feeds.get(key, b"version: 2.0.0\n")
+            if key == "bridge/1.19.0/latest-mac.yml":
+                data = b"version: 2.0.2\n"
+            return {"Body": io.BytesIO(data), "ETag": json.dumps(key)}
+        with patch.object(self.storage, "get_object", create=True, side_effect=get), patch.object(self.storage, "put_object") as put:
+            with self.assertRaises(ValueError):
+                self.module.repair_legacy_bridges(self.storage, "bucket", self.root)
+            put.assert_not_called()
+
     def test_private_key_rejected_before_upload(self):
         self.write("signing.key", "private fixture")
         with self.assertRaisesRegex(ValueError, "private"):
