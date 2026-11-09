@@ -43,7 +43,7 @@ impl Server {
                     continue;
                 };
                 stream
-                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .set_read_timeout(Some(Duration::from_secs(5)))
                     .unwrap();
                 let mut request = Vec::new();
                 let mut byte = [0];
@@ -52,6 +52,9 @@ impl Server {
                         break;
                     }
                     request.push(byte[0]);
+                }
+                if !request.ends_with(b"\r\n\r\n") {
+                    continue;
                 }
                 let text = String::from_utf8_lossy(&request);
                 let target = text.split_whitespace().nth(1).unwrap_or("/");
@@ -69,7 +72,10 @@ impl Server {
                     );
                     let _ = stream.write_all(&body);
                 } else {
-                    eprintln!("Test HTTP route not configured: {target}");
+                    eprintln!(
+                        "Test HTTP route not configured: {target}; request: {:?}",
+                        text.lines().next()
+                    );
                     let _ = stream.write_all(
                         b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
                     );
