@@ -25,7 +25,7 @@ const allowed = new Set([
 ])
 const changes = git('diff','--name-only',run.head_sha,'HEAD').split('\n').filter(Boolean)
 for (const path of changes) {
-  if (!allowed.has(path) && !path.startsWith('tests/') && !/^migration\/windows\/validate-native-[\w-]+\.ps1$/.test(path)) throw new Error(`Launcher source changed after the candidate was built; build a new candidate: ${path}`)
+  if (!allowed.has(path) && !path.startsWith('tests/') && !path.startsWith('src-tauri/tests/') && !/^migration\/windows\/validate-native-[\w-]+\.ps1$/.test(path)) throw new Error(`Launcher source changed after the candidate was built; build a new candidate: ${path}`)
 }
 const before = git('show',`${run.head_sha}:.github/workflows/native-release.yml`)
 const after = await readFile('.github/workflows/native-release.yml','utf8')
