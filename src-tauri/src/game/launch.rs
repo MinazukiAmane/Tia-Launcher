@@ -67,12 +67,35 @@ pub fn parse_options(text: &str) -> Result<Vec<String>> {
     Ok(args)
 }
 pub fn client_args(game: &str, settings: &Value) -> Result<(Vec<String>, Option<String>)> {
+    let text = settings["launchCommand"].as_str().unwrap_or("").trim();
+    if text.len() > 500 || text.chars().any(char::is_control) {
+        bail!("Invalid launch options.")
+    }
+    let mut options = Vec::new();
+    let wrapper = if text.is_empty() {
+        None
+    } else if text.starts_with('-') && !text.contains("%command%") {
+        options = parse_options(text)?;
+        None
+    } else {
+        Some(text.into())
+    };
     let mut args = Vec::new();
     if game == "csore_global" {
         args.extend([
             "-lang".into(),
             settings["lang"].as_str().unwrap_or("na_en").into(),
         ]);
+        for flag in ["-ip", "-port"] {
+            let mut index = 0;
+            while index + 1 < options.len() {
+                if options[index] == flag {
+                    args.extend(options.drain(index..index + 2));
+                } else {
+                    index += 1;
+                }
+            }
+        }
         if settings["classicUi"] == true {
             args.push("--classicui".into())
         }
@@ -84,27 +107,17 @@ pub fn client_args(game: &str, settings: &Value) -> Result<(Vec<String>, Option<
             .filter(|n| [144, 165, 240].contains(n))
         {
             args.extend([
-                "+developer".into(),
-                "1".into(),
                 "+fps_max".into(),
                 fps.to_string(),
+                "+developer".into(),
+                "1".into(),
             ]);
         }
     }
-    let text = settings["launchCommand"].as_str().unwrap_or("").trim();
-    if text.is_empty() {
-        return Ok((args, None));
-    }
-    if text.len() > 500 || text.chars().any(char::is_control) {
-        bail!("Invalid launch options.")
-    }
-    if text.starts_with('-') && !text.contains("%command%") {
-        args.extend(parse_options(text)?);
-        Ok((args, None))
-    } else {
-        Ok((args, Some(text.into())))
-    }
+    args.extend(options);
+    Ok((args, wrapper))
 }
+
 pub fn architecture(path: &Path) -> Result<&'static str> {
     let mut file = std::fs::File::open(path)?;
     let before = super::verify::stamp(path)?;

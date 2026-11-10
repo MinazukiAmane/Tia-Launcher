@@ -139,19 +139,36 @@ fn forwards_client_flags_without_turning_them_into_wrapper_options() {
         [
             "-lang",
             "na_id",
-            "--classicui",
-            "+developer",
-            "1",
-            "+fps_max",
-            "240",
             "-ip",
             "example.test",
             "-port",
             "30003",
+            "--classicui",
+            "+fps_max",
+            "240",
+            "+developer",
+            "1",
             "-name",
             "Player One"
         ]
     );
     assert!(wrapper.is_none());
     assert!(launch::parse_options("-name \"unfinished").is_err());
+}
+
+#[test]
+fn custom_endpoint_precedes_fps_options() {
+    for (options, endpoint) in [
+        ("-port 50567", vec!["-port", "50567"]),
+        ("-port 50567 -ip server.example", vec!["-ip", "server.example", "-port", "50567"]),
+    ] {
+        let (args, wrapper) = launch::client_args("csore_global", &serde_json::json!({
+            "lang": "na_en", "fpsLimit": 240, "launchCommand": options
+        })).unwrap();
+        let mut expected = vec!["-lang", "na_en"];
+        expected.extend(endpoint);
+        expected.extend(["+fps_max", "240", "+developer", "1"]);
+        assert_eq!(args, expected);
+        assert!(wrapper.is_none());
+    }
 }

@@ -572,7 +572,7 @@ async fn windows_real_native_helpers_initialize_both_architectures_and_forward_o
         let report = std::fs::read_to_string(root.join("Bin/native-startup-result.txt")).unwrap();
         assert_eq!(
             report,
-            "flags=1\n-lang\nna_id\n--classicui\n+developer\n1\n+fps_max\n240\n-ip\nserver.example\n-port\n30003\n-name\nPlayer One\n"
+            "flags=1\n-lang\nna_id\n-ip\nserver.example\n-port\n30003\n--classicui\n+fps_max\n240\n+developer\n1\n-name\nPlayer One\n"
         );
     }
 }
