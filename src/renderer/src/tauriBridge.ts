@@ -112,6 +112,8 @@ const gameApi = {
   startInstallOrUpdate: (installDir: string): Promise<import('../../shared/launcherApiTypes').InstallOperationResult> =>
     ipcRenderer.invoke('game:startInstallOrUpdate', installDir),
 
+  getPredownloadStatus: (installDir: string): Promise<import('../../shared/launcherApiTypes').PredownloadStatus | null> => ipcRenderer.invoke('game:getPredownloadStatus',installDir),
+  predownload: (installDir: string): Promise<import('../../shared/launcherApiTypes').InstallOperationResult> => ipcRenderer.invoke('game:predownload',installDir),
   pauseInstallOrUpdate: (): Promise<void> => ipcRenderer.invoke('game:pauseInstallOrUpdate'),
   verifyInstall: (installDir: string): Promise<import('../../shared/launcherApiTypes').VerifyResult> =>
     ipcRenderer.invoke('game:verifyInstall', installDir),

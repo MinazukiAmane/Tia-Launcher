@@ -1,9 +1,9 @@
 use crate::{keystore, store::Store};
-use anyhow::{Result, bail};
-use serde_json::{Value, json};
+use anyhow::{bail, Result};
+use serde_json::{json, Value};
 use std::{
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, atomic::Ordering},
+    sync::{atomic::Ordering, Arc, Mutex},
     time::Duration,
 };
 use tauri::{Emitter, Manager};
@@ -140,6 +140,7 @@ async fn request(
         && matches!(
             channel,
             "game:launch"
+                | "game:predownload"
                 | "game:startInstallOrUpdate"
                 | "game:repairInstall"
                 | "game:verifyInstall"
@@ -371,6 +372,7 @@ async fn request(
             Ok(record.map(|install|json!({"version":install.version,"installDir":crate::paths::user_path(&root),"pendingAudioPatch":pending,"needsRepair":install.needs_repair})).unwrap_or(Value::Null))
         }
         "game:verifyInstall"
+        | "game:predownload"
         | "game:startInstallOrUpdate"
         | "game:repairInstall"
         | "game:launch" => {
@@ -387,6 +389,12 @@ async fn request(
             match channel {
                 "game:verifyInstall" => Ok(serde_json::to_value(
                     state.engine.verify(&root, &definition, false).await?,
+                )?),
+                "game:predownload" => Ok(serde_json::to_value(
+                    state
+                        .engine
+                        .predownload(&root, &definition, progress)
+                        .await?,
                 )?),
                 "game:startInstallOrUpdate" => Ok(serde_json::to_value(
                     state.engine.update(&root, &definition, progress).await?,
@@ -521,6 +529,13 @@ async fn request(
                 &json!({"installDir":directory}),
             )?;
             Ok(json!(directory))
+        }
+        "game:getPredownloadStatus" => {
+            let root = approved(&state, arg(0).as_str().unwrap_or(""))?;
+            let definition = serde_json::from_value(game(&state)?)?;
+            Ok(serde_json::to_value(
+                state.engine.predownload_status(&root, &definition).await?,
+            )?)
         }
         "game:getLauncherInfo" => Ok(serde_json::to_value(
             state.engine.metadata(&selected(&state)?, false).await?,
@@ -820,14 +835,12 @@ async fn request(
             }
             Ok(Value::Null)
         }
-        "game:getLogFilePath" => Ok(json!(
-            state
-                .store
-                .lock()
-                .unwrap()
-                .directory
-                .join("logs/launcher.log")
-        )),
+        "game:getLogFilePath" => Ok(json!(state
+            .store
+            .lock()
+            .unwrap()
+            .directory
+            .join("logs/launcher.log"))),
         "game:showLogFileInFolder" | "game:showInstallDirInFolder" => {
             use tauri_plugin_opener::OpenerExt;
             let path = if channel == "game:showInstallDirInFolder" {

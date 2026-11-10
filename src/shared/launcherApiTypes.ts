@@ -34,6 +34,9 @@ export interface MainBlock {
 
 export interface GamePackageEntry {
   game: { id: string; biz: string }
+  launcher_update_required?: boolean
+  pre_download?: { major: VersionBlock | null; patches: VersionBlock[]; required_client_version?: string }
+  enable_base_pkg_predownload?: boolean
   main: MainBlock
 }
 
@@ -158,3 +161,5 @@ export interface UpdateState {
 }
 
 export type Platform = 'win32' | 'linux' | 'darwin'
+
+export interface PredownloadStatus { version: string; totalBytes: number; ready: boolean; launcherUpdateRequired: boolean; requiredClientVersion: string }

@@ -17,5 +17,13 @@
  "Server status unavailable": ["Status server tidak diketahui", "服务器状态未知", "서버 상태를 확인할 수 없음", "サーバー状況を確認できません", "Status server ora dingerteni"],
  "Maintenance": ["Pemeliharaan", "维护中", "점검 중", "メンテナンス中", "Pangrumatan"],
  "Game server availability. Play is unavailable during maintenance.": ["Status server game. Play tidak tersedia selama pemeliharaan.", "游戏服务器状态。维护期间无法开始游戏。", "게임 서버 상태입니다. 점검 중에는 플레이할 수 없습니다.", "ゲームサーバーの接続状況です。メンテナンス中はプレイできません。", "Status server game. Play ora kasedhiya nalika pangrumatan."],
- "Custom server": ["Server khusus", "自定义服务器", "사용자 지정 서버", "カスタムサーバー", "Server khusus"]
+ "Custom server": ["Server khusus", "自定义服务器", "사용자 지정 서버", "カスタムサーバー", "Server khusus"],
+ "Pre-download": ["Praunduh", "预下载", "사전 다운로드", "事前ダウンロード", "Praundhuh"],
+ "Download the next update now. Your installed game stays unchanged.": ["Unduh update berikutnya sekarang. Game terpasang tetap bisa dipakai.", "现在下载下一次更新，不会更改已安装的游戏。", "다음 업데이트를 미리 다운로드합니다. 설치된 게임은 변경되지 않습니다.", "次の更新を先にダウンロードします。インストール済みのゲームは変更されません。", "Undhuh update sabanjure saiki. Game sing kepasang tetep utuh."],
+ "Pre-download ready": ["Praunduh siap", "预下载已就绪", "사전 다운로드 완료", "事前ダウンロード完了", "Praundhuh siyap"],
+ "Pause pre-download": ["Jeda praunduh", "暂停预下载", "사전 다운로드 일시 정지", "事前ダウンロードを一時停止", "Ngasoake praundhuh"],
+ "Resume pre-download": ["Lanjutkan praunduh", "继续预下载", "사전 다운로드 재개", "事前ダウンロードを再開", "Terusake praundhuh"],
+ "Update the launcher to continue.": ["Update launcher untuk melanjutkan.", "请更新启动器以继续。", "계속하려면 런처를 업데이트하세요.", "続行するにはランチャーを更新してください。", "Update launcher kanggo nerusake."],
+ "Check for updates": ["Periksa update", "检查更新", "업데이트 확인", "更新を確認", "Priksa update"],
+ "Update the launcher to pre-download. You can still play the current version.": ["Update launcher untuk praunduh. Versi game saat ini tetap bisa dimainkan.", "请更新启动器以进行预下载。仍可游玩当前版本。", "사전 다운로드를 하려면 런처를 업데이트하세요. 현재 버전은 계속 플레이할 수 있습니다.", "事前ダウンロードにはランチャーの更新が必要です。現在のバージョンは引き続きプレイできます。", "Update launcher kanggo praundhuh. Versi game saiki tetep bisa dimainake."]
 }

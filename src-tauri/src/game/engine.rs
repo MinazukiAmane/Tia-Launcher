@@ -1,16 +1,17 @@
 use super::{
-    Control, Paused, Progress, archive,
+    archive,
     model::*,
     transfer,
     verify::{self, Cache},
+    Control, Paused, Progress,
 };
 use crate::{
     manifest::{self, Manifest, Proof, PublicKey},
     paths,
     store::Store,
 };
-use anyhow::{Context, Result, bail};
-use serde_json::{Value, json};
+use anyhow::{bail, Context, Result};
+use serde_json::{json, Value};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -128,7 +129,16 @@ impl Engine {
                             .as_array()
                             .and_then(|items| items.iter().find(|i| i["game"]["biz"] == biz))
                             .context("The selected game is unavailable on the update service")?;
-                        let info: Info = serde_json::from_value(item.clone())?;
+                        let mut info: Info = serde_json::from_value(item.clone())?;
+                        info.launcher_update_required = super::policy::requires_update(
+                            &info.main.required_client_version,
+                            env!("CARGO_PKG_VERSION"),
+                        )?;
+                        self.store.lock().unwrap().put(
+                            &format!("gamePolicy:{biz}"),
+                            "requiredLauncher",
+                            &json!(info.main.required_client_version),
+                        )?;
                         self.recent
                             .lock()
                             .unwrap()
@@ -424,7 +434,7 @@ impl Engine {
         }
         Ok(result)
     }
-    fn limit(&self) -> Option<u64> {
+    pub(super) fn limit(&self) -> Option<u64> {
         self.store
             .lock()
             .unwrap()
@@ -579,7 +589,6 @@ impl Engine {
                 "checkpoint",
                 &json!({"packageKey":key,"files":files}),
             )?;
-            let _ = tokio::fs::remove_dir_all(&parts_root).await;
         }
         if !version.audio_pkgs.is_empty() {
             let parts = transfer::parts(
@@ -636,7 +645,7 @@ impl Engine {
         })
         .await??;
         self.save_cache(root, cache)?;
-        let _ = tokio::fs::remove_dir_all(parts_root).await;
+
         Ok(())
     }
     async fn repair_inner(
@@ -747,6 +756,7 @@ impl Engine {
         progress: Progress,
     ) -> Result<()> {
         let info = self.metadata(&game.biz, false).await?;
+        super::policy::enforce(&info.main.required_client_version)?;
         let version = info.main.major.context("No game version is published")?;
         let (target, proof) = self
             .remote_manifest(&game.biz, &version.res_list_url, false)
@@ -878,8 +888,9 @@ impl Engine {
     ) -> Result<OperationResult> {
         let _operation = self.control.acquire()?;
         let result = async {
-            let state = self.state_or_adopt(root, game).await?;
             let info = self.metadata(&game.biz, false).await?;
+            super::policy::enforce(&info.main.required_client_version)?;
+            let state = self.state_or_adopt(root, game).await?;
             let version = info.main.major.context("No game version is published")?;
             if state.version != version.version && !state.needs_repair {
                 bail!("Update the game before repairing it.")

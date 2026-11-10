@@ -120,13 +120,17 @@ fn incomplete_proxy_connections_are_not_routed_as_requests() {
 
 #[tokio::test]
 async fn signed_install_repairs_only_changed_file_and_rejects_unsigned_manifest() {
-    exercise_signed_install(false).await;
+    exercise_signed_install(false, false).await;
 }
 #[tokio::test]
 async fn signed_install_also_works_through_an_explicit_http_proxy() {
-    exercise_signed_install(true).await;
+    exercise_signed_install(true, false).await;
 }
-async fn exercise_signed_install(proxy: bool) {
+#[tokio::test]
+async fn predownload_keeps_game_unchanged_and_reuses_verified_parts_on_release() {
+    exercise_signed_install(false, true).await;
+}
+async fn exercise_signed_install(proxy: bool, predownload: bool) {
     let server = Server::start();
     let directory = tempfile::tempdir().unwrap();
     let root = directory.path().join("Game");
@@ -160,7 +164,12 @@ async fn exercise_signed_install(proxy: bool) {
     );
     server.put("/manifest", manifest.clone(), headers);
     let parts:Vec<_>=[&bytes[..midpoint],&bytes[midpoint..]].iter().enumerate().map(|(index,part)|json!({"url":format!("{}/part{index}",server.base),"md5":hash(part),"size":part.len().to_string()})).collect();
-    server.put("/api/launcher_info",serde_json::to_vec(&json!({"retcode":0,"data":{"game_packages":[{"game":{"biz":"csore_global"},"main":{"major":{"version":"1.0","game_pkgs":parts,"res_list_url":format!("{}/manifest",server.base)}}}]}})).unwrap(),String::new());
+    let live_info = json!({"retcode":0,"data":{"game_packages":[{"game":{"biz":"csore_global"},"main":{"major":{"version":"1.0","game_pkgs":parts,"res_list_url":format!("{}/manifest",server.base)}}}]}});
+    server.put(
+        "/api/launcher_info",
+        serde_json::to_vec(&live_info).unwrap(),
+        String::new(),
+    );
     let store = Arc::new(Mutex::new(
         Store::open(&directory.path().join("profile"), &[42; 32]).unwrap(),
     ));
@@ -190,6 +199,132 @@ async fn exercise_signed_install(proxy: bool) {
             pause_control.pause();
         }
     });
+    if predownload {
+        let mut future_info = live_info.clone();
+        future_info["data"]["game_packages"][0]["enable_base_pkg_predownload"] = json!(true);
+        future_info["data"]["game_packages"][0]["pre_download"] =
+            future_info["data"]["game_packages"][0]["main"].clone();
+        future_info["data"]["game_packages"][0]["main"]["major"] = serde_json::Value::Null;
+        server.put(
+            "/api/launcher_info",
+            serde_json::to_vec(&future_info).unwrap(),
+            String::new(),
+        );
+        future_info["data"]["game_packages"][0]["enable_base_pkg_predownload"] = json!(false);
+        server.put(
+            "/api/launcher_info",
+            serde_json::to_vec(&future_info).unwrap(),
+            String::new(),
+        );
+        assert!(
+            engine
+                .predownload(&root, &game, progress.clone())
+                .await
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("No predownload")
+        );
+        assert!(
+            engine
+                .predownload_status(&root, &game)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        future_info["data"]["game_packages"][0]["enable_base_pkg_predownload"] = json!(true);
+        future_info["data"]["game_packages"][0]["pre_download"]["required_client_version"] =
+            json!("999.0.0");
+        server.put(
+            "/api/launcher_info",
+            serde_json::to_vec(&future_info).unwrap(),
+            String::new(),
+        );
+        assert!(
+            engine
+                .predownload(&root, &game, progress.clone())
+                .await
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("Update the launcher")
+        );
+        assert!(
+            engine
+                .predownload_status(&root, &game)
+                .await
+                .unwrap()
+                .unwrap()
+                .launcher_update_required
+        );
+        assert!(
+            !engine
+                .metadata(&game.biz, true)
+                .await
+                .unwrap()
+                .launcher_update_required
+        );
+        engine.check_launcher_policy(&game.biz).await.unwrap();
+        future_info["data"]["game_packages"][0]["pre_download"]["required_client_version"] =
+            json!("");
+        server.put(
+            "/api/launcher_info",
+            serde_json::to_vec(&future_info).unwrap(),
+            String::new(),
+        );
+        assert_eq!(
+            engine
+                .predownload(&root, &game, pause_progress.clone())
+                .await
+                .unwrap()
+                .status,
+            "paused"
+        );
+        assert!(!engine.control.busy.load(Ordering::SeqCst));
+        assert_eq!(
+            engine
+                .predownload(&root, &game, progress.clone())
+                .await
+                .unwrap()
+                .status,
+            "completed"
+        );
+        assert!(
+            engine
+                .predownload_status(&root, &game)
+                .await
+                .unwrap()
+                .unwrap()
+                .ready
+        );
+        assert!(!root.join("Bin/client.exe").exists());
+        assert!(engine.install_state(&root, &game).unwrap().is_none());
+        server.put(
+            "/api/launcher_info",
+            serde_json::to_vec(&live_info).unwrap(),
+            String::new(),
+        );
+        server.requests.lock().unwrap().clear();
+        assert_eq!(
+            engine
+                .update(&root, &game, progress.clone())
+                .await
+                .unwrap()
+                .status,
+            "completed"
+        );
+        assert_eq!(std::fs::read(root.join("Bin/client.exe")).unwrap(), content);
+        assert!(
+            !server
+                .requests
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|path| path.starts_with("/part")),
+            "predownloaded parts were downloaded again"
+        );
+        return;
+    }
     let installed = engine.update(&root, &game, pause_progress).await;
     assert!(
         installed.is_ok(),
@@ -440,4 +575,81 @@ async fn windows_real_native_helpers_initialize_both_architectures_and_forward_o
             "flags=1\n-lang\nna_id\n--classicui\n+developer\n1\n+fps_max\n240\n-ip\nserver.example\n-port\n30003\n-name\nPlayer One\n"
         );
     }
+}
+
+#[tokio::test]
+async fn minimum_launcher_is_enforced_by_backend_and_retained_when_api_goes_down() {
+    let server = Server::start();
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("Game");
+    std::fs::create_dir(&root).unwrap();
+    let store = Arc::new(Mutex::new(
+        Store::open(&directory.path().join("profile"), &[29; 32]).unwrap(),
+    ));
+    let mut engine = Engine::with_keys(
+        store,
+        server.base.clone(),
+        directory.path().join("resources"),
+        vec![],
+    )
+    .unwrap();
+    Arc::get_mut(&mut engine).unwrap().client =
+        reqwest::Client::builder().no_proxy().build().unwrap();
+    let game = Definition {
+        biz: "csore_global".into(),
+        executable: "Bin/client.exe".into(),
+        install_folder: "Tia-CSORSE".into(),
+    };
+    server.put("/api/launcher_info",serde_json::to_vec(&json!({"retcode":0,"data":{"game_packages":[{"game":{"biz":"csore_global"},"main":{"required_client_version":"999.0.0","major":null},"pre_download":{"required_client_version":"999.0.0","major":null}}]}})).unwrap(),String::new());
+    assert!(
+        engine
+            .metadata(&game.biz, false)
+            .await
+            .unwrap()
+            .launcher_update_required
+    );
+    let progress = Arc::new(|_: &str, _: u64, _: u64| {});
+    for operation in [
+        engine.update(&root, &game, progress.clone()).await,
+        engine.predownload(&root, &game, progress.clone()).await,
+        engine.repair(&root, &game, progress.clone()).await,
+    ] {
+        assert!(
+            operation
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("Update the launcher")
+        );
+    }
+    assert!(
+        engine
+            .play(&root, &game, &json!({}), progress)
+            .await
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("Update the launcher")
+    );
+    server.routes.lock().unwrap().remove("/api/launcher_info");
+    assert!(engine.metadata(&game.biz, false).await.is_err());
+    // Reopen the engine to discard its in-memory metadata cache.
+    let mut reopened = Engine::with_keys(
+        engine.store.clone(),
+        server.base.clone(),
+        directory.path().join("resources"),
+        vec![],
+    )
+    .unwrap();
+    Arc::get_mut(&mut reopened).unwrap().client =
+        reqwest::Client::builder().no_proxy().build().unwrap();
+    assert!(
+        reopened
+            .check_launcher_policy(&game.biz)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("Update the launcher")
+    );
+    assert!(!root.join("Bin").exists());
 }

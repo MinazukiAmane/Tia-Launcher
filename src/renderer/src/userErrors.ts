@@ -54,7 +54,7 @@ function errorDetails(error: unknown, depth = 0): string {
 // Return a translation key; never expose exception text, paths, URLs, or stack traces.
 export function userError(error: unknown, action: ErrorAction = 'general'): string {
   const detail = errorDetails(error)
-  if (/database.*(?:newer|requires)|latest launcher|launcher update.*required|update.*launcher.*before/i.test(detail)) return messages.launcherUpdate
+  if (/database.*(?:newer|requires)|latest launcher|update the launcher to continue|launcher update.*required|update.*launcher.*before/i.test(detail)) return messages.launcherUpdate
   if (/\bENOSPC\b|not enough (?:free )?(?:space|disk)|no space left/i.test(detail)) return messages.space
   if (/\bEBUSY\b|resource busy|sharing violation|file.*(?:locked|in use)/i.test(detail)) return messages.locked
   if (/\b(?:EACCES|EPERM|EROFS)\b|not writable|unwritable|permission denied|read.only/i.test(detail)) return messages.permission

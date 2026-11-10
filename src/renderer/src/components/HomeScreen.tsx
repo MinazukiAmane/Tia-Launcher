@@ -105,6 +105,10 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedInstallDir, operationBusy, settingsOpen, onOpenGameSettings }: HomeScreenProps): React.JSX.Element {
+  const [predownload, setPredownload] = useState<import('../../../shared/launcherApiTypes').PredownloadStatus | null>(null)
+  const [predownloading, setPredownloading] = useState(false)
+  const [predownloadPaused, setPredownloadPaused] = useState(false)
+  const [minimumLauncher, setMinimumLauncher] = useState<string | null>(null)
   const [state, setState] = useState<ActionState>('loading')
   const serverStatus = useServerStatus(game.biz === 'csore_global', settingsOpen)
   const maintenance = serverStatus === 'maintenance'
@@ -124,7 +128,7 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedIn
   const [verifyMessage, setVerifyMessage] = useState<string | null>(null)
   const [confirmingRepair, setConfirmingRepair] = useState(false)
   const [repairing, setRepairing] = useState(false)
-  useEffect(() => { onBusyChange?.(state === 'working' || verifying || repairing); return () => onBusyChange?.(false) }, [state, verifying, repairing, onBusyChange])
+  useEffect(() => { onBusyChange?.(state === 'working' || verifying || repairing || predownloading); return () => onBusyChange?.(false) }, [state, verifying, repairing, predownloading, onBusyChange])
   const [toast, setToast] = useState<string | null>(null)
 
   // Synchronous guard: React state alone cannot block same-frame duplicate clicks.
@@ -172,6 +176,7 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedIn
 
   async function refreshState(): Promise<void> {
     if (!installDir) {
+      setPredownload(null)
       setApiUnavailable(false)
       setState('fresh_install')
       return
@@ -187,6 +192,8 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedIn
     }
     try {
       const info = await window.csore.getLauncherInfo()
+      setMinimumLauncher(info.launcher_update_required ? info.main.required_client_version : null)
+      setPredownload(await window.csore.getPredownloadStatus(installDir).catch(() => null))
       setApiUnavailable(false)
       lastKnownGameVersionRef.current = info.main.major?.version ?? null
       setErrorMessage(null)
@@ -210,6 +217,20 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedIn
     refreshState()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installDir])
+
+  async function runPredownload(): Promise<void> {
+    if (!installDir || actionInFlightRef.current || operationBusy) return
+    actionInFlightRef.current = true
+    setPredownloading(true)
+    setPredownloadPaused(false)
+    setErrorMessage(null)
+    try {
+      const result = await window.csore.predownload(installDir)
+      setPredownloadPaused(result.status === 'paused')
+      if (result.status === 'completed') await refreshState()
+    } catch (error) { setErrorMessage(userError(error, 'install')) }
+    finally { actionInFlightRef.current = false; setPredownloading(false); setProgress(null) }
+  }
 
   async function runInstallOrUpdate(): Promise<void> {
     if (!installDir || actionInFlightRef.current || operationBusy) return
@@ -409,7 +430,7 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedIn
     paused: t("Resume")
   }
 
-  const primaryDisabled = (maintenance && state === 'up_to_date') || operationBusy || state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
+  const primaryDisabled = !!minimumLauncher || predownloading || (maintenance && state === 'up_to_date') || operationBusy || state === 'loading' || verifying || (state === 'working' && !isDownloadingPhase)
   const label = maintenance && state === 'up_to_date' && !verifying
     ? t("Maintenance")
     : verifying
@@ -463,6 +484,18 @@ export function HomeScreen({ game = GAMES[0], onBusyChange, installDir, onNeedIn
       </div>
 
       <div className="home-actions">
+        {minimumLauncher && <div role="status" className="home-toast"><p>{t('Update the launcher to continue.')} ({minimumLauncher}+)</p><button type="button" onClick={() => { void window.csore.checkForUpdate().catch(error => setErrorMessage(userError(error, 'update'))) }}>{t('Check for updates')}</button></div>}
+        {predownload && <div className="predownload-panel" role="region" aria-label={t('Pre-download')}>
+          <p>{t('Pre-download')} {predownload.version} · {formatBytes(predownload.totalBytes)}</p>
+          <p className="text-xs text-white/60">{t('Download the next update now. Your installed game stays unchanged.')}</p>
+          {predownload.launcherUpdateRequired && <p className="text-xs text-white/60">{t(minimumLauncher ? 'Update the launcher to continue.' : 'Update the launcher to pre-download. You can still play the current version.')} ({predownload.requiredClientVersion}+)</p>}
+          {predownloading && progress && <p role="status">{formatBytes(progress.processed)} / {formatBytes(progress.total)} · {formatBytes(speedBps)}/s</p>}
+          <button type="button" disabled={(predownload.ready && !predownload.launcherUpdateRequired) || (!predownloading && (operationBusy || verifying || repairing || state === 'working'))}
+            onClick={() => { if (predownload.launcherUpdateRequired) void window.csore.checkForUpdate().catch(error => setErrorMessage(userError(error, 'update'))); else if (predownloading) void window.csore.pauseInstallOrUpdate().catch(error => setErrorMessage(userError(error, 'install'))); else void runPredownload() }}>
+            {t(predownload.launcherUpdateRequired ? 'Check for updates' : predownload.ready ? 'Pre-download ready' : predownloading ? 'Pause pre-download' : predownloadPaused ? 'Resume pre-download' : 'Pre-download')}
+          </button>
+        </div>}
+
         {apiUnavailable && <p role="status" className="home-toast">{t("Game update service unavailable. Play will check your installed files locally.")}</p>}
         {toast && (
           <p role="status" className="home-toast">{t(toast)}</p>

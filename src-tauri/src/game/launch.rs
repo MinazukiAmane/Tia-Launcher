@@ -1,17 +1,17 @@
 #[cfg(not(target_os = "windows"))]
 use super::runtime;
 use super::{
-    Progress,
     engine::Engine,
     model::{Definition, Verification},
+    Progress,
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use serde_json::Value;
 use std::{
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
-    sync::{Arc, atomic::Ordering},
+    sync::{atomic::Ordering, Arc},
     time::{Duration, Instant},
 };
 #[derive(Serialize)]
@@ -40,7 +40,11 @@ pub fn parse_options(text: &str) -> Result<Vec<String>> {
     let mut started = false;
     for c in text.chars() {
         if let Some(q) = quote {
-            if c == q { quote = None } else { token.push(c) }
+            if c == q {
+                quote = None
+            } else {
+                token.push(c)
+            }
         } else if c == '\'' || c == '"' {
             quote = Some(c);
             started = true
@@ -404,6 +408,7 @@ impl Engine {
         progress: Progress,
     ) -> Result<(LaunchResult, Option<Session>)> {
         let _operation = self.control.acquire()?;
+        self.check_launcher_policy(&game.biz).await?;
         let verification = self.verify_inner(root, game, true).await?;
         if !verification.ok {
             return Ok((

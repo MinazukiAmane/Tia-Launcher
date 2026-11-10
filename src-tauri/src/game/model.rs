@@ -31,11 +31,25 @@ pub struct Main {
     #[serde(default)]
     pub patches: Vec<Version>,
 }
+#[derive(Clone, Default, Serialize, Deserialize)]
+pub struct PreDownload {
+    #[serde(default)]
+    pub required_client_version: String,
+    pub major: Option<Version>,
+    #[serde(default)]
+    pub patches: Vec<Version>,
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Info {
     #[serde(default)]
     pub game: serde_json::Value,
     pub main: Main,
+    #[serde(default)]
+    pub pre_download: PreDownload,
+    #[serde(default)]
+    pub enable_base_pkg_predownload: bool,
+    #[serde(default)]
+    pub launcher_update_required: bool,
 }
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Definition {

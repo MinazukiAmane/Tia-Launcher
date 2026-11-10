@@ -5,6 +5,8 @@ pub mod launch;
 pub mod macos;
 pub mod manage;
 pub mod model;
+pub mod policy;
+pub mod predownload;
 pub mod runtime;
 pub mod transfer;
 pub mod verify;
