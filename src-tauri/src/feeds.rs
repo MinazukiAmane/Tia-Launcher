@@ -343,7 +343,7 @@ impl Feeds {
             )?;
             if !matches!(
                 value["status"].as_str(),
-                Some("online" | "maintenance" | "unknown")
+                Some("online" | "offline" | "maintenance" | "unknown")
             ) || (chrono::Utc::now().timestamp_millis() - at.timestamp_millis()).unsigned_abs()
                 > 60_000
             {

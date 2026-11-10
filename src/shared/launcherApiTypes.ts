@@ -1,6 +1,6 @@
 import type { LauncherLanguage } from './launcherLanguage'
 
-export type ServerStatus = { status: 'online' | 'maintenance' | 'unknown' | 'custom'; checkedAt: string | null }
+export type ServerStatus = { status: 'online' | 'offline' | 'maintenance' | 'unknown' | 'custom'; checkedAt: string | null }
 
 export interface Preferences {
   launcherLanguage?: LauncherLanguage

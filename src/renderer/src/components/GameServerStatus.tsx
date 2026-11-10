@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { t } from '../i18n'
 
 export type Status = Awaited<ReturnType<typeof window.csore.getServerStatus>>['status']
-const labels: Record<Status, string> = { custom: 'Custom server', online: 'Server Online', maintenance: 'Server maintenance', unknown: 'Server status unavailable' }
+const labels: Record<Status, string> = { custom: 'Custom server', online: 'Server Online', offline: 'Server Offline', maintenance: 'Server maintenance', unknown: 'Server status unavailable' }
 export function useServerStatus(enabled = true, settingsOpen = false): Status {
   const [status, setStatus] = useState<Status>('unknown')
   useEffect(() => {
