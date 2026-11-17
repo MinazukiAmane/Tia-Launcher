@@ -1,17 +1,10 @@
+import {findWebViewLoader} from './webview2-loader.mjs'
 import {build,Platform,Arch} from 'electron-builder'
-import {copyFile,mkdir,mkdtemp,readdir,readFile,rm,stat,writeFile} from 'node:fs/promises'
+import {copyFile,mkdir,mkdtemp,readFile,rm,stat,writeFile} from 'node:fs/promises'
 import {resolve,join,dirname} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {UUID} from 'builder-util-runtime'
 const root=resolve(import.meta.dirname,'../..')
-async function findLoader(directory){
- const direct=join(directory,'WebView2Loader.dll');try{await stat(direct);return direct}catch{}
- for(const name of await readdir(join(directory,'build'))){
-  if(!name.startsWith('webview2-com-sys-'))continue
-  const path=join(directory,'build',name,'out/x64/WebView2Loader.dll');try{await stat(path);return path}catch{}
- }
- throw new Error('WebView2Loader.dll is missing from the Windows build.')
-}
 export async function buildWindowsPackage({binary,output,version,flavor='production'}){
  if(!/^\d+\.\d+\.\d+(?:-[A-Za-z0-9.]+)?$/.test(version))throw new Error('Invalid Windows release version.')
  if(!['production','test'].includes(flavor))throw new Error('Invalid Windows package identity.')
@@ -25,7 +18,7 @@ export async function buildWindowsPackage({binary,output,version,flavor='product
  try{
   const bootstrap=join(root,'build/webview2/MicrosoftEdgeWebview2Setup.exe');await stat(bootstrap)
   await copyFile(resolve(binary),join(stage,identity.productName+'.exe'))
-  await copyFile(await findLoader(dirname(resolve(binary))),join(stage,'WebView2Loader.dll'))
+  await copyFile(await findWebViewLoader(dirname(resolve(binary))),join(stage,'WebView2Loader.dll'))
   for(const [source,destination]of [['build/native/csore-start-x86.exe','client-runtime/csore-start-x86.exe'],['build/native/csore-start-x64.exe','client-runtime/csore-start-x64.exe'],...['cedar-start-x64.exe','cedar-client-x64.dll','launcher-services.json','LICENSE-Minhook.txt'].map(name=>['build/native/cedar/'+name,'game-runtime/'+name]),['build/licenses/Orbitron-OFL.txt','licenses/Orbitron-OFL.txt']]){
    await mkdir(dirname(join(stage,destination)),{recursive:true});await copyFile(join(root,source),join(stage,destination))
   }
