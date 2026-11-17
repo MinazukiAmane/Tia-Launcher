@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           repository: MinazukiAmane/Tia-Launcher-Helpers
-          ref: edbd5d9fe15633e3251938213a4f2e428d4b66e3
+          ref: 22d18dc55a79e8c7eade156ba0b6edc28eb5cf70
           ssh-key: ${{ secrets.TIA_HELPER_SSH_KEY }}
           persist-credentials: false
           path: .private-helper
@@ -43,6 +43,9 @@ jobs:
         run: node build-scripts/prepareZig.mjs
       - name: Build native runtimes
         run: node build-scripts/buildNativeLaunchers.cjs
+      - name: Test delayed client window acknowledgement
+        if: runner.os == 'Windows'
+        run: python .private-helper/tests/client_window.py --bin-dir build/native
       - name: Remove private helper checkout
         if: always()
         shell: bash

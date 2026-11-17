@@ -419,7 +419,19 @@ async fn request(
                                     let _ = window.destroy();
                                 }
                             });
-                            let status = session.child.wait().await;
+                            let marker = session.staging.join("status.txt.window");
+                            let status = loop {
+                                tokio::select! {
+                                    status = session.child.wait() => break status,
+                                    _ = tokio::time::sleep(Duration::from_millis(250)) => {
+                                        if marker.is_file() {
+                                            let handle = app.clone();
+                                            let _ = app.run_on_main_thread(move || crate::overlay::close(&handle));
+                                            break session.child.wait().await;
+                                        }
+                                    }
+                                }
+                            };
                             engine.record(&format!("launch: client runtime exited: {status:?}"));
                             engine.control.running.store(false, Ordering::SeqCst);
                             let _ = tokio::fs::remove_dir_all(session.staging).await;

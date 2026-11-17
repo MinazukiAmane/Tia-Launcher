@@ -82,15 +82,13 @@ pub fn show(app: &tauri::AppHandle) -> Result<()> {
     window.set_ignore_cursor_events(true)?;
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        for _ in 0..6 {
+        loop {
             tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             if handle.get_webview_window("launch-overlay").is_none() {
                 return;
             }
             let _ = anchor(&handle, &monitor);
         }
-        let app = handle.clone();
-        let _ = handle.run_on_main_thread(move || close(&app));
     });
     Ok(())
 }

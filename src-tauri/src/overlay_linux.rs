@@ -11,6 +11,7 @@ static REPORT: Mutex<Option<(u32, serde_json::Value)>> = Mutex::new(None);
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Monitor {
+    parent: u32,
     name: Option<String>,
     x: i32,
     y: i32,
@@ -26,6 +27,7 @@ pub fn show(monitor: Option<&tauri::Monitor>) -> Result<()> {
         .map(|monitor| *monitor.position())
         .unwrap_or(tauri::PhysicalPosition::new(0, 0));
     let request = Monitor {
+        parent: std::process::id(),
         name: monitor.and_then(|monitor| monitor.name().cloned()),
         x: position.x,
         y: position.y,
@@ -76,14 +78,18 @@ pub fn show(monitor: Option<&tauri::Monitor>) -> Result<()> {
             }
         });
     }
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(3500));
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
         let mut child = CHILD.lock().unwrap();
         if child
             .as_mut()
             .is_some_and(|child| child.id() == pid && child.try_wait().ok().flatten().is_some())
         {
             *child = None;
+            break;
+        }
+        if child.as_ref().is_none_or(|child| child.id() != pid) {
+            break;
         }
     });
     Ok(())
@@ -115,6 +121,7 @@ pub fn run() -> Result<()> {
     let argument = std::env::args().nth(2).context("Missing overlay monitor")?;
     ensure!(argument.len() < 4096, "Invalid overlay monitor");
     let target: Monitor = serde_json::from_str(&argument)?;
+    ensure!(unsafe { libc::getppid() } as u32 == target.parent, "Overlay parent exited");
     gtk::init().map_err(|e| anyhow::anyhow!("Overlay display unavailable: {e}"))?;
     let display = gtk::gdk::Display::default().context("Overlay display unavailable")?;
     ensure!(
@@ -188,7 +195,14 @@ pub fn run() -> Result<()> {
             serde_json::json!({"ready":true,"x":actual_x,"y":actual_y,"width":width,"height":height,"right":area.x()+area.width(),"bottom":area.y()+area.height()})
         );
     });
-    gtk::glib::timeout_add_local_once(std::time::Duration::from_secs(3), gtk::main_quit);
+    let parent = target.parent;
+    gtk::glib::timeout_add_local(std::time::Duration::from_secs(1), move || {
+        if unsafe { libc::getppid() } as u32 != parent {
+            gtk::main_quit();
+            return gtk::glib::ControlFlow::Break;
+        }
+        gtk::glib::ControlFlow::Continue
+    });
     gtk::main();
     Ok(())
 }
